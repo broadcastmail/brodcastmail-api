@@ -15,11 +15,13 @@ import java.util.UUID;
 @Builder
 public class Account {
     @Getter
+    @Setter
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
+    @Getter
     @Column(name = "email", nullable = false)
     private String email;
 

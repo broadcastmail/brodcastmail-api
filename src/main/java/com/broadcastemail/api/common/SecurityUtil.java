@@ -80,6 +80,13 @@ public class SecurityUtil {
             throw new RuntimeException("Decryption failed", e);
         }
     }
+
+    public static String generatePassword() {
+        byte[] bytes = new byte[24];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
     private static SecretKeySpec buildKey(String masterKey) {
         // the master key must be exactly 32 chars (256 bits) for AES-256
         byte[] keyBytes = masterKey.getBytes(StandardCharsets.UTF_8);
@@ -90,4 +97,6 @@ public class SecurityUtil {
         }
         return new SecretKeySpec(keyBytes, "AES");
     }
+
+
 }
