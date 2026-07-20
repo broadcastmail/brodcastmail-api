@@ -42,7 +42,7 @@ public class FilterableColumn {
     @NotNull
     @ColumnDefault("true")
     @Column(name = "enabled", nullable = false)
-    private Boolean enabled = false;
+    private Boolean enabled = true;
 
     @Column(name = "cardinality")
     private Integer cardinality;
