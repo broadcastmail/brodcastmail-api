@@ -65,8 +65,11 @@ public class OnboardingSessionStore {
     }
 
     public PartialOnboardingSession getPartial(String token) {
+        if (token == null || token.isBlank()) {
+            throw new InvalidOnboardingSessionException();
+        }
         PartialOnboardingSession session = partialSessions.getIfPresent(token);
-        if (session == null) {
+        if (session == null || Instant.now().isAfter(session.expiresAt())) {
             throw new InvalidOnboardingSessionException();
         }
         return session;
