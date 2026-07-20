@@ -69,8 +69,7 @@ public class OnboardingController {
             return ResponseEntity.ok(new OnboardingStatusResponse(OnboardingStep.CONFIRM_ACCOUNT));
 
         } catch (InvalidOnboardingSessionException _) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new OnboardingStatusResponse(OnboardingStep.CONNECT_SUPABASE));
+            return ResponseEntity.ok(new OnboardingStatusResponse(OnboardingStep.CONNECT_SUPABASE));
         }
     }
 
