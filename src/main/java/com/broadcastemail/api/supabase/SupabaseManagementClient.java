@@ -41,7 +41,7 @@ public class SupabaseManagementClient {
 
         return supabaseRestClient.post()
                 .uri("/api/v1/oauth/token")
-                .contentType(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(formData)
                 .retrieve()
                 .body(SupabaseTokenResponse.class);
