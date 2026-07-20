@@ -18,8 +18,7 @@ public class ConnectionService {
 
 
     private final FilterableColumnRepository filterableColumnRepository;
-    private ConnectionRepository connectionRepository;
-
+    private final ConnectionRepository connectionRepository;
     @Transactional
     public void createConnection(UUID accountId, OnboardingSession session,
                                  SchemaIntrospectionResult schema) {
