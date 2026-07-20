@@ -66,7 +66,7 @@ public class SupabaseManagementClient {
 
     public List<SupabaseProject> listProjects(String accessToken) {
         return supabaseRestClient.get()
-                .uri("api/v1/projects")
+                .uri("/v1/projects")
                 .header(authorizationHeader.a, authorizationHeader.b + accessToken)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<SupabaseProject>>(){});
