@@ -37,3 +37,5 @@ build/
 .env.local
 .env.production
 application-secrets.yml
+.supabase/
+
