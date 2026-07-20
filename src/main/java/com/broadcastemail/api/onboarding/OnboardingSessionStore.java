@@ -32,6 +32,9 @@ public class OnboardingSessionStore {
     }
 
     public OnboardingSession get(String token) {
+        if (token == null || token.isBlank()) {
+            throw new InvalidOnboardingSessionException();
+        }
         OnboardingSession session = sessions.getIfPresent(token);
         if (session == null || Instant.now().isAfter(session.getExpiresAt())) {
             throw new InvalidOnboardingSessionException();
