@@ -13,8 +13,11 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 
 /**
- * Shared defaults for the campaign test suite. Builders are returned (not built objects)
- * so callers can override only the fields their scenario cares about.
+ * Object Mother for the campaign test suite: shared defaults for the entities its
+ * tests build most, with builders returned (not built objects) so callers can override
+ * only the fields their scenario cares about.
+ *
+ * @see <a href="https://martinfowler.com/bliki/ObjectMother.html">Object Mother</a>
  */
 public final class CampaignTestFixtures {
 
