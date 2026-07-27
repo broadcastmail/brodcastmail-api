@@ -30,4 +30,6 @@ test:
   supabase:
     jdbc-url: jdbc:postgresql://127.0.0.1:54322/postgres
     password: postgres
+    project-ref: cxsfavxuutpwjwkqmrws
+    role-password: testpassword123
 

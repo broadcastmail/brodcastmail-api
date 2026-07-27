@@ -26,8 +26,9 @@ public class SchemaService {
                         result.userTableName(),
                         result.userTableSchema(),
                         false
+                    )
                 )
-        );
+                .withDetectedColumns(result.filterableColumns());
         onboardingSessionStore.updateSession(sessionToken, updated);
         return result;
     }

@@ -5,12 +5,13 @@ public final class SupabaseSql {
     private SupabaseSql() {} // prevent instantiation
 
     public static final String CREATE_READER_ROLE = """
-            CREATE ROLE broadcastmail_reader NOINHERIT LOGIN PASSWORD '%s';
-            GRANT USAGE ON SCHEMA auth TO broadcastmail_reader;
-            GRANT SELECT (id, email, created_at) ON auth.users TO broadcastmail_reader;
-            GRANT USAGE ON SCHEMA public TO broadcastmail_reader;
-            GRANT SELECT ON public.profiles TO broadcastmail_reader;
-            """;
+        CREATE ROLE broadcastmail_reader NOINHERIT LOGIN PASSWORD '%s';
+        GRANT USAGE ON SCHEMA public TO broadcastmail_reader;
+        GRANT USAGE ON SCHEMA auth TO broadcastmail_reader;
+        GRANT SELECT ON ALL TABLES IN SCHEMA public TO broadcastmail_reader;
+        CREATE VIEW auth.user_emails AS SELECT id, email FROM auth.users;
+        GRANT SELECT ON auth.user_emails TO broadcastmail_reader;
+        """;
 
     public static final String INTROSPECT_SCHEMA = """
                 SELECT table_schema, table_name, column_name, data_type
@@ -34,6 +35,8 @@ public final class SupabaseSql {
               AND ref_kcu.column_name = 'id'
             LIMIT 1
             """;
+    public static final String RESOLVE_RECIPIENTS = "SELECT id, email FROM auth.user_emails";
+    public static final String COUNT_RECIPIENTS = "SELECT COUNT(*) FROM auth.user_emails";
     public static String buildJdbcUrl(String projectRef) {
         return "jdbc:postgresql://db." + projectRef + ".supabase.co:5432/postgres";
     }

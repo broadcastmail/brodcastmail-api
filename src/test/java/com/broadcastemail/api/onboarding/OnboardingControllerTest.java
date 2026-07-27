@@ -16,8 +16,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -170,7 +169,7 @@ class OnboardingControllerTest {
     void shouldClearCookieAfterAccountCreation() {
         // Given
         String sessionToken = createSession();
-        when(onboardingService.completeOnboarding(sessionToken)).thenReturn("raw-api-key");
+        doNothing().when(onboardingService).completeOnboarding(sessionToken);
 
         // When
         var response = mockMvc.post()
@@ -179,7 +178,7 @@ class OnboardingControllerTest {
                 .exchange();
 
         // Then
-        assertThat(response).hasStatus(200);
+        assertThat(response).hasStatus(302);
         assertThat(response.getResponse().getHeader("Set-Cookie"))
                 .contains("onboarding_session=")
                 .contains("Max-Age=0");
@@ -189,7 +188,7 @@ class OnboardingControllerTest {
     void shouldInvalidateSessionAfterAccountCreation() {
         // Given
         String sessionToken = createSession();
-        when(onboardingService.completeOnboarding(sessionToken)).thenReturn("raw-api-key");
+        doNothing().when(onboardingService).completeOnboarding(sessionToken);
 
         // When
         mockMvc.post()

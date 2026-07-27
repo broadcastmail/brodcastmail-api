@@ -10,13 +10,13 @@ import com.broadcastemail.api.onboarding.dto.SchemaConfirmRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/onboarding")
@@ -26,7 +26,8 @@ public class OnboardingController {
     private final OnboardingService onboardingService;
     private final OnboardingSessionStore onboardingSessionStore;
     private final SchemaService schemaService;
-
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     @PostMapping("/email-provider")
     public ResponseEntity<Void> addEmailProvider(
@@ -41,15 +42,19 @@ public class OnboardingController {
     }
 
     @PostMapping("/complete")
-    public ResponseEntity<Map<String, String>> complete(
+    public ResponseEntity<Void> complete(
             @CookieValue(name = "onboarding_session", required = false) String sessionToken,
             HttpServletResponse response) {
-
-        String apiKey = onboardingService.completeOnboarding(sessionToken);
+        if (sessionToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        onboardingService.completeOnboarding(sessionToken);
         clearSessionCookie(response);
-        return ResponseEntity.ok(Map.of("apiKey", apiKey));
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, frontendUrl + "/dashboard")
+                .build();
     }
-    @SuppressWarnings("java:S3516") // status endpoint always returns 200 by design — step is never an error
+    @SuppressWarnings("java:S6863") // status endpoint always returns 200 by design — step is never an error
     @GetMapping("/status")
     public ResponseEntity<OnboardingStatusResponse> status(
             @CookieValue(name = "onboarding_session", required = false) String sessionToken) {

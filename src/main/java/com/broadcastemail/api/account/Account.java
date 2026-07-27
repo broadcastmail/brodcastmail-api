@@ -29,6 +29,7 @@ public class Account {
     private String passwordHash;
 
     @Column(name = "api_key_hash", nullable = false)
+    @Getter
     private String apiKeyHash;
 
     @Column(name = "plan", nullable = false)

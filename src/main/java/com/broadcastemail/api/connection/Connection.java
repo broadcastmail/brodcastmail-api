@@ -39,6 +39,7 @@ public class Connection {
     private String type;
 
     @Column(name = "project_ref")
+    @Getter
     private String projectRef;
 
     @NotNull
@@ -47,34 +48,37 @@ public class Connection {
 
     @NotNull
     @Column(name = "encrypted_creds", nullable = false)
+    @Getter
     private String encryptedCreds;
 
     @NotNull
     @ColumnDefault("'public'")
+    @Getter
     @Column(name = "user_table_schema", nullable = false)
     private String userTableSchema;
 
     @NotNull
+    @Getter
     @Column(name = "user_table_name", nullable = false)
     private String userTableName;
 
     @NotNull
     @Column(name = "email_column", nullable = false)
+    @Getter
     private String emailColumn;
 
     @NotNull
     @Column(name = "user_id_column", nullable = false)
+    @Getter
     private String userIdColumn;
 
     @Column(name = "estimated_user_count")
     private Integer estimatedUserCount;
 
-    @NotNull
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
-    @NotNull
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;

@@ -1,6 +1,7 @@
 package com.broadcastemail.api.onboarding;
 
 import com.broadcastemail.api.common.exceptions.InvalidOnboardingSessionException;
+import com.broadcastemail.api.connection.dto.DetectedColumn;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.With;
@@ -25,6 +26,7 @@ public class OnboardingSession {
     private Instant expiresAt;
     private SchemaDetails schemaDetails;
     private List<String> confirmedColumnNames;
+    private List<DetectedColumn> detectedColumns;
 
     public OnboardingSession requireSchemaConfirmed() {
         if (schemaDetails == null || !schemaDetails.confirmed()) {
