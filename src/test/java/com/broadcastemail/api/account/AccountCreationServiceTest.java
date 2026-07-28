@@ -1,21 +1,18 @@
 package com.broadcastemail.api.account;
 
+import com.broadcastemail.api.connection.ConnectionRepository;
 import com.broadcastemail.api.emailprovider.EmailProvider;
 import com.broadcastemail.api.emailprovider.EmailProviderRepository;
+import com.broadcastemail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastemail.api.oauth.OAuthToken;
 import com.broadcastemail.api.onboarding.OnboardingSession;
 import com.broadcastemail.api.token.OAuthTokenRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.InOrder;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.util.UUID;
 
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,24 +30,19 @@ class AccountCreationServiceTest {
     @Mock
     private OAuthTokenRepository oAuthTokenRepository;
 
+    @Mock
+    private ConnectionRepository connectionRepository;
+
+    @Mock
+    private FilterableColumnRepository filterableColumnRepository;
+
     @Captor
     private ArgumentCaptor<Account> accountCaptor;
 
+    @InjectMocks
     private AccountCreationService accountCreationService;
 
-    @BeforeEach
-    void setUp() {
-        accountCreationService = new AccountCreationService(
-                accountRepository,
-                emailProviderRepository,
-                oAuthTokenRepository
-        );
-        when(accountRepository.save(any(Account.class))).thenAnswer(inv -> {
-            Account a = inv.getArgument(0);
-            a.setId(UUID.randomUUID());
-            return a;
-        });
-    }
+
 
     private OnboardingSession buildSession() {
         return OnboardingSession.builder()
@@ -86,17 +78,17 @@ class AccountCreationServiceTest {
     }
 
     @Test
-    void shouldReturnApiKeyOnceOnCompletion() {
+    void shouldReturnUniqueApiKeyPerAccount() {
         // Given
         OnboardingSession session = buildSession();
 
         // When
-        String apiKey1 = accountCreationService.createFromOnboarding(session);
-        String apiKey2 = accountCreationService.createFromOnboarding(session);
+        Account account1 = accountCreationService.createFromOnboarding(session);
+        Account account2 = accountCreationService.createFromOnboarding(session);
 
         // Then
-        assertThat(apiKey1).isNotBlank();
-        assertThat(apiKey1).isNotEqualTo(apiKey2);
+        assertThat(account1.getApiKeyHash()).isNotBlank();
+        assertThat(account1.getApiKeyHash()).isNotEqualTo(account2.getApiKeyHash());
     }
 
     @Test

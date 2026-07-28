@@ -1,58 +1,49 @@
 package com.broadcastemail.api.connection;
 
-import com.broadcastemail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastemail.api.filterablecolumn.FilterableColumn;
 import com.broadcastemail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastemail.api.onboarding.OnboardingSession;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
-
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class ConnectionService {
 
-
-    private final FilterableColumnRepository filterableColumnRepository;
     private final ConnectionRepository connectionRepository;
-    @Transactional
-    public void createConnection(UUID accountId, OnboardingSession session,
-                                 SchemaIntrospectionResult schema) {
+    private final FilterableColumnRepository filterableColumnRepository;
 
-        // save connection
+    public void createConnection(UUID accountId, OnboardingSession session) {
         Connection connection = Connection.builder()
                 .accountId(accountId)
-                .name(session.getProjectRef())  // default name, user can rename in settings
-                .type("supabase")
                 .projectRef(session.getProjectRef())
                 .projectUrl(session.getProjectUrl())
                 .encryptedCreds(session.getEncryptedRolePassword())
-                .userTableSchema(schema.userTableSchema())
-                .userTableName(schema.userTableName())
-                .emailColumn(schema.emailColumn())
-                .userIdColumn(schema.userIdColumn())
+                .userTableSchema(session.getSchemaDetails().userSchema())
+                .userTableName(session.getSchemaDetails().userTable())
+                .emailColumn("email")
+                .userIdColumn("id")
                 .build();
-
         connectionRepository.save(connection);
 
-        // save filterable columns
-        List<FilterableColumn> columns = schema.filterableColumns().stream()
-                .map(col -> FilterableColumn.builder()
-                        .connectionId(connection.getId())
-                        .columnName(col.columnName())
-                        .columnType(col.columnType())
-                        .displayName(col.columnName()) // default display name
-                        .enabled(col.enabled())
-                        .cardinality(col.cardinality())
-                        .cardinalityWarning(col.cardinalityWarning())
-                        .build())
-                .toList();
-
-        filterableColumnRepository.saveAll(columns);
+        if (session.getDetectedColumns() != null && session.getConfirmedColumnNames() != null) {
+            List<FilterableColumn> filterableColumns = session.getDetectedColumns().stream()
+                    .filter(col -> session.getConfirmedColumnNames().contains(col.columnName()))
+                    .map(col -> FilterableColumn.builder()
+                            .connectionId(connection.getId())
+                            .columnName(col.columnName())
+                            .columnType(col.columnType())
+                            .displayName(col.columnName())
+                            .cardinality(col.cardinality())
+                            .cardinalityWarning(col.cardinalityWarning())
+                            .build())
+                    .toList();
+            filterableColumnRepository.saveAll(filterableColumns);
+        }
     }
-
 }

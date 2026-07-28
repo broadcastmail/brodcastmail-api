@@ -1,3 +1,24 @@
+/**
+ * Integration tests against local Supabase instance.
+ * Prerequisites:
+ *   1. Run: supabase start
+ *   2. Run setup SQL in Studio (http://127.0.0.1:54323):
+ *      - CREATE ROLE broadcastmail_reader NOINHERIT LOGIN PASSWORD 'testpassword123';
+ *      - GRANT USAGE ON SCHEMA public TO broadcastmail_reader;
+ *      - GRANT USAGE ON SCHEMA auth TO broadcastmail_reader;
+ *      - GRANT SELECT ON ALL TABLES IN SCHEMA public TO broadcastmail_reader;
+ *      - CREATE VIEW auth.user_emails AS SELECT id, email FROM auth.users;
+ *      - GRANT SELECT ON auth.user_emails TO broadcastmail_reader;
+ *      - CREATE TABLE public.profiles (
+ *            id uuid PRIMARY KEY REFERENCES auth.users(id),
+ *            full_name text,
+ *            plan text,
+ *            avatar_url text,
+ *            created_at timestamptz
+ *        );
+ *      - GRANT SELECT ON public.profiles TO broadcastmail_reader;
+ *      - INSERT 3 test users into auth.users with profiles linked via FK
+ */
 package com.broadcastemail.api.connection;
 
 import com.broadcastemail.api.common.SecurityUtil;

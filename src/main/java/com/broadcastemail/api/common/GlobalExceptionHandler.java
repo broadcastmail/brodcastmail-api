@@ -1,9 +1,6 @@
 package com.broadcastemail.api.common;
 
-import com.broadcastemail.api.common.exceptions.InvalidOnboardingSessionException;
-import com.broadcastemail.api.common.exceptions.InvalidResendApiKeyException;
-import com.broadcastemail.api.common.exceptions.NoSupabaseProjectsException;
-import com.broadcastemail.api.common.exceptions.OAuthStateValidationException;
+import com.broadcastemail.api.common.exceptions.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -51,6 +48,34 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidResendApiKeyException.class)
     public ResponseEntity<Map<String, String>> handleInvalidResendApiKey(
             InvalidResendApiKeyException ex) {
+        return ResponseEntity
+                .status(HttpStatus.UNPROCESSABLE_CONTENT)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
+    @ExceptionHandler(CampaignNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleCampaignNotFound(CampaignNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
+    @ExceptionHandler(CampaignNotEditableException.class)
+    public ResponseEntity<Map<String, String>> handleCampaignNotEditable(CampaignNotEditableException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
+    @ExceptionHandler(ConnectionNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleConnectionNotFound(ConnectionNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
+    @ExceptionHandler(PlanLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handlePlanLimitExceeded(PlanLimitExceededException ex) {
         return ResponseEntity
                 .status(HttpStatus.UNPROCESSABLE_CONTENT)
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
