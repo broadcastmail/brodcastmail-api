@@ -134,10 +134,10 @@ V1 in active development. Target launch: August 22, 2026.
 | Feature | Status      |
 |---|-------------|
 | DB schema + Flyway | Done    |
-| Supabase OAuth connection | In progress |
-| Schema introspection | Planned     |
-| Campaign CRUD |  Planned   |
-| Fan-out worker |  Planned   |
+| Supabase OAuth connection | Done |
+| Schema introspection | Done     |
+| Campaign CRUD |  Done   |
+| Fan-out worker |  In progress   |
 | Delivery tracking |  Planned   |
 | Frontend dashboard |  Planned   |
 | Stripe billing |  Planned   |
