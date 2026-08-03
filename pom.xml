@@ -8,7 +8,7 @@
 		<version>4.1.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.broadcastemail</groupId>
+	<groupId>com.broadcastmail</groupId>
 	<artifactId>broadcastmail-api</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>
@@ -30,7 +30,11 @@
 		<java.version>25</java.version>
 	</properties>
 	<dependencies>
-
+        <dependency>
+            <groupId>com.broadcastmail</groupId>
+            <artifactId>broadcastmail-common</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -113,6 +117,11 @@
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.resend</groupId>
+            <artifactId>resend-java</artifactId>
+            <version>LATEST</version>
+        </dependency>
 	</dependencies>
 
 	<build>
@@ -143,8 +152,11 @@
                 <artifactId>flyway-maven-plugin</artifactId>
                 <version>12.4.0</version>
                 <configuration>
+                    <!--suppress UnresolvedMavenProperty -->
                     <url>jdbc:postgresql://${env.PGHOST}:${env.PGPORT}/${env.PGDATABASE}</url>
+                    <!--suppress UnresolvedMavenProperty -->
                     <user>${env.PGUSER}</user>
+                    <!--suppress UnresolvedMavenProperty -->
                     <password>${env.PGPASSWORD}</password>
                 </configuration>
                 <dependencies>
