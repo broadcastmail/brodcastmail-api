@@ -32,7 +32,7 @@ public class RecipientPreviewService {
     public Integer preview(UUID accountId, UUID campaignId)
     {
         Connection connection = connectionRepository.findByAccountId(accountId)
-                .orElseThrow(CampaignNotFoundException::new);
+                .orElseThrow(() -> new CampaignNotFoundException(campaignId));
 
         String jdbcUrl = SupabaseSql.buildJdbcUrl(connection.getProjectRef());
         String rolePassword = SecurityUtil.decrypt(connection.getEncryptedCreds(), encryptionProperties.key());

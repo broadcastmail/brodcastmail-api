@@ -45,7 +45,7 @@ public class CampaignService {
 
     public Campaign getCampaign(UUID accountId, UUID campaignId) {
         return campaignRepository.findByAccountIdAndId(accountId, campaignId)
-                .orElseThrow(CampaignNotFoundException::new);
+                .orElseThrow(() -> new CampaignNotFoundException(campaignId));
     }
 
     public Page<Campaign> listCampaigns(UUID accountId, Pageable pageable) {
