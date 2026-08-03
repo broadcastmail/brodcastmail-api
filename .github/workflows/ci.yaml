@@ -27,4 +27,4 @@ jobs:
         run: ./mvnw clean verify -Dgroups='!local'
         env:
           ENCRYPTION_KEY: 12345678901234567890123456789012
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
