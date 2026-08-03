@@ -29,6 +29,12 @@
 	<properties>
 		<java.version>25</java.version>
 	</properties>
+	<repositories>
+		<repository>
+			<id>github</id>
+			<url>https://maven.pkg.github.com/lakiidev/broadcastmail-common</url>
+		</repository>
+	</repositories>
 	<dependencies>
         <dependency>
             <groupId>com.broadcastmail</groupId>
