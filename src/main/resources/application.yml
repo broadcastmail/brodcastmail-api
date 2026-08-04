@@ -19,6 +19,8 @@ app:
     key: ${ENCRYPTION_KEY}
   frontend:
     url: ${FRONTEND_URL:http://localhost:3000}
+  resend:
+    webhook-base-url: ${RESEND_WEBHOOK_BASE_URL}
 
 supabase:
   oauth:

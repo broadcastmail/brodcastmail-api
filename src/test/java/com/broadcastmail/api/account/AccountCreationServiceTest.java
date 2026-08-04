@@ -1,12 +1,17 @@
 package com.broadcastmail.api.account;
 
+import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.config.EncryptionProperties;
+import com.broadcastmail.api.config.ResendProperties;
 import com.broadcastmail.api.connection.ConnectionRepository;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.oauth.OAuthToken;
 import com.broadcastmail.api.onboarding.OnboardingSession;
+import com.broadcastmail.api.resend.ResendClient;
 import com.broadcastmail.api.token.OAuthTokenRepository;
 import com.broadcastmail.common.emailprovider.EmailProvider;
 import com.broadcastmail.common.emailprovider.EmailProviderRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -16,6 +21,7 @@ import java.time.Instant;
 
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,11 +42,31 @@ class AccountCreationServiceTest {
     @Mock
     private FilterableColumnRepository filterableColumnRepository;
 
+    @Mock
+    private ResendClient resendClient;
+
     @Captor
     private ArgumentCaptor<Account> accountCaptor;
 
-    @InjectMocks
+    private static final String ENCRYPTION_KEY = "12345678901234567890123456789012";
+
     private AccountCreationService accountCreationService;
+
+    @BeforeEach
+    void setUp() {
+        when(resendClient.registerWebhook(anyString(), anyString()))
+                .thenReturn(new ResendClient.RegisteredWebhook("wh_123", "whsec_test"));
+        accountCreationService = new AccountCreationService(
+                accountRepository,
+                emailProviderRepository,
+                oAuthTokenRepository,
+                filterableColumnRepository,
+                connectionRepository,
+                resendClient,
+                new EncryptionProperties(ENCRYPTION_KEY),
+                new ResendProperties("https://webhooks.example.com")
+        );
+    }
 
 
 
@@ -51,7 +77,7 @@ class AccountCreationServiceTest {
                 .encryptedRefreshToken("encrypted-refresh")
                 .resendDetails(
                         new OnboardingSession.ResendDetails(
-                                "encrypted-resend-key",
+                                SecurityUtil.encrypt("re_validkey123", ENCRYPTION_KEY),
                                 "hello@example.com"
                         )
                 )
