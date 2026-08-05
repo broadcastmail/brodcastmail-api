@@ -80,4 +80,11 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.UNPROCESSABLE_CONTENT)
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
+
+    @ExceptionHandler(InvalidUnsubscribeTokenException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidUnsubscribeToken(InvalidUnsubscribeTokenException ex) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
 }
