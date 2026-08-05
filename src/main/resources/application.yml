@@ -19,6 +19,7 @@ app:
     key: ${ENCRYPTION_KEY}
   frontend:
     url: ${FRONTEND_URL:http://localhost:3000}
+  unsubscribeSecret: ${UNSUBSCRIBE_SECRET}
   resend:
     webhook-base-url: ${RESEND_WEBHOOK_BASE_URL}
 
