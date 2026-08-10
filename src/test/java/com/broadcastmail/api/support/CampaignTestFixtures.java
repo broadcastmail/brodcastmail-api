@@ -1,9 +1,9 @@
 package com.broadcastmail.api.support;
 
-import com.broadcastmail.api.account.Account;
 import com.broadcastmail.api.campaign.confirm.dto.RecipientRow;
 import com.broadcastmail.api.common.SecurityUtil;
-import com.broadcastmail.api.connection.Connection;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
 

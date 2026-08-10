@@ -2,13 +2,13 @@ package com.broadcastmail.api.campaign.confirm;
 
 import com.broadcastmail.api.campaign.CampaignFilterSerializer;
 import com.broadcastmail.api.campaign.CampaignService;
-import com.broadcastmail.api.campaign.filter.CampaignFilterRepository;
+import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.campaign.filter.FilterQuery;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.PlanLimitExceededException;
 import com.broadcastmail.api.config.EncryptionProperties;
-import com.broadcastmail.api.connection.ConnectionRepository;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;

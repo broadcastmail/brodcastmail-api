@@ -1,8 +1,8 @@
 package com.broadcastmail.api.campaign;
 
 
-import com.broadcastmail.api.campaign.filter.CampaignFilter;
-import com.broadcastmail.api.campaign.filter.FilterOperator;
+import com.broadcastmail.common.campaign.filter.CampaignFilter;
+import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.api.campaign.filter.FilterQuery;
 import org.junit.jupiter.api.Test;
 
