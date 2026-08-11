@@ -74,12 +74,7 @@ public class GlobalExceptionHandler {
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 
-    @ExceptionHandler(PlanLimitExceededException.class)
-    public ResponseEntity<Map<String, String>> handlePlanLimitExceeded(PlanLimitExceededException ex) {
-        return ResponseEntity
-                .status(HttpStatus.UNPROCESSABLE_CONTENT)
-                .body(Map.of(ERROR_KEY, ex.getMessage()));
-    }
+
 
     @ExceptionHandler(InvalidUnsubscribeTokenException.class)
     public ResponseEntity<Map<String, String>> handleInvalidUnsubscribeToken(InvalidUnsubscribeTokenException ex) {

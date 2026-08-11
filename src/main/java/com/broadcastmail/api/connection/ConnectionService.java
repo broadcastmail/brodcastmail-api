@@ -3,6 +3,8 @@ package com.broadcastmail.api.connection;
 import com.broadcastmail.api.filterablecolumn.FilterableColumn;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
+import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

@@ -1,8 +1,8 @@
 package com.broadcastmail.api.security;
 
-import com.broadcastmail.api.account.AccountRepository;
 import com.broadcastmail.api.common.SecurityPaths;
 import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.common.account.AccountRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

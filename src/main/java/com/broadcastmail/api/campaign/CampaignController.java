@@ -89,6 +89,6 @@ public class CampaignController {
             @AuthenticationPrincipal UUID accountId,
             @PathVariable UUID id) {
         campaignConfirmService.confirmCampaign(accountId, id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.accepted().build();
     }
 }

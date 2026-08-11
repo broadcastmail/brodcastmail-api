@@ -1,13 +1,14 @@
 package com.broadcastmail.api.campaign;
 
-import com.broadcastmail.api.campaign.filter.CampaignFilter;
-import com.broadcastmail.api.campaign.filter.CampaignFilterRepository;
-import com.broadcastmail.api.campaign.filter.FilterQuery;
+import com.broadcastmail.common.campaign.filter.CampaignFilter;
+import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.config.EncryptionProperties;
-import com.broadcastmail.api.connection.Connection;
-import com.broadcastmail.api.connection.ConnectionRepository;
+import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
+import com.broadcastmail.common.campaign.filter.FilterQuery;
+import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

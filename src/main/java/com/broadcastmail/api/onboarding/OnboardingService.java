@@ -1,8 +1,8 @@
 package com.broadcastmail.api.onboarding;
 
-import com.broadcastmail.api.account.Account;
 import com.broadcastmail.api.account.AccountCreationService;
 import com.broadcastmail.api.connection.ConnectionService;
+import com.broadcastmail.common.account.Account;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

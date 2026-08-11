@@ -1,6 +1,6 @@
 package com.broadcastmail.api.campaign.filter.dto;
 
-import com.broadcastmail.api.campaign.filter.FilterOperator;
+import com.broadcastmail.common.campaign.filter.FilterOperator;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 

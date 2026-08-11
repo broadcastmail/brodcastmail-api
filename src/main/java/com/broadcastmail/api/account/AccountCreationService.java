@@ -3,7 +3,9 @@ package com.broadcastmail.api.account;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.config.ResendProperties;
-import com.broadcastmail.api.connection.ConnectionRepository;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.oauth.OAuthToken;
 import com.broadcastmail.api.resend.ResendClient;
@@ -16,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 
 @Service
@@ -42,8 +43,6 @@ public class AccountCreationService {
                 .apiKeyHash(hashedApiKey)
                 .plan("free")
                 .emailVerified(true)
-                .uniqueRecipientsThisPeriod(0)
-                .periodResetAt(OffsetDateTime.now(ZoneId.systemDefault()))
                 .build();
         accountRepository.save(account);
         OAuthToken token = OAuthToken.builder()

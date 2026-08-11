@@ -2,13 +2,13 @@ package com.broadcastmail.api.campaign;
 
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
-import com.broadcastmail.api.campaign.filter.CampaignFilter;
-import com.broadcastmail.api.campaign.filter.CampaignFilterRepository;
-import com.broadcastmail.api.campaign.filter.FilterOperator;
+import com.broadcastmail.common.campaign.filter.CampaignFilter;
+import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
+import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
-import com.broadcastmail.api.connection.Connection;
+import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;

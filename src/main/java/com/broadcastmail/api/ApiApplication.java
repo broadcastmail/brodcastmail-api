@@ -7,8 +7,7 @@ import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-    @SpringBootApplication
-    @EnableScheduling
+    @SpringBootApplication(scanBasePackages = {"com.broadcastmail.api", "com.broadcastmail.common"})    @EnableScheduling
     @ConfigurationPropertiesScan
     @EnableJpaRepositories(basePackages = {"com.broadcastmail.api", "com.broadcastmail.common"})
     @EntityScan(basePackages = {"com.broadcastmail.api", "com.broadcastmail.common"})
