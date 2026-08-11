@@ -1,8 +1,8 @@
 package com.broadcastmail.api;
 
-import com.broadcastmail.api.account.Account;
-import com.broadcastmail.api.account.AccountRepository;
 import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.AccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,8 +11,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,8 +37,6 @@ class SecurityTest {
                 .apiKeyHash(SecurityUtil.sha256(rawApiKey))
                 .plan("free")
                 .emailVerified(true)
-                .uniqueRecipientsThisPeriod(0)
-                .periodResetAt(OffsetDateTime.now(ZoneId.systemDefault()))
                 .build();
         accountRepository.save(account);
         return rawApiKey;

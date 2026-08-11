@@ -1,9 +1,9 @@
 package com.broadcastmail.api.campaign;
 
 import com.broadcastmail.api.TestContainersConfiguration;
-import com.broadcastmail.api.account.Account;
-import com.broadcastmail.api.account.AccountRepository;
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.support.CampaignTestFixtures;

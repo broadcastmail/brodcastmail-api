@@ -7,7 +7,6 @@ import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -32,9 +31,7 @@ public final class CampaignTestFixtures {
                 .passwordHash("")
                 .apiKeyHash(SecurityUtil.sha256(TEST_API_KEY))
                 .plan("free")
-                .emailVerified(true)
-                .uniqueRecipientsThisPeriod(0)
-                .periodResetAt(OffsetDateTime.now());
+                .emailVerified(true);
     }
 
     public static Connection.ConnectionBuilder connection(UUID accountId) {
