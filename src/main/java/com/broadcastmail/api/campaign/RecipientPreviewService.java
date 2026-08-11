@@ -5,6 +5,8 @@ import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.config.EncryptionProperties;
+import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
+import com.broadcastmail.common.campaign.filter.FilterQuery;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.supabase.SupabaseSql;
