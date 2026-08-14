@@ -1,5 +1,8 @@
 package com.broadcastmail.api.common;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -98,5 +101,13 @@ public class SecurityUtil {
         return new SecretKeySpec(keyBytes, "AES");
     }
 
+    public static String getCookieValue(HttpServletRequest request, String name) {
+        if (request.getCookies() == null) return null;
+        return Arrays.stream(request.getCookies())
+                .filter(c -> name.equals(c.getName()))
+                .map(Cookie::getValue)
+                .findFirst()
+                .orElse(null);
+    }
 
 }

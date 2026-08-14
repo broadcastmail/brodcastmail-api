@@ -1,5 +1,6 @@
 package com.broadcastmail.api.oauth;
 
+import com.broadcastmail.api.account.AccountService;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.NoSupabaseProjectsException;
 import com.broadcastmail.api.common.exceptions.OAuthStateValidationException;
@@ -12,6 +13,8 @@ import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.AccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +31,8 @@ public class OAuthSupabaseService {
     private final OAuthStateStore oAuthStateStore;
     private final SupabaseManagementClient supabaseManagementClient;
     private final OnboardingSessionStore onboardingSessionStore;
+    private final AccountRepository accountRepository;
+    private final AccountService accountService;
 
     @Value("${supabase.oauth.client-id}")
     private String clientId;
@@ -63,6 +69,12 @@ public class OAuthSupabaseService {
 
         String ownerEmail = supabaseManagementClient.getOwnerEmail(rawAccessToken);
 
+        Optional<Account> existingAccount = accountRepository.findByEmail(ownerEmail);
+        if (existingAccount.isPresent()) {
+            String rawKey = accountService.rotateApiKey(existingAccount.get().getId());
+            return new OAuthCallbackResult.ReturningUser(rawKey);
+        }
+
         List<SupabaseProject> projects = supabaseManagementClient.listProjects(rawAccessToken);
         if (projects.isEmpty()) {
             throw new NoSupabaseProjectsException();
@@ -80,15 +92,15 @@ public class OAuthSupabaseService {
                     encryptedRefreshToken,
                     tokenExpiresAt
             );
-            return new OAuthCallbackResult(null, projects, partialToken);
+            return new OAuthCallbackResult.NewUserMultipleProjects(projects, partialToken);
         }
     }
 
-    public OAuthCallbackResult selectProject(String projectRef, String partialSessionToken) {
+    public OAuthCallbackResult.NewUserSingleProject  selectProject(String projectRef, String partialSessionToken) {
         PartialOnboardingSession partial = onboardingSessionStore.getPartial(partialSessionToken);
         String rawAccessToken = SecurityUtil.decrypt(partial.encryptedAccessToken(), encryptionProperties.key());
 
-        OAuthCallbackResult result = setupProjectAndCreateSession(
+        OAuthCallbackResult.NewUserSingleProject result = setupProjectAndCreateSession(
                 projectRef, rawAccessToken,
                 partial.ownerEmail(),
                 partial.encryptedAccessToken(),
@@ -99,7 +111,7 @@ public class OAuthSupabaseService {
         return result;
     }
 
-    private OAuthCallbackResult setupProjectAndCreateSession(
+    private OAuthCallbackResult.NewUserSingleProject setupProjectAndCreateSession(
             String projectRef,
             String rawAccessToken,
             String ownerEmail,
@@ -127,6 +139,6 @@ public class OAuthSupabaseService {
                 .build();
 
         String sessionToken = onboardingSessionStore.create(session);
-        return new OAuthCallbackResult(sessionToken, null, null);
+        return new OAuthCallbackResult.NewUserSingleProject(sessionToken);
     }
 }

@@ -1,11 +1,11 @@
-package com.broadcastmail.api.billing;
+package com.broadcastmail.api.me;
 
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
-import com.stripe.exception.StripeException;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,20 +14,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
-class BillingControllerTest {
+class MeControllerTest {
 
     @Autowired
     private MockMvcTester mockMvc;
@@ -35,8 +30,8 @@ class BillingControllerTest {
     @Autowired
     private AccountRepository accountRepository;
 
-    @MockitoBean
-    private BillingService billingService;
+    @Autowired
+    private ConnectionRepository connectionRepository;
 
     private Account account;
 
@@ -47,73 +42,62 @@ class BillingControllerTest {
 
     @AfterEach
     void tearDown() {
+        connectionRepository.deleteAll();
         accountRepository.deleteAll();
     }
 
     @Test
-    void shouldReturnCheckoutUrlOnSuccess() throws StripeException {
+    void shouldReturnAccountDetailsWithConnectionName() {
         // Given
-        when(billingService.createCheckoutSession(any(UUID.class)))
-                .thenReturn("https://checkout.stripe.com/pay/test123");
+        connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
 
         // When
-        var response = mockMvc.post()
-                .uri("/api/v1/billing/checkout")
+        var response = mockMvc.get()
+                .uri("/api/v1/me")
                 .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
                 .exchange();
 
         // Then
         assertThat(response).hasStatus(200);
         assertThat(response).bodyJson()
-                .extractingPath("$.url")
+                .extractingPath("$.email")
                 .asString()
-                .isEqualTo("https://checkout.stripe.com/pay/test123");
+                .isEqualTo(account.getEmail());
+        assertThat(response).bodyJson()
+                .extractingPath("$.plan")
+                .asString()
+                .isEqualTo(account.getPlan());
+        assertThat(response).bodyJson()
+                .extractingPath("$.connectionName")
+                .asString()
+                .isEqualTo("test-ref");
+    }
+
+    @Test
+    void shouldReturnNullConnectionNameWhenNoConnectionExists() {
+        // Given — no connection created
+
+        // When
+        var response = mockMvc.get()
+                .uri("/api/v1/me")
+                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(200);
+        assertThat(response).bodyJson()
+                .extractingPath("$.connectionName")
+                .isNull();
     }
 
     @Test
     void shouldReturn401WhenNoApiKey() {
         // When
-        var response = mockMvc.post()
-                .uri("/api/v1/billing/checkout")
+        var response = mockMvc.get()
+                .uri("/api/v1/me")
                 .exchange();
 
         // Then
         assertThat(response).hasStatus(401);
-    }
-
-    @Test
-    void shouldReturnPortalUrlOnSuccess() throws StripeException {
-        // Given
-        account.setStripeCustomerId("cus_test123");
-        accountRepository.save(account);
-        when(billingService.createPortalSession(any()))
-                .thenReturn("https://billing.stripe.com/session/test123");
-
-        // When
-        var response = mockMvc.post()
-                .uri("/api/v1/billing/portal")
-                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
-                .exchange();
-
-        // Then
-        assertThat(response).hasStatus(200);
-        assertThat(response).bodyJson()
-                .extractingPath("$.url")
-                .asString()
-                .isEqualTo("https://billing.stripe.com/session/test123");
-    }
-
-    @Test
-    void shouldReturn400WhenNoStripeCustomer() {
-        // Given — account has no stripeCustomerId
-
-        // When
-        var response = mockMvc.post()
-                .uri("/api/v1/billing/portal")
-                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
-                .exchange();
-
-        // Then
-        assertThat(response).hasStatus(400);
     }
 }

@@ -2,7 +2,7 @@ package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.account.AccountCreationService;
 import com.broadcastmail.api.connection.ConnectionService;
-import com.broadcastmail.common.account.Account;
+import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,11 +14,12 @@ public class OnboardingService {
     private final AccountCreationService accountCreationService;
     private final ConnectionService connectionService;
 
-    public void completeOnboarding(String sessionToken) {
+    public String completeOnboarding(String sessionToken) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken)
                 .requireSchemaConfirmed()
                 .requireResendDetails();
-        Account account = accountCreationService.createFromOnboarding(session);
-        connectionService.createConnection(account.getId(), session);
+        AccountCreationResult result = accountCreationService.createFromOnboarding(session);
+        connectionService.createConnection(result.accountId(), session);
+        return result.rawApiKey();
     }
 }
