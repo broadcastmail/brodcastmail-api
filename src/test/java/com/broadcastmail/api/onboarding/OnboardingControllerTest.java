@@ -1,6 +1,7 @@
 package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.TestContainersConfiguration;
+import com.broadcastmail.api.TestSecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -8,6 +9,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockCookie;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
@@ -20,7 +22,8 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(TestContainersConfiguration.class)
+@Import({TestContainersConfiguration.class, TestSecurityConfig.class})
+@ActiveProfiles("test")
 class OnboardingControllerTest {
 
     @Autowired
@@ -166,10 +169,10 @@ class OnboardingControllerTest {
     }
 
     @Test
-    void shouldClearCookieAfterAccountCreation() {
+    void shouldClearOnboardingCookieAfterAccountCreation() {
         // Given
         String sessionToken = createSession();
-        doNothing().when(onboardingService).completeOnboarding(sessionToken);
+        when(onboardingService.completeOnboarding(sessionToken)).thenReturn("bm_live_testkey");
 
         // When
         var response = mockMvc.post()
@@ -179,16 +182,33 @@ class OnboardingControllerTest {
 
         // Then
         assertThat(response).hasStatus(302);
-        assertThat(response.getResponse().getHeader("Set-Cookie"))
-                .contains("onboarding_session=")
-                .contains("Max-Age=0");
+        assertThat(response.getResponse().getHeaders("Set-Cookie"))
+                .anyMatch(cookie -> cookie.contains("onboarding_session=") && cookie.contains("Max-Age=0"));
+    }
+
+    @Test
+    void shouldSetSessionCookieAfterAccountCreation() {
+        // Given
+        String sessionToken = createSession();
+        when(onboardingService.completeOnboarding(sessionToken)).thenReturn("bm_live_testkey");
+
+        // When
+        var response = mockMvc.post()
+                .uri("/api/v1/onboarding/complete")
+                .cookie(new MockCookie("onboarding_session", sessionToken))
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(302);
+        assertThat(response.getResponse().getHeaders("Set-Cookie"))
+                .anyMatch(cookie -> cookie.contains("bm_session=bm_live_testkey"));
     }
 
     @Test
     void shouldInvalidateSessionAfterAccountCreation() {
         // Given
         String sessionToken = createSession();
-        doNothing().when(onboardingService).completeOnboarding(sessionToken);
+        when(onboardingService.completeOnboarding(sessionToken)).thenReturn("bm_live_testkey");
 
         // When
         mockMvc.post()

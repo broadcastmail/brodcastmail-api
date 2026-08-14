@@ -52,7 +52,12 @@ public class RecipientPreviewService {
             }
 
             ResultSet rs = stmt.executeQuery();
-            if (rs.next()) return rs.getInt(1);
+            if (rs.next()) {
+                int count = rs.getInt(1);
+                connection.setEstimatedUserCount(count);
+                connectionRepository.save(connection);
+                return count;
+            }
             return 0;
 
         } catch (SQLException e) {

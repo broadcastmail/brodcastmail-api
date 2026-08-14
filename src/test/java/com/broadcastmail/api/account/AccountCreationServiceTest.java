@@ -3,6 +3,7 @@ package com.broadcastmail.api.account;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.config.ResendProperties;
+import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -111,12 +112,12 @@ class AccountCreationServiceTest {
         OnboardingSession session = buildSession();
 
         // When
-        Account account1 = accountCreationService.createFromOnboarding(session);
-        Account account2 = accountCreationService.createFromOnboarding(session);
+        AccountCreationResult result1 = accountCreationService.createFromOnboarding(session);
+        AccountCreationResult result2 = accountCreationService.createFromOnboarding(session);
 
         // Then
-        assertThat(account1.getApiKeyHash()).isNotBlank();
-        assertThat(account1.getApiKeyHash()).isNotEqualTo(account2.getApiKeyHash());
+        assertThat(result1.rawApiKey()).isNotBlank();
+        assertThat(result1.rawApiKey()).isNotEqualTo(result2.rawApiKey());
     }
 
     @Test

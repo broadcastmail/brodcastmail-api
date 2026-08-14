@@ -39,6 +39,10 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         String apiKey = request.getHeader("X-API-Key");
 
         if (apiKey == null || apiKey.isBlank()) {
+            apiKey = SecurityUtil.getCookieValue(request, "bm_session");
+        }
+
+        if (apiKey == null || apiKey.isBlank()) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing API key");
             return;
         }

@@ -1,9 +1,12 @@
 package com.broadcastmail.api.oauth;
 
 import com.broadcastmail.api.TestContainersConfiguration;
+import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
+import com.broadcastmail.common.account.AccountRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,8 +33,16 @@ class OAuthSupabaseControllerTest {
     @Autowired
     private OAuthStateStore oAuthStateStore;
 
+    @Autowired
+    private AccountRepository accountRepository;
+
     @MockitoBean
     private SupabaseManagementClient supabaseManagementClient;
+
+    @AfterEach
+    void tearDown() {
+        accountRepository.deleteAll();
+    }
 
     @Test
     void shouldRejectCallbackWithInvalidStateParam() {
@@ -164,5 +175,36 @@ class OAuthSupabaseControllerTest {
 
         // Then
         assertThat(result).hasStatus(422);
+    }
+
+    @Test
+    void shouldSetSessionCookieAndRedirectToDashboardForReturningUser() {
+        // Given
+        String state = oAuthStateStore.generateAndStore();
+        accountRepository.save(CampaignTestFixtures.account()
+                .email("returning-user@example.com")
+                .build());
+
+        when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))
+                .thenReturn(new SupabaseTokenResponse(
+                        "access-token",
+                        "refresh-token",
+                        3600,
+                        "Bearer"
+                ));
+        when(supabaseManagementClient.getOwnerEmail("access-token"))
+                .thenReturn("returning-user@example.com");
+
+        // When
+        var result = mockMvc.get()
+                .uri("/api/v1/oauth/supabase/callback")
+                .param("code", "valid-code")
+                .param("state", state)
+                .exchange();
+
+        // Then
+        assertThat(result).hasStatus(302);
+        assertThat(result.getResponse().getHeader("Location")).contains("/dashboard");
+        assertThat(result.getResponse().getHeader("Set-Cookie")).contains("bm_session");
     }
 }

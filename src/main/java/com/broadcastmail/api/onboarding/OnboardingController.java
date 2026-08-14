@@ -1,5 +1,6 @@
 package com.broadcastmail.api.onboarding;
 
+import com.broadcastmail.api.auth.CookieService;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.connection.SchemaService;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
@@ -13,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +26,7 @@ public class OnboardingController {
     private final OnboardingService onboardingService;
     private final OnboardingSessionStore onboardingSessionStore;
     private final SchemaService schemaService;
+    private final CookieService cookieService;
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
@@ -48,8 +49,11 @@ public class OnboardingController {
         if (sessionToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        onboardingService.completeOnboarding(sessionToken);
-        clearSessionCookie(response);
+        String rawApiKey = onboardingService.completeOnboarding(sessionToken);
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                cookieService.createSessionCookie(rawApiKey).toString());
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                cookieService.clearOnboardingCookie().toString());
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, frontendUrl + "/dashboard")
                 .build();
@@ -78,16 +82,7 @@ public class OnboardingController {
         }
     }
 
-    private void clearSessionCookie(HttpServletResponse response) {
-        ResponseCookie cookie = ResponseCookie.from("onboarding_session", "")
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("Lax")
-                .maxAge(0)
-                .path("/")
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-    }
+
 
     @PostMapping("/schema/confirm")
     public ResponseEntity<Void> confirmSchema(

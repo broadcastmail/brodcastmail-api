@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockCookie;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 
@@ -102,6 +103,80 @@ class SecurityTest {
         var response = mockMvc.get()
                 .uri("/api/v1/anything")
                 .header("X-API-Key", apiKey);
+
+        // Then
+        assertThat(response).hasStatus(404);
+    }
+
+    @Test
+    void shouldRejectProtectedEndpointsWithInvalidSessionCookie() {
+        // Given
+        String invalidApiKey = "bm_live_invalidkey123";
+
+        // When
+        var response = mockMvc.get()
+                .uri("/api/v1/anything")
+                .cookie(new MockCookie("bm_session", invalidApiKey));
+
+        // Then
+        assertThat(response).hasStatus(401);
+    }
+
+    @Test
+    void shouldAllowProtectedEndpointsWithValidSessionCookie() {
+        // Given
+        String apiKey = createTestAccountAndGetApiKey();
+
+        // When
+        var response = mockMvc.get()
+                .uri("/api/v1/anything")
+                .cookie(new MockCookie("bm_session", apiKey));
+
+        // Then
+        assertThat(response).hasStatus(404);
+    }
+
+    @Test
+    void shouldPreferHeaderApiKeyOverSessionCookieWhenBothPresent() {
+        // Given
+        String headerApiKey = createTestAccountAndGetApiKey();
+        String invalidCookieApiKey = "bm_live_invalidkey123";
+
+        // When
+        var response = mockMvc.get()
+                .uri("/api/v1/anything")
+                .header("X-API-Key", headerApiKey)
+                .cookie(new MockCookie("bm_session", invalidCookieApiKey));
+
+        // Then
+        assertThat(response).hasStatus(404);
+    }
+
+    @Test
+    void shouldRejectCookieAuthenticatedMutationWithoutCsrfToken() {
+        // Given
+        String apiKey = createTestAccountAndGetApiKey();
+
+        // When
+        var response = mockMvc.post()
+                .uri("/api/v1/anything")
+                .cookie(new MockCookie("bm_session", apiKey))
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(403);
+    }
+
+    @Test
+    void shouldAllowHeaderAuthenticatedMutationWithoutCsrfToken() {
+        // Given — X-API-Key clients aren't vulnerable to CSRF, so no token is required
+        String apiKey = createTestAccountAndGetApiKey();
+
+        // When
+        var response = mockMvc.post()
+                .uri("/api/v1/anything")
+                .header("X-API-Key", apiKey)
+                .exchange();
 
         // Then
         assertThat(response).hasStatus(404);

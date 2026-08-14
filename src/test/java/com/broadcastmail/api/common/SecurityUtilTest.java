@@ -1,6 +1,8 @@
 package com.broadcastmail.api.common;
 
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -53,5 +55,46 @@ class SecurityUtilTest {
 
         // Then
         assertTrue(key.startsWith("bm_live_"));
+    }
+
+    @Test
+    void getCookieValueReturnsMatchingCookie() {
+        // Given
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(
+                new Cookie("other_cookie", "irrelevant"),
+                new Cookie("bm_session", "bm_live_abc123")
+        );
+
+        // When
+        String value = SecurityUtil.getCookieValue(request, "bm_session");
+
+        // Then
+        assertEquals("bm_live_abc123", value);
+    }
+
+    @Test
+    void getCookieValueReturnsNullWhenCookieAbsent() {
+        // Given
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie("other_cookie", "irrelevant"));
+
+        // When
+        String value = SecurityUtil.getCookieValue(request, "bm_session");
+
+        // Then
+        assertNull(value);
+    }
+
+    @Test
+    void getCookieValueReturnsNullWhenNoCookiesPresent() {
+        // Given
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        // When
+        String value = SecurityUtil.getCookieValue(request, "bm_session");
+
+        // Then
+        assertNull(value);
     }
 }

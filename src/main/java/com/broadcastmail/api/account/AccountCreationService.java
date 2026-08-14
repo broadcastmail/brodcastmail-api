@@ -3,6 +3,7 @@ package com.broadcastmail.api.account;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.config.ResendProperties;
+import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -34,7 +35,7 @@ public class AccountCreationService {
     private final ResendProperties resendProperties;
 
     @Transactional
-    public Account createFromOnboarding(OnboardingSession session) {
+    public AccountCreationResult createFromOnboarding(OnboardingSession session) {
         String rawApiKey = SecurityUtil.generateApiKey();
         String hashedApiKey = SecurityUtil.sha256(rawApiKey);
         Account account = Account.builder()
@@ -45,6 +46,7 @@ public class AccountCreationService {
                 .emailVerified(true)
                 .build();
         accountRepository.save(account);
+
         OAuthToken token = OAuthToken.builder()
                 .accountId(account.getId())
                 .accessToken(session.getEncryptedAccessToken())
@@ -66,6 +68,7 @@ public class AccountCreationService {
                 .resendWebhookId(webhook.id())
                 .build();
         emailProviderRepository.save(emailProvider);
-        return account;
+
+        return new AccountCreationResult(rawApiKey, account.getId());
     }
 }

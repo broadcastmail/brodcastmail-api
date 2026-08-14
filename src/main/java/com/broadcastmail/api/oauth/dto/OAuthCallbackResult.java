@@ -4,12 +4,17 @@ import com.broadcastmail.api.supabase.dto.SupabaseProject;
 
 import java.util.List;
 
-public record OAuthCallbackResult(
-        String sessionToken,           // set when single project, null otherwise
-        List<SupabaseProject> projects, // set when multiple projects, null otherwise
-        String partialSessionToken     // set when multiple projects, null otherwise
-) {
-    public boolean requiresProjectSelection() {
-        return projects != null && !projects.isEmpty();
-    }
+public sealed interface OAuthCallbackResult
+        permits OAuthCallbackResult.ReturningUser,
+        OAuthCallbackResult.NewUserSingleProject,
+        OAuthCallbackResult.NewUserMultipleProjects {
+
+    record ReturningUser(String apiKey) implements OAuthCallbackResult {}
+
+    record NewUserSingleProject(String sessionToken) implements OAuthCallbackResult {}
+
+    record NewUserMultipleProjects(
+            List<SupabaseProject> projects,
+            String partialSessionToken
+    ) implements OAuthCallbackResult {}
 }
