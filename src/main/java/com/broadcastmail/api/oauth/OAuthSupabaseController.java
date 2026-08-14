@@ -47,7 +47,7 @@ public class OAuthSupabaseController {
                         .header(HttpHeaders.LOCATION, frontendUrl + "/dashboard")
                         .build();
             }
-            case OAuthCallbackResult.NewUserMultipleProjects(String partialSessionToken) ->
+            case OAuthCallbackResult.NewUserMultipleProjects(var projects, String partialSessionToken) ->
                     ResponseEntity.status(HttpStatus.FOUND)
                             .header(HttpHeaders.LOCATION,
                                     frontendUrl + "/onboarding/select-project?partialToken="
