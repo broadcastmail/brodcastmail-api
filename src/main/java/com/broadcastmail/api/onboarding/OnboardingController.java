@@ -7,6 +7,7 @@ import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.emailprovider.EmailProviderService;
 import com.broadcastmail.api.emailprovider.dto.EmailProviderRequest;
 import com.broadcastmail.api.onboarding.dto.OnboardingStatusResponse;
+import com.broadcastmail.api.onboarding.dto.RecapData;
 import com.broadcastmail.api.onboarding.dto.SchemaConfirmRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -75,11 +76,21 @@ public class OnboardingController {
             if (session.getResendDetails() == null) {
                 return ResponseEntity.ok(new OnboardingStatusResponse(OnboardingStep.CONNECT_RESEND));
             }
-            return ResponseEntity.ok(new OnboardingStatusResponse(OnboardingStep.CONFIRM_ACCOUNT));
+            return ResponseEntity.ok(new OnboardingStatusResponse(OnboardingStep.CONFIRM_ACCOUNT,
+                    RecapData.from(session)));
 
         } catch (InvalidOnboardingSessionException _) {
             return ResponseEntity.ok(new OnboardingStatusResponse(OnboardingStep.CONNECT_SUPABASE));
         }
+    }
+
+    @PostMapping("/schema/test")
+    public ResponseEntity<Void> testConnection(@CookieValue(name = "onboarding_session", required = false) String sessionToken) {
+        if(sessionToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        onboardingService.testConnection(sessionToken);
+        return ResponseEntity.noContent().build();
     }
 
 
