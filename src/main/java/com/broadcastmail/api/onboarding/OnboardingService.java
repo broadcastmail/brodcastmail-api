@@ -42,11 +42,11 @@ public class OnboardingService {
             Statement stmt = connection.createStatement()
             )
         {
-            stmt.execute("SELECT 1");
+            stmt.execute("SELECT 1 FROM auth.user_emails LIMIT 1");
         }
 
 
-        catch (SQLException _)
+        catch (SQLException error)
         {
             throw new ConnectionNotFoundException();
         }
