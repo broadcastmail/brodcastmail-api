@@ -58,8 +58,15 @@ Frontend routes to the correct page based on the returned step. Backend enforces
 → CookieService.createOnboardingCookie()
 → OAuthCallbackResult.NewUserSingleProject → redirect /onboarding
 [new user, multiple projects]
-→ OnboardingSessionStore.createPartial()
+→ OnboardingSessionStore.createPartial() ← stores the project list alongside the partial session
 → OAuthCallbackResult.NewUserMultipleProjects → redirect /onboarding/select-project
+
+`GET /api/v1/oauth/supabase/projects?partialToken=...` ← select-project page calls this to render the picker
+→ OAuthSupabaseService.listPartialProjects()
+→ OnboardingSessionStore.getPartial()
+→ per project: SupabaseManagementClient.executeSqlQuery(SELECT COUNT(*) FROM auth.users)
+  ← best-effort: null userCount if the project isn't ACTIVE_HEALTHY or the query fails; one
+    project's failure never fails the whole list
 
 POST /api/v1/oauth/supabase/select-project
 → OAuthSupabaseService.selectProject()

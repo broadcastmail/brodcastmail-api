@@ -27,17 +27,15 @@ public class SchemaIntrospectionService {
         try (Connection connection = DriverManager.getConnection(jdbcUrl, "broadcastmail_reader", rolePassword);
              Statement stmt = connection.createStatement();) {
 
-
             // Find table with FK to auth.users.id
             ResultSet linkedRs = stmt.executeQuery(SupabaseSql.FIND_USER_LINKED_TABLES);
-            String linkedSchema = null;
-            String linkedTable = null;
-            if (linkedRs.next()) {
-                linkedSchema = linkedRs.getString("table_schema");
-                linkedTable = linkedRs.getString("table_name");
+            if (!linkedRs.next()) {
+                return new SchemaIntrospectionResult.NotDetected();
             }
+            String linkedSchema = linkedRs.getString("table_schema");
+            String linkedTable = linkedRs.getString("table_name");
 
-            // Introspect all columns
+            // Introspect that table's columns
             ResultSet rs = stmt.executeQuery(SupabaseSql.INTROSPECT_SCHEMA);
             Map<String, List<ColumnInfo>> tableColumns = new LinkedHashMap<>();
             while (rs.next()) {
@@ -50,23 +48,20 @@ public class SchemaIntrospectionService {
             }
 
             List<DetectedColumn> filterableColumns = new ArrayList<>();
-
-            if (linkedTable != null) {
-                List<ColumnInfo> profileColumns = tableColumns.get(linkedSchema + "." + linkedTable);
-                if (profileColumns != null) {
-                    for (ColumnInfo col : profileColumns) {
-                        if (isNonFilterable(col.name())) continue;
-                        String uiType = mapToUiType(col.dataType());
-                        int cardinality = getCardinality(connection, linkedTable, col.name());
-                        boolean warning = cardinality > 50;
-                        filterableColumns.add(new DetectedColumn(
-                                col.name(),
-                                uiType,
-                                true,
-                                cardinality,
-                                warning
-                        ));
-                    }
+            List<ColumnInfo> profileColumns = tableColumns.get(linkedSchema + "." + linkedTable);
+            if (profileColumns != null) {
+                for (ColumnInfo col : profileColumns) {
+                    if (isNonFilterable(col.name())) continue;
+                    String uiType = mapToUiType(col.dataType());
+                    int cardinality = getCardinality(connection, linkedTable, col.name());
+                    boolean warning = cardinality > 50;
+                    filterableColumns.add(new DetectedColumn(
+                            col.name(),
+                            uiType,
+                            true,
+                            cardinality,
+                            warning
+                    ));
                 }
             }
 
@@ -78,12 +73,9 @@ public class SchemaIntrospectionService {
                     false
             ));
 
-            String userTableName = linkedTable != null ? linkedTable : "users";
-            String userTableSchema = linkedSchema != null ? linkedSchema : "auth";
-
-            return new SchemaIntrospectionResult(
-                    userTableName,
-                    userTableSchema,
+            return new SchemaIntrospectionResult.Detected(
+                    linkedTable,
+                    linkedSchema,
                     "email",
                     "id",
                     filterableColumns

@@ -1,8 +1,5 @@
 package com.broadcastmail.api.oauth.dto;
 
-import com.broadcastmail.api.supabase.dto.SupabaseProject;
-
-import java.util.List;
 
 public sealed interface OAuthCallbackResult
         permits OAuthCallbackResult.ReturningUser,
@@ -14,7 +11,6 @@ public sealed interface OAuthCallbackResult
     record NewUserSingleProject(String sessionToken) implements OAuthCallbackResult {}
 
     record NewUserMultipleProjects(
-            List<SupabaseProject> projects,
             String partialSessionToken
     ) implements OAuthCallbackResult {}
 }

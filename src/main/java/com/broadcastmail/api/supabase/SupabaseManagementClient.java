@@ -70,14 +70,19 @@ public class SupabaseManagementClient {
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<SupabaseProject>>(){});
     }
+
     public void executeSql(String accessToken, String projectRef, String sql){
-        supabaseRestClient.post()
+        executeSqlQuery(accessToken, projectRef, sql);
+    }
+
+    public List<Map<String, Object>> executeSqlQuery(String accessToken, String projectRef, String sql) {
+        return supabaseRestClient.post()
                 .uri("/v1/projects/{ref}/database/query", projectRef)
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("Authorization", "Bearer " + accessToken)
                 .body(Map.of("query", sql))
                 .retrieve()
-                .toBodilessEntity();
+                .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
     }
 
     public String getOwnerEmail(String accessToken) {
