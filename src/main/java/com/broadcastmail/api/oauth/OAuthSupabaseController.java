@@ -2,6 +2,7 @@ package com.broadcastmail.api.oauth;
 
 import com.broadcastmail.api.auth.CookieService;
 import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
+import com.broadcastmail.api.oauth.dto.ProjectOption;
 import com.broadcastmail.api.oauth.dto.SelectProjectRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 
 @RestController
@@ -47,7 +50,7 @@ public class OAuthSupabaseController {
                         .header(HttpHeaders.LOCATION, frontendUrl + "/dashboard")
                         .build();
             }
-            case OAuthCallbackResult.NewUserMultipleProjects(var projects, String partialSessionToken) ->
+            case OAuthCallbackResult.NewUserMultipleProjects(String partialSessionToken) ->
                     ResponseEntity.status(HttpStatus.FOUND)
                             .header(HttpHeaders.LOCATION,
                                     frontendUrl + "/onboarding/select-project?partialToken="
@@ -61,6 +64,11 @@ public class OAuthSupabaseController {
                         .build();
             }
         };
+    }
+
+    @GetMapping("/projects")
+    public ResponseEntity<List<ProjectOption>> listProjects(@RequestParam String partialToken) {
+        return ResponseEntity.ok(oAuthSupabaseService.listPartialProjects(partialToken));
     }
 
     @PostMapping("/select-project")

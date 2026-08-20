@@ -52,8 +52,8 @@ class SchemaServiceTest {
                 .build();
     }
 
-    private SchemaIntrospectionResult detectedResult() {
-        return new SchemaIntrospectionResult(
+    private SchemaIntrospectionResult.Detected detectedResult() {
+        return new SchemaIntrospectionResult.Detected(
                 "profiles",
                 "public",
                 "email",
@@ -96,6 +96,25 @@ class SchemaServiceTest {
         verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
         assertThat(sessionCaptor.getValue().getSchemaDetails().confirmed()).isTrue();
         assertThat(sessionCaptor.getValue().getConfirmedColumnNames()).containsExactly("plan", "full_name");
+    }
+
+    @Test
+    void shouldClearSchemaDetailsWhenTableNotDetected() {
+        // Given
+        OnboardingSession sessionWithSchema = baseSession()
+                .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", false));
+        when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
+        when(schemaIntrospectionService.introspect(anyString(), anyString()))
+                .thenReturn(new SchemaIntrospectionResult.NotDetected());
+
+        // When
+        SchemaIntrospectionResult result = schemaService.detect("token");
+
+        // Then
+        assertThat(result).isInstanceOf(SchemaIntrospectionResult.NotDetected.class);
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaDetails()).isNull();
+        assertThat(sessionCaptor.getValue().getDetectedColumns()).isNull();
     }
 
     @Test

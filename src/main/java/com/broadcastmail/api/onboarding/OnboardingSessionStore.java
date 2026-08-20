@@ -1,10 +1,12 @@
 package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
+import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -54,7 +56,8 @@ public class OnboardingSessionStore {
             String ownerEmail,
             String encryptedAccessToken,
             String encryptedRefreshToken,
-            Instant tokenExpiresAt
+            Instant tokenExpiresAt,
+            List<SupabaseProject> projects
     ) {
         String token = UUID.randomUUID().toString().replace("-", "");
         partialSessions.put(token, new PartialOnboardingSession(
@@ -62,7 +65,8 @@ public class OnboardingSessionStore {
                 encryptedAccessToken,
                 encryptedRefreshToken,
                 tokenExpiresAt,
-                Instant.now().plus(Duration.ofMinutes(30))
+                Instant.now().plus(Duration.ofMinutes(30)),
+                projects
         ));
         return token;
     }

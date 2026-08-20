@@ -37,6 +37,10 @@ public final class SupabaseSql {
             """;
     public static final String RESOLVE_RECIPIENTS = "SELECT id, email FROM auth.user_emails";
     public static final String COUNT_RECIPIENTS = "SELECT COUNT(*) FROM auth.user_emails";
+
+    // auth.users always exists, unlike auth.user_emails (a view CREATE_READER_ROLE creates) —
+    // usable to preview a project's user count before it's been selected/set up.
+    public static final String COUNT_AUTH_USERS = "SELECT COUNT(*) FROM auth.users";
     public static String buildJdbcUrl(String projectRef) {
         return "jdbc:postgresql://db." + projectRef + ".supabase.co:5432/postgres";
     }

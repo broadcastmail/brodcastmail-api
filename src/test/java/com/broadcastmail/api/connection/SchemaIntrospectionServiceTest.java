@@ -54,14 +54,21 @@ class SchemaIntrospectionServiceTest {
         encryptedRolePassword = SecurityUtil.encrypt("testpassword123", encryptionProperties.key());
     }
 
-    @Test
-    void shouldDetectAuthUsersTable() {
-        // Given / When
+    /** All tests in this class set up {@code public.profiles}, FK'd to {@code auth.users.id} — detection always succeeds. */
+    private SchemaIntrospectionResult.Detected introspectDetected() {
         SchemaIntrospectionResult result = schemaIntrospectionService.introspect(jdbcUrl, encryptedRolePassword);
+        assertThat(result).isInstanceOf(SchemaIntrospectionResult.Detected.class);
+        return (SchemaIntrospectionResult.Detected) result;
+    }
+
+    @Test
+    void shouldDetectLinkedProfilesTable() {
+        // Given / When
+        SchemaIntrospectionResult.Detected result = introspectDetected();
 
         // Then
-        assertThat(result.userTableName()).isEqualTo("users");
-        assertThat(result.userTableSchema()).isEqualTo("auth");
+        assertThat(result.userTableName()).isEqualTo("profiles");
+        assertThat(result.userTableSchema()).isEqualTo("public");
         assertThat(result.emailColumn()).isEqualTo("email");
         assertThat(result.userIdColumn()).isEqualTo("id");
     }
@@ -69,7 +76,7 @@ class SchemaIntrospectionServiceTest {
     @Test
     void shouldDetectProfilesTableIfExists() {
         // Given / When
-        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(jdbcUrl, encryptedRolePassword);
+        SchemaIntrospectionResult.Detected result = introspectDetected();
 
         // Then
         assertThat(result.filterableColumns())
@@ -80,7 +87,7 @@ class SchemaIntrospectionServiceTest {
     @Test
     void shouldExcludeNonFilterableColumns() {
         // Given / When
-        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(jdbcUrl, encryptedRolePassword);
+        SchemaIntrospectionResult.Detected result = introspectDetected();
 
         // Then
         assertThat(result.filterableColumns()).isNotEmpty();
@@ -92,7 +99,7 @@ class SchemaIntrospectionServiceTest {
     @Test
     void shouldFlagHighCardinalityColumns() {
         // Given / When
-        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(jdbcUrl, encryptedRolePassword);
+        SchemaIntrospectionResult.Detected result = introspectDetected();
 
         // Then
         assertThat(result.filterableColumns())
@@ -105,7 +112,7 @@ class SchemaIntrospectionServiceTest {
     @Test
     void shouldPreTickLowCardinalityColumns() {
         // Given / When
-        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(jdbcUrl, encryptedRolePassword);
+        SchemaIntrospectionResult.Detected result = introspectDetected();
 
         // Then
         assertThat(result.filterableColumns())

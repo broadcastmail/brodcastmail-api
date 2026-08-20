@@ -16,19 +16,23 @@ public class SchemaService {
     private final SchemaIntrospectionService schemaIntrospectionService;
 
     public SchemaIntrospectionResult detect(String sessionToken) {
-            OnboardingSession session = onboardingSessionStore.get(sessionToken);
+        OnboardingSession session = onboardingSessionStore.get(sessionToken);
         SchemaIntrospectionResult result = schemaIntrospectionService.introspect(
                 session.getJdbcUrl(),
                 session.getEncryptedRolePassword()
         );
-        OnboardingSession updated = session.withSchemaDetails(
-                new OnboardingSession.SchemaDetails(
-                        result.userTableName(),
-                        result.userTableSchema(),
-                        false
-                    )
-                )
-                .withDetectedColumns(result.filterableColumns());
+        OnboardingSession updated = switch (result) {
+            case SchemaIntrospectionResult.Detected detected -> session
+                    .withSchemaDetails(new OnboardingSession.SchemaDetails(
+                            detected.userTableName(),
+                            detected.userTableSchema(),
+                            false
+                    ))
+                    .withDetectedColumns(detected.filterableColumns());
+            case SchemaIntrospectionResult.NotDetected _ -> session
+                    .withSchemaDetails(null)
+                    .withDetectedColumns(null);
+        };
         onboardingSessionStore.updateSession(sessionToken, updated);
         return result;
     }

@@ -16,9 +16,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
@@ -147,6 +149,62 @@ class OAuthSupabaseControllerTest {
                 .contains("select-project");
         assertThat(result.getResponse().getHeader("Set-Cookie"))
                 .isNull();
+    }
+
+    @Test
+    void shouldListProjectsWithUserCountsForPartialSession() {
+        // Given
+        String state = oAuthStateStore.generateAndStore();
+
+        when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))
+                .thenReturn(new SupabaseTokenResponse(
+                        "access-token",
+                        "refresh-token",
+                        3600,
+                        "Bearer"
+                ));
+        when(supabaseManagementClient.getOwnerEmail("access-token"))
+                .thenReturn("owner@example.com");
+        when(supabaseManagementClient.listProjects("access-token"))
+                .thenReturn(List.of(
+                        new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01"),
+                        new SupabaseProject("ref-2", "Project 2", "PAUSED", "2026-01-01")
+                ));
+        when(supabaseManagementClient.executeSqlQuery(anyString(), eq("ref-1"), anyString()))
+                .thenReturn(List.of(Map.of("count", "7")));
+
+        var callback = mockMvc.get()
+                .uri("/api/v1/oauth/supabase/callback")
+                .param("code", "valid-code")
+                .param("state", state)
+                .exchange();
+        String location = callback.getResponse().getHeader("Location");
+        String partialToken = location.substring(location.indexOf("partialToken=") + "partialToken=".length());
+
+        // When
+        var result = mockMvc.get()
+                .uri("/api/v1/oauth/supabase/projects")
+                .param("partialToken", partialToken)
+                .exchange();
+
+        // Then
+        assertThat(result).hasStatus(200);
+        assertThat(result).bodyJson().extractingPath("$[0].ref").asString().isEqualTo("ref-1");
+        assertThat(result).bodyJson().extractingPath("$[0].userCount").asNumber().isEqualTo(7);
+        assertThat(result).bodyJson().extractingPath("$[1].ref").asString().isEqualTo("ref-2");
+        assertThat(result).bodyJson().extractingPath("$[1].userCount").isNull();
+    }
+
+    @Test
+    void shouldRejectListProjectsWithInvalidPartialToken() {
+        // When
+        var result = mockMvc.get()
+                .uri("/api/v1/oauth/supabase/projects")
+                .param("partialToken", "not-a-real-token")
+                .exchange();
+
+        // Then
+        assertThat(result).hasStatus(401);
     }
 
     @Test
