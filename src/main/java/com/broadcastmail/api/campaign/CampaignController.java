@@ -91,4 +91,20 @@ public class CampaignController {
         campaignConfirmService.confirmCampaign(accountId, id);
         return ResponseEntity.accepted().build();
     }
+
+    @PostMapping("/{id}/retry")
+    public ResponseEntity<Void> retryCampaign(
+            @AuthenticationPrincipal UUID accountId,
+            @PathVariable UUID id) {
+        campaignConfirmService.retryFailed(accountId, id);
+        return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/{id}/recipients/retry-failed")
+    public ResponseEntity<Void> retryFailed(
+            @AuthenticationPrincipal UUID accountId,
+            @PathVariable UUID id) {
+        campaignConfirmService.retryPartiallyFailed(accountId, id);
+        return ResponseEntity.accepted().build();
+    }
 }

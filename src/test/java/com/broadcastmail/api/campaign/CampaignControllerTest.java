@@ -4,6 +4,7 @@ import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.support.CampaignTestFixtures;
@@ -27,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(TestContainersConfiguration.class)
+@Import({TestContainersConfiguration.class})
 class CampaignControllerTest {
 
     @Autowired
@@ -113,6 +114,39 @@ class CampaignControllerTest {
 
         // Then
         assertThat(response).hasStatus(401);
+    }
+
+    @Test
+    void shouldReturn202WhenRetryingFailedCampaign() {
+        // Given
+        Campaign campaign = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
+                        .status(CampaignStatus.FAILED)
+                        .build());
+
+        // When
+        var response = authedPost("/api/v1/campaigns/" + campaign.getId() + "/retry")
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(202);
+    }
+
+
+    @Test
+    void shouldReturn202WhenRetryingPartiallyFailedCampaign() {
+        // Given
+        Campaign campaign = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
+                        .status(CampaignStatus.PARTIALLY_FAILED)
+                        .build());
+
+        // When
+        var response = authedPost("/api/v1/campaigns/" + campaign.getId() + "/recipients/retry-failed")
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(202);
     }
 
     // Helpers

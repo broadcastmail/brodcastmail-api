@@ -2,6 +2,7 @@ package com.broadcastmail.api.campaign.confirm;
 
 import com.broadcastmail.api.campaign.CampaignService;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
+import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.common.campaign.Campaign;
@@ -33,5 +34,23 @@ public class CampaignConfirmService {
 
         campaign.setStatus(CampaignStatus.RESOLVING);
         campaignRepository.save(campaign);
+    }
+
+
+    private void retryFrom(UUID accountId, UUID campaignId,CampaignStatus campaignStatus) {
+        Campaign campaign = campaignService.getCampaign(accountId, campaignId);
+        if(campaign.getStatus() != campaignStatus) {
+            throw new CampaignNotRetryableException();
+        }
+        campaign.setStatus(CampaignStatus.RESOLVING);
+        campaignRepository.save(campaign);
+    }
+
+    public void retryFailed(UUID accountId, UUID campaignId) {
+        retryFrom(accountId, campaignId, CampaignStatus.FAILED);
+    }
+
+    public void retryPartiallyFailed(UUID accountId, UUID campaignId) {
+        retryFrom(accountId, campaignId, CampaignStatus.PARTIALLY_FAILED);
     }
 }
