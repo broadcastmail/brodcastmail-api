@@ -83,4 +83,33 @@ class CampaignConfirmServiceTest {
                 .isInstanceOf(ConnectionNotFoundException.class);
         verify(campaignRepository, never()).save(any());
     }
+
+    @Test
+    void shouldTransitionFailedCampaignToResolving() {
+        // Given
+        Campaign campaign = campaign(CampaignStatus.FAILED);
+        when(campaignService.getCampaign(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(campaign);
+
+        // When
+        campaignConfirmService.retryFailed(ACCOUNT_ID, CAMPAIGN_ID);
+
+        // Then
+        assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.RESOLVING);
+        verify(campaignRepository).save(campaign);
+    }
+
+    @Test
+    void shouldTransitionPartiallyFailedCampaignToResolving() {
+        // Given
+        Campaign campaign = campaign(CampaignStatus.PARTIALLY_FAILED);
+        when(campaignService.getCampaign(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(campaign);
+
+        // When
+        campaignConfirmService.retryPartiallyFailed(ACCOUNT_ID, CAMPAIGN_ID);
+
+        // Then
+        assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.RESOLVING);
+        verify(campaignRepository).save(campaign);
+    }
+
 }
