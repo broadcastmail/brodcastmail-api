@@ -94,4 +94,11 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND)
                 .body(Map.of(ERROR_KEY, "Account not found"));
     }
+
+    @ExceptionHandler(CampaignNotRetryableException.class)
+    public ResponseEntity<Map<String, String>> handleCampaignNotRetryableException(CampaignNotRetryableException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
 }
