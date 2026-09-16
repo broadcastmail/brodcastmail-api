@@ -111,4 +111,5 @@ class CampaignConfirmServiceTest {
         assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.RESOLVING);
         verify(campaignRepository).save(campaign);
     }
+
 }

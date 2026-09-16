@@ -149,6 +149,46 @@ class CampaignControllerTest {
         assertThat(response).hasStatus(202);
     }
 
+    @Test
+    void shouldReturn409WhenRetryingNonFailedCampaign() {
+        // Given
+        Campaign campaign = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
+                        .status(CampaignStatus.PARTIALLY_FAILED)
+                        .build());
+
+        // When
+        var response = authedPost("/api/v1/campaigns/" + campaign.getId() + "/retry")
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(409);
+        assertThat(response).bodyJson()
+                .extractingPath("$.error")
+                .asString()
+                .isEqualTo("Campaign is not in a retryable state");
+    }
+
+    @Test
+    void shouldReturn409WhenRetryingPartiallyFailedOnWrongEndpoint() {
+        // Given
+        Campaign campaign = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
+                        .status(CampaignStatus.FAILED)
+                        .build());
+
+        // When
+        var response = authedPost("/api/v1/campaigns/" + campaign.getId() + "/recipients/retry-failed")
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(409);
+        assertThat(response).bodyJson()
+                .extractingPath("$.error")
+                .asString()
+                .isEqualTo("Campaign is not in a retryable state");
+    }
+
     // Helpers
     private MockMvcTester.MockMvcRequestBuilder authedGet(String uri) {
         return mockMvc.get().uri(uri).header("X-API-Key", TEST_API_KEY);
