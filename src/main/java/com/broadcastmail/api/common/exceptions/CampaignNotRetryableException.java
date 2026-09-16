@@ -1,10 +1,7 @@
 package com.broadcastmail.api.common.exceptions;
 
-import lombok.RequiredArgsConstructor;
-
-@RequiredArgsConstructor
 public class CampaignNotRetryableException extends RuntimeException {
-    public CampaignNotRetryableException(String message) {
+    public CampaignNotRetryableException() {
         super("Campaign is not in a retryable state");
     }
 }
