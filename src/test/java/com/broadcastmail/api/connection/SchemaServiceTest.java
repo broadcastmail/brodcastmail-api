@@ -4,7 +4,7 @@ import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.onboarding.OnboardingSession;
-import com.broadcastmail.api.onboarding.OnboardingSessionStore;
+import com.broadcastmail.api.oauth.OAuthSessionStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 class SchemaServiceTest {
 
     @Mock
-    private OnboardingSessionStore onboardingSessionStore;
+    private OAuthSessionStore onboardingSessionStore;
 
     @Mock
     private SchemaIntrospectionService schemaIntrospectionService;

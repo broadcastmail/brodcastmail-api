@@ -11,15 +11,15 @@ shown, and the dashboard session begins.
 
 ---
 ## Session lifecycle
-State lives in `OnboardingSessionStore` — in-memory`ConcurrentHashMap`, keyed by a random UUID token. 
+State lives in `OAuthSessionStore` — in-memory`ConcurrentHashMap`, keyed by a random UUID token. 
 TTL is 30 minutes from creation. 
 
 Carried client-side via `
 onboarding_session` httpOnly cookie (`SameSite=Lax`, `Max-Age=1800`). The cookie is set after OAuth completes and cleared on completion or expiry.
 
-Partial sessions (multiple-project flow) live in `OnboardingSessionStore` as a separate partial entry, promoted to a full session after project selection.
+Partial sessions (multiple-project flow) live in `OAuthSessionStore` as a separate partial entry, promoted to a full session after project selection.
 
-On completion — `OnboardingSessionStore` entry deleted, `bm_session` httpOnly cookie set with the raw API key, redirect to `/`.
+On completion — `OAuthSessionStore` entry deleted, `bm_session` httpOnly cookie set with the raw API key, redirect to `/`.
 
 
 ## Step machine

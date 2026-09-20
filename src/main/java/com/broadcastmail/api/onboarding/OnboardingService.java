@@ -3,6 +3,7 @@ package com.broadcastmail.api.onboarding;
 import com.broadcastmail.api.account.AccountCreationService;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.connection.ConnectionService;
+import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,7 @@ import java.sql.Statement;
 @Service
 @RequiredArgsConstructor
 public class OnboardingService {
-    private final OnboardingSessionStore onboardingSessionStore;
+    private final OAuthSessionStore onboardingSessionStore;
     private final AccountCreationService accountCreationService;
     private final ConnectionService connectionService;
 
@@ -46,7 +47,7 @@ public class OnboardingService {
         }
 
 
-        catch (SQLException error)
+        catch (SQLException _)
         {
             throw new ConnectionNotFoundException();
         }

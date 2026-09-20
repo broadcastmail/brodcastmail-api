@@ -1,5 +1,6 @@
 package com.broadcastmail.api.oauth;
 
+import jakarta.annotation.Nullable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -11,24 +12,30 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class OAuthStateStore {
-    private final Map<String, Instant> states = new ConcurrentHashMap<>();
 
-    public String generateAndStore()
-    {
+    private record StateEntry(Instant expiry, @Nullable UUID accountId) {}
+
+    private final Map<String, StateEntry> states = new ConcurrentHashMap<>();
+
+    public String generateAndStore(@Nullable UUID accountId) {
         String state = UUID.randomUUID().toString().replace("-", "");
-        Instant expiry = Instant.now().plus(Duration.ofMinutes(5));
-        states.put(state, expiry);
+        states.put(state, new StateEntry(Instant.now().plus(Duration.ofMinutes(5)), accountId));
         return state;
     }
-    public boolean validate(String state)
+
+    public record ValidationResult(boolean valid, @Nullable UUID accountId) {}
+    public ValidationResult validateAndGet(String state)
     {
-        Instant expiry = states.remove(state);
-        return expiry != null && Instant.now().isBefore(expiry);
+        StateEntry entry = states.remove(state);
+        if (entry == null || Instant.now().isAfter(entry.expiry())) {
+            return new ValidationResult(false, null);
+        }
+        return new ValidationResult(true, entry.accountId());
     }
 
     @Scheduled(fixedRate = 60000) // every minute
     public void cleanExpired() {
         Instant now = Instant.now();
-        states.entrySet().removeIf(entry -> now.isAfter(entry.getValue()));
+        states.entrySet().removeIf(entry -> now.isAfter(entry.getValue().expiry()));
     }
 }

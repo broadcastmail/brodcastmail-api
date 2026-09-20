@@ -2,6 +2,7 @@ package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
+import com.broadcastmail.api.oauth.OAuthSessionStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,7 +31,7 @@ class OnboardingControllerTest {
     private MockMvcTester mockMvc;
 
     @Autowired
-    private OnboardingSessionStore onboardingSessionStore;
+    private OAuthSessionStore onboardingSessionStore;
 
     @MockitoBean
     private OnboardingService onboardingService;

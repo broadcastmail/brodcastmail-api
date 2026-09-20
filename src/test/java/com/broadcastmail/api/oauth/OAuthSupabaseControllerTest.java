@@ -5,6 +5,7 @@ import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
+import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -65,8 +66,8 @@ class OAuthSupabaseControllerTest {
     @Test
     void shouldRejectCallbackWithExpiredStateParam() {
         // Given
-        String state = oAuthStateStore.generateAndStore();
-        oAuthStateStore.validate(state);
+        String state = oAuthStateStore.generateAndStore(null);
+        oAuthStateStore.validateAndGet(state);
 
         // When
         var result = mockMvc.get()
@@ -82,7 +83,7 @@ class OAuthSupabaseControllerTest {
     @Test
     void shouldSetSessionCookieAfterSuccessfulOAuthWithSingleProject() {
         // Given
-        String state = oAuthStateStore.generateAndStore();
+        String state = oAuthStateStore.generateAndStore(null);
 
         when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))
                 .thenReturn(new SupabaseTokenResponse(
@@ -119,7 +120,7 @@ class OAuthSupabaseControllerTest {
     @Test
     void shouldRedirectToProjectPickerWhenMultipleProjects() {
         // Given
-        String state = oAuthStateStore.generateAndStore();
+        String state = oAuthStateStore.generateAndStore(null);
 
         when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))
                 .thenReturn(new SupabaseTokenResponse(
@@ -154,7 +155,7 @@ class OAuthSupabaseControllerTest {
     @Test
     void shouldListProjectsWithUserCountsForPartialSession() {
         // Given
-        String state = oAuthStateStore.generateAndStore();
+        String state = oAuthStateStore.generateAndStore(null);
 
         when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))
                 .thenReturn(new SupabaseTokenResponse(
@@ -210,7 +211,7 @@ class OAuthSupabaseControllerTest {
     @Test
     void shouldRejectCallbackWithNoProjects() {
         // Given
-        String state = oAuthStateStore.generateAndStore();
+        String state = oAuthStateStore.generateAndStore(null);
 
         when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))
                 .thenReturn(new SupabaseTokenResponse(
@@ -238,7 +239,7 @@ class OAuthSupabaseControllerTest {
     @Test
     void shouldSetSessionCookieAndRedirectToDashboardForReturningUser() {
         // Given
-        String state = oAuthStateStore.generateAndStore();
+        String state = oAuthStateStore.generateAndStore(null);
         accountRepository.save(CampaignTestFixtures.account()
                 .email("returning-user@example.com")
                 .build());
@@ -264,5 +265,64 @@ class OAuthSupabaseControllerTest {
         assertThat(result).hasStatus(302);
         assertThat(result.getResponse().getHeader("Location")).contains("/dashboard");
         assertThat(result.getResponse().getHeader("Set-Cookie")).contains("bm_session");
+    }
+    @Test
+    void shouldSetOnboardingCookieAndRedirectToReconfigureSchemaForSingleProjectReconfigure() {
+        // Given
+        Account account = accountRepository.save(CampaignTestFixtures.account()
+                .email("returning-user@example.com")
+                .build());
+        String state = oAuthStateStore.generateAndStore(account.getId());
+
+        when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))
+                .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
+        when(supabaseManagementClient.getOwnerEmail("access-token"))
+                .thenReturn("returning-user@example.com");
+        when(supabaseManagementClient.listProjects("access-token"))
+                .thenReturn(List.of(new SupabaseProject("ref-1", "Project", "ACTIVE_HEALTHY", "2026-01-01")));
+        doNothing().when(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
+
+        // When
+        var result = mockMvc.get()
+                .uri("/api/v1/oauth/supabase/callback")
+                .param("code", "valid-code")
+                .param("state", state)
+                .exchange();
+
+        // Then
+        assertThat(result).hasStatus(302);
+        assertThat(result.getResponse().getHeader("Location")).contains("/settings/reconfigure/schema");
+        assertThat(result.getResponse().getHeader("Set-Cookie")).contains("onboarding_session");
+    }
+
+    @Test
+    void shouldRedirectToReconfigureProjectPickerWhenMultipleProjectsOnReconfigure() {
+        // Given
+        Account account = accountRepository.save(CampaignTestFixtures.account()
+                .email("returning-user@example.com")
+                .build());
+        String state = oAuthStateStore.generateAndStore(account.getId());
+
+        when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))
+                .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
+        when(supabaseManagementClient.getOwnerEmail("access-token"))
+                .thenReturn("returning-user@example.com");
+        when(supabaseManagementClient.listProjects("access-token"))
+                .thenReturn(List.of(
+                        new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01"),
+                        new SupabaseProject("ref-2", "Project 2", "ACTIVE_HEALTHY", "2026-01-01")
+                ));
+
+        // When
+        var result = mockMvc.get()
+                .uri("/api/v1/oauth/supabase/callback")
+                .param("code", "valid-code")
+                .param("state", state)
+                .exchange();
+
+        // Then
+        assertThat(result).hasStatus(302);
+        assertThat(result.getResponse().getHeader("Location")).contains("/settings/reconfigure/select-project");
+        assertThat(result.getResponse().getHeader("Set-Cookie")).isNull();
     }
 }
