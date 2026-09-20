@@ -6,6 +6,7 @@ import com.broadcastmail.api.connection.SchemaService;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.emailprovider.EmailProviderService;
 import com.broadcastmail.api.emailprovider.dto.EmailProviderRequest;
+import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.onboarding.dto.OnboardingStatusResponse;
 import com.broadcastmail.api.onboarding.dto.RecapData;
 import com.broadcastmail.api.onboarding.dto.SchemaConfirmRequest;
@@ -25,7 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class OnboardingController {
     private final EmailProviderService emailProviderService;
     private final OnboardingService onboardingService;
-    private final OnboardingSessionStore onboardingSessionStore;
+    private final OAuthSessionStore onboardingSessionStore;
     private final SchemaService schemaService;
     private final CookieService cookieService;
     @Value("${app.frontend.url}")

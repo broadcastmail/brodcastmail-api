@@ -8,12 +8,14 @@ import lombok.With;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 
 @Builder
 @Getter
 @With
 public class OnboardingSession {
+    private UUID accountId;
     private String projectRef;
     private String projectUrl;
     private String jdbcUrl;
@@ -27,6 +29,7 @@ public class OnboardingSession {
     private SchemaDetails schemaDetails;
     private List<String> confirmedColumnNames;
     private List<DetectedColumn> detectedColumns;
+
 
     public OnboardingSession requireSchemaConfirmed() {
         if (schemaDetails == null || !schemaDetails.confirmed()) {
@@ -47,6 +50,10 @@ public class OnboardingSession {
             throw new InvalidOnboardingSessionException();
         }
         return this;
+    }
+
+    public boolean isReconfigure() {
+        return accountId != null;
     }
 
     public record SchemaDetails(

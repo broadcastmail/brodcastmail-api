@@ -1,12 +1,11 @@
-package com.broadcastmail.api.onboarding;
+package com.broadcastmail.api.oauth;
 
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
-import com.broadcastmail.api.supabase.dto.SupabaseProject;
+import com.broadcastmail.api.onboarding.OnboardingSession;
+import com.broadcastmail.api.onboarding.PartialOnboardingSession;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -15,17 +14,13 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.concurrent.TimeUnit;
 
 @Component
-public class OnboardingSessionStore {
+public class OAuthSessionStore {
 
-    private final Cache<String, OnboardingSession> sessions = Caffeine.newBuilder()
-            .expireAfterWrite(30, TimeUnit.MINUTES)
-            .maximumSize(10_000)
-            .build();
+    private final Cache<String, OnboardingSession> sessions =
+            Caffeine.newBuilder().expireAfterWrite(30, TimeUnit.MINUTES).maximumSize(10_000).build();
 
-    private final Cache<String, PartialOnboardingSession> partialSessions = Caffeine.newBuilder()
-            .expireAfterWrite(30, TimeUnit.MINUTES)
-            .maximumSize(10_000)
-            .build();
+    private final Cache<String, PartialOnboardingSession> partialSessions =
+            Caffeine.newBuilder().expireAfterWrite(30, TimeUnit.MINUTES).maximumSize(10_000).build();
 
     public String create(OnboardingSession session) {
         String token = UUID.randomUUID().toString().replace("-", "");
@@ -52,22 +47,9 @@ public class OnboardingSessionStore {
         sessions.invalidate(token);
     }
 
-    public String createPartial(
-            String ownerEmail,
-            String encryptedAccessToken,
-            String encryptedRefreshToken,
-            Instant tokenExpiresAt,
-            List<SupabaseProject> projects
-    ) {
+    public String createPartial(PartialOnboardingSession session) {
         String token = UUID.randomUUID().toString().replace("-", "");
-        partialSessions.put(token, new PartialOnboardingSession(
-                ownerEmail,
-                encryptedAccessToken,
-                encryptedRefreshToken,
-                tokenExpiresAt,
-                Instant.now().plus(Duration.ofMinutes(30)),
-                projects
-        ));
+        partialSessions.put(token, session);
         return token;
     }
 

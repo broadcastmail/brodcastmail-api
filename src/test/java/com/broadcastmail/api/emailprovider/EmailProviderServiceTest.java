@@ -3,7 +3,7 @@ package com.broadcastmail.api.emailprovider;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.onboarding.OnboardingSession;
-import com.broadcastmail.api.onboarding.OnboardingSessionStore;
+import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.resend.ResendClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 class EmailProviderServiceTest {
 
     @Mock
-    private OnboardingSessionStore onboardingSessionStore;
+    private OAuthSessionStore onboardingSessionStore;
 
     @Mock
     private ResendClient resendClient;

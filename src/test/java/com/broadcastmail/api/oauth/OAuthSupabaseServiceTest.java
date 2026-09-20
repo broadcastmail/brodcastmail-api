@@ -1,144 +1,164 @@
 package com.broadcastmail.api.oauth;
 
 import com.broadcastmail.api.account.AccountService;
-import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.common.exceptions.NoSupabaseProjectsException;
+import com.broadcastmail.api.common.exceptions.OAuthStateValidationException;
 import com.broadcastmail.api.config.EncryptionProperties;
-import com.broadcastmail.api.oauth.dto.ProjectOption;
-import com.broadcastmail.api.onboarding.OnboardingSessionStore;
-import com.broadcastmail.api.onboarding.PartialOnboardingSession;
+import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
-import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
+import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
+import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.client.RestClientException;
 
-import java.time.Instant;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OAuthSupabaseServiceTest {
 
-    private static final String ENCRYPTION_KEY = "test-encryption-key-32-chars-okk"; // SecurityUtil requires exactly 32 chars
+    private static final String ENCRYPTION_KEY = "test-encryption-key-32-chars-okk";
+    private static final UUID ACCOUNT_ID = UUID.randomUUID();
 
     @Mock
     private OAuthStateStore oAuthStateStore;
-
     @Mock
     private SupabaseManagementClient supabaseManagementClient;
-
     @Mock
-    private OnboardingSessionStore onboardingSessionStore;
-
+    private OAuthSessionStore onboardingSessionStore;
     @Mock
     private AccountRepository accountRepository;
-
     @Mock
     private AccountService accountService;
+    @Mock
+    private OAuthSessionService oAuthSessionService;
 
     private OAuthSupabaseService oAuthSupabaseService;
 
     @BeforeEach
     void setUp() {
         EncryptionProperties encryptionProperties = new EncryptionProperties(ENCRYPTION_KEY);
-        oAuthSupabaseService = new OAuthSupabaseService(
-                oAuthStateStore,
-                supabaseManagementClient,
-                onboardingSessionStore,
-                accountRepository,
-                accountService,
-                encryptionProperties
-        );
+        oAuthSupabaseService =
+                new OAuthSupabaseService(oAuthStateStore, supabaseManagementClient, onboardingSessionStore, accountRepository, accountService,
+                        oAuthSessionService, encryptionProperties);
     }
 
-    private PartialOnboardingSession partialSessionWith(List<SupabaseProject> projects) {
-        return new PartialOnboardingSession(
-                "owner@example.com",
-                SecurityUtil.encrypt("raw-access-token", ENCRYPTION_KEY),
-                SecurityUtil.encrypt("raw-refresh-token", ENCRYPTION_KEY),
-                Instant.now().plusSeconds(3600),
-                Instant.now().plusSeconds(1800),
-                projects
-        );
+    private SupabaseTokenResponse tokenResponse() {
+        return new SupabaseTokenResponse("raw-access-token", "raw-refresh-token", 3600, "Bearer");
+    }
+
+    private SupabaseProject project(String ref) {
+        return new SupabaseProject(ref, "Project", "ACTIVE_HEALTHY", "2026-01-01");
+    }
+
+
+    private void mockValidState(UUID accountId) {
+        when(oAuthStateStore.validateAndGet("state")).thenReturn(new OAuthStateStore.ValidationResult(true, accountId));
+    }
+
+    private void mockTokenExchange() {
+        when(supabaseManagementClient.exchangeCodeForTokens("code")).thenReturn(tokenResponse());
+        when(supabaseManagementClient.getOwnerEmail("raw-access-token")).thenReturn("owner@example.com");
+    }
+
+    // State validation
+
+    @Test
+    void shouldThrowWhenStateIsInvalid() {
+        when(oAuthStateStore.validateAndGet("state")).thenReturn(new OAuthStateStore.ValidationResult(false, null));
+
+        assertThatThrownBy(() -> oAuthSupabaseService.handleCallback("code", "state")).isInstanceOf(OAuthStateValidationException.class);
+    }
+
+    // Returning user
+
+    @Test
+    void shouldReturnReturningUserWhenEmailAlreadyExists() {
+        mockValidState(null);
+        mockTokenExchange();
+        Account account = Account.builder().id(UUID.randomUUID()).build();
+        when(accountRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(account));
+        when(accountService.rotateApiKey(account.getId())).thenReturn("new-api-key");
+
+        OAuthCallbackResult result = oAuthSupabaseService.handleCallback("code", "state");
+
+        assertThat(result).isInstanceOf(OAuthCallbackResult.ReturningUser.class);
+        assertThat(((OAuthCallbackResult.ReturningUser) result).apiKey()).isEqualTo("new-api-key");
+    }
+
+    // New user
+
+    @Test
+    void shouldReturnNewUserSingleProjectWhenOneProject() {
+        mockValidState(null);
+        mockTokenExchange();
+        when(accountRepository.findByEmail(any())).thenReturn(Optional.empty());
+        when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1")));
+        when(oAuthSessionService.setupProjectAndCreateSession(any(), any(), any(), any(), any(), any())).thenReturn(
+                new OAuthCallbackResult.NewUserSingleProject("session-token"));
+
+        OAuthCallbackResult result = oAuthSupabaseService.handleCallback("code", "state");
+
+        assertThat(result).isInstanceOf(OAuthCallbackResult.NewUserSingleProject.class);
     }
 
     @Test
-    void shouldReturnUserCountForActiveProject() {
-        // Given
-        SupabaseProject project = new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01");
-        when(onboardingSessionStore.getPartial("partial-token"))
-                .thenReturn(partialSessionWith(List.of(project)));
-        doReturn(List.of(Map.of("count", "5")))
-                .when(supabaseManagementClient)
-                .executeSqlQuery("raw-access-token", "ref-1", SupabaseSql.COUNT_AUTH_USERS);
+    void shouldReturnNewUserMultipleProjectsWhenManyProjects() {
+        mockValidState(null);
+        mockTokenExchange();
+        when(accountRepository.findByEmail(any())).thenReturn(Optional.empty());
+        when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1"), project("ref-2")));
+        when(onboardingSessionStore.createPartial(any())).thenReturn("partial-token");
 
-        // When
-        List<ProjectOption> options = oAuthSupabaseService.listPartialProjects("partial-token");
+        OAuthCallbackResult result = oAuthSupabaseService.handleCallback("code", "state");
 
-        // Then
-        assertThat(options).containsExactly(new ProjectOption("ref-1", "Project 1", "ACTIVE_HEALTHY", 5));
+        assertThat(result).isInstanceOf(OAuthCallbackResult.NewUserMultipleProjects.class);
+        assertThat(((OAuthCallbackResult.NewUserMultipleProjects) result).partialSessionToken()).isEqualTo("partial-token");
     }
 
     @Test
-    void shouldSkipCountQueryForNonActiveProject() {
-        // Given
-        SupabaseProject project = new SupabaseProject("ref-1", "Project 1", "PAUSED", "2026-01-01");
-        when(onboardingSessionStore.getPartial("partial-token"))
-                .thenReturn(partialSessionWith(List.of(project)));
+    void shouldThrowWhenNoProjectsFound() {
+        mockValidState(null);
+        mockTokenExchange();
+        when(accountRepository.findByEmail(any())).thenReturn(Optional.empty());
+        when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of());
 
-        // When
-        List<ProjectOption> options = oAuthSupabaseService.listPartialProjects("partial-token");
+        assertThatThrownBy(() -> oAuthSupabaseService.handleCallback("code", "state")).isInstanceOf(NoSupabaseProjectsException.class);
+    }
 
-        // Then
-        assertThat(options).containsExactly(new ProjectOption("ref-1", "Project 1", "PAUSED", null));
-        verify(supabaseManagementClient, never()).executeSqlQuery(anyString(), anyString(), anyString());
+    // Reconfigure
+
+    @Test
+    void shouldReturnReconfigureSingleProjectWhenAccountIdInState() {
+        mockValidState(ACCOUNT_ID);
+        mockTokenExchange();
+        when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1")));
+        when(oAuthSessionService.setupReconfigureSession(any(), any(), any(), any(), any(), any())).thenReturn("session-token");
+
+        OAuthCallbackResult result = oAuthSupabaseService.handleCallback("code", "state");
+
+        assertThat(result).isInstanceOf(OAuthCallbackResult.ReconfigureSingleProject.class);
     }
 
     @Test
-    void shouldReturnNullUserCountWhenQueryFails() {
-        // Given
-        SupabaseProject project = new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01");
-        when(onboardingSessionStore.getPartial("partial-token"))
-                .thenReturn(partialSessionWith(List.of(project)));
-        when(supabaseManagementClient.executeSqlQuery(anyString(), anyString(), anyString()))
-                .thenThrow(new RestClientException("boom"));
+    void shouldReturnReconfigureMultipleProjectsWhenAccountIdInStateAndManyProjects() {
+        mockValidState(ACCOUNT_ID);
+        mockTokenExchange();
+        when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1"), project("ref-2")));
+        when(onboardingSessionStore.createPartial(any())).thenReturn("partial-token");
 
-        // When
-        List<ProjectOption> options = oAuthSupabaseService.listPartialProjects("partial-token");
+        OAuthCallbackResult result = oAuthSupabaseService.handleCallback("code", "state");
 
-        // Then
-        assertThat(options).containsExactly(new ProjectOption("ref-1", "Project 1", "ACTIVE_HEALTHY", null));
-    }
-
-    @Test
-    void shouldNotLetOneFailingProjectBreakTheRestOfTheList() {
-        // Given
-        SupabaseProject healthy = new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01");
-        SupabaseProject failing = new SupabaseProject("ref-2", "Project 2", "ACTIVE_HEALTHY", "2026-01-01");
-        when(onboardingSessionStore.getPartial("partial-token"))
-                .thenReturn(partialSessionWith(List.of(healthy, failing)));
-        when(supabaseManagementClient.executeSqlQuery(eq("raw-access-token"), eq("ref-1"), anyString()))
-                .thenReturn(List.of(Map.of("count", "12")));
-        when(supabaseManagementClient.executeSqlQuery(eq("raw-access-token"), eq("ref-2"), anyString()))
-                .thenThrow(new RestClientException("boom"));
-
-        // When
-        List<ProjectOption> options = oAuthSupabaseService.listPartialProjects("partial-token");
-
-        // Then
-        assertThat(options).containsExactly(
-                new ProjectOption("ref-1", "Project 1", "ACTIVE_HEALTHY", 12),
-                new ProjectOption("ref-2", "Project 2", "ACTIVE_HEALTHY", null)
-        );
+        assertThat(result).isInstanceOf(OAuthCallbackResult.ReconfigureMultipleProjects.class);
     }
 }

@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
@@ -28,6 +29,7 @@ public class FilterableColumn {
     private UUID connectionId;
 
     @NotNull
+    @Getter
     @Column(name = "column_name", nullable = false)
     private String columnName;
 
@@ -52,7 +54,7 @@ public class FilterableColumn {
     @Column(name = "cardinality_warning", nullable = false)
     private Boolean cardinalityWarning = false;
 
-    @NotNull
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
