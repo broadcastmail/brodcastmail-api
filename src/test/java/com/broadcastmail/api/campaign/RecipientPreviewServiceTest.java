@@ -63,6 +63,9 @@ class RecipientPreviewServiceTest {
                 .accountId(accountId)
                 .projectRef("project-ref")
                 .encryptedCreds(SecurityUtil.encrypt("role-password", ENCRYPTION_KEY))
+                .userTableSchema("public")
+                .userTableName("profiles")
+                .userIdColumn("id")
                 .build();
     }
 
@@ -198,7 +201,39 @@ class RecipientPreviewServiceTest {
         }
 
         // Then
-        assertThat(sqlCaptor.getValue()).isEqualTo("SELECT COUNT(*) FROM auth.user_emails WHERE \"plan\" = ?");
+        assertThat(sqlCaptor.getValue()).isEqualTo(
+                "SELECT COUNT(*) FROM auth.user_emails ue JOIN \"public\".\"profiles\" p ON p.\"id\" = ue.id WHERE \"plan\" = ?");
         verify(statement).setObject(1, "pro");
+    }
+
+    @Test
+    void shouldNotJoinProfileTableWhenThereAreNoFilters() throws SQLException {
+        // Given
+        UUID accountId = UUID.randomUUID();
+        UUID campaignId = UUID.randomUUID();
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
+        when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
+
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getInt(1)).thenReturn(100);
+
+        java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        when(sqlConnection.prepareStatement(sqlCaptor.capture())).thenReturn(statement);
+
+        try (MockedStatic<DriverManager> driverManager = mockStatic(DriverManager.class)) {
+            driverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+                    .thenReturn(sqlConnection);
+
+            // When
+            recipientPreviewService.preview(accountId, campaignId);
+        }
+
+        // Then - no join needed (and none wanted: it would wrongly exclude auth
+        // users without a profile row yet, since it's an INNER JOIN)
+        assertThat(sqlCaptor.getValue()).isEqualTo("SELECT COUNT(*) FROM auth.user_emails");
     }
 }
