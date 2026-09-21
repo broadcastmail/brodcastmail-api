@@ -1,14 +1,17 @@
 package com.broadcastmail.api.connection;
 
 import com.broadcastmail.api.filterablecolumn.FilterableColumn;
+import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
+import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,18 +36,12 @@ public class ConnectionService {
                 .build();
         connectionRepository.save(connection);
 
-        if (session.getDetectedColumns() != null && session.getConfirmedColumnNames() != null) {
-            List<FilterableColumn> filterableColumns = session.getDetectedColumns().stream()
-                    .filter(col -> session.getConfirmedColumnNames().contains(col.columnName()))
-                    .map(col -> FilterableColumn.builder()
-                            .connectionId(connection.getId())
-                            .columnName(col.columnName())
-                            .columnType(col.columnType())
-                            .displayName(col.columnName())
-                            .cardinality(col.cardinality())
-                            .cardinalityWarning(col.cardinalityWarning())
-                            .build())
-                    .toList();
+        if (session.getConfirmedColumnNames() != null) {
+            List<FilterableColumn> filterableColumns = new ArrayList<>();
+            filterableColumns.addAll(FilterableColumnFactory.from(
+                    connection.getId(), session.getDetectedColumns(), FilterSource.PROFILE_TABLE, session.getConfirmedColumnNames()));
+            filterableColumns.addAll(FilterableColumnFactory.from(
+                    connection.getId(), session.getAuthColumns(), FilterSource.AUTH_METADATA, session.getConfirmedColumnNames()));
             filterableColumnRepository.saveAll(filterableColumns);
         }
     }

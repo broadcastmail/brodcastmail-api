@@ -30,7 +30,13 @@ public sealed interface SchemaIntrospectionResult
             String userTableName,
             String userTableSchema,
             String userIdColumn,
-            List<DetectedColumn> filterableColumns
+            List<DetectedColumn> filterableColumns,
+            /**
+             * Flat Supabase Auth metadata columns (e.g. last_sign_in_at,
+             * email_confirmed_at) — always sourced from auth.users, independent of
+             * whichever table this candidate is. Same list on every candidate.
+             */
+            List<DetectedColumn> authColumns
     ) implements SchemaIntrospectionResult {
     }
 

@@ -7,6 +7,7 @@ import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
 import com.broadcastmail.common.campaign.filter.FilterOperator;
+import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -177,6 +178,7 @@ class RecipientPreviewServiceTest {
                         .operator(FilterOperator.EQ)
                         .filterValue("pro")
                         .filterOrder(0)
+                        .source(FilterSource.PROFILE_TABLE)
                         .build()
         ));
 

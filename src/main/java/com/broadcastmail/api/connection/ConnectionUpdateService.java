@@ -3,14 +3,17 @@ package com.broadcastmail.api.connection;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.filterablecolumn.FilterableColumn;
+import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.supabase.SupabaseSql;
+import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,18 +62,11 @@ public class ConnectionUpdateService {
         );
 
         filterableColumnRepository.deleteByConnectionId(connection.getId());
-        List<FilterableColumn> columns = detected.filterableColumns().stream()
-                .filter(col -> columnNames.contains(col.columnName()))
-                .map(col -> FilterableColumn.builder()
-                        .connectionId(connection.getId())
-                        .columnName(col.columnName())
-                        .columnType(col.columnType())
-                        .displayName(col.columnName())
-                        .enabled(true)
-                        .cardinalityWarning(col.cardinalityWarning())
-                        .cardinality(col.cardinality())
-                        .build())
-                .toList();
+        List<FilterableColumn> columns = new ArrayList<>();
+        columns.addAll(FilterableColumnFactory.from(
+                connection.getId(), detected.filterableColumns(), FilterSource.PROFILE_TABLE, columnNames));
+        columns.addAll(FilterableColumnFactory.from(
+                connection.getId(), detected.authColumns(), FilterSource.AUTH_METADATA, columnNames));
         filterableColumnRepository.saveAll(columns);
     }
 }

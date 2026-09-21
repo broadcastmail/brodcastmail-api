@@ -4,11 +4,13 @@ import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.filterablecolumn.FilterableColumn;
+import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.oauth.OAuthToken;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.token.OAuthTokenRepository;
+import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import jakarta.transaction.Transactional;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -50,12 +53,11 @@ public class ConnectionReconfigureService {
         connectionRepository.save(connection);
 
         filterableColumnRepository.deleteByConnectionId(connection.getId());
-        List<FilterableColumn> columns = session.getConfirmedColumnNames().stream()
-                .map(name -> FilterableColumn.builder()
-                        .connectionId(connection.getId())
-                        .columnName(name)
-                        .build())
-                .toList();
+        List<FilterableColumn> columns = new ArrayList<>();
+        columns.addAll(FilterableColumnFactory.from(
+                connection.getId(), session.getDetectedColumns(), FilterSource.PROFILE_TABLE, session.getConfirmedColumnNames()));
+        columns.addAll(FilterableColumnFactory.from(
+                connection.getId(), session.getAuthColumns(), FilterSource.AUTH_METADATA, session.getConfirmedColumnNames()));
         filterableColumnRepository.saveAll(columns);
 
         OAuthToken token = oAuthTokenRepository.findByAccountId(session.getAccountId())

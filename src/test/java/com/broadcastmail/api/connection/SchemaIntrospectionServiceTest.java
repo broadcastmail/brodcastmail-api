@@ -7,7 +7,11 @@
  *      - GRANT USAGE ON SCHEMA public TO broadcastmail_reader;
  *      - GRANT USAGE ON SCHEMA auth TO broadcastmail_reader;
  *      - GRANT SELECT ON ALL TABLES IN SCHEMA public TO broadcastmail_reader;
- *      - CREATE VIEW auth.user_emails AS SELECT id, email FROM auth.users;
+ *      - CREATE VIEW auth.user_emails AS SELECT
+ *            id, email, created_at, updated_at, confirmed_at, email_confirmed_at,
+ *            phone, phone_confirmed_at, last_sign_in_at, banned_until, is_anonymous,
+ *            raw_app_meta_data, raw_user_meta_data
+ *        FROM auth.users;
  *      - GRANT SELECT ON auth.user_emails TO broadcastmail_reader;
  *      - CREATE TABLE public.profiles (
  *            id uuid PRIMARY KEY REFERENCES auth.users(id),
@@ -119,5 +123,17 @@ class SchemaIntrospectionServiceTest {
                 .first()
                 .extracting(DetectedColumn::enabled)
                 .isEqualTo(true);
+    }
+
+    @Test
+    void shouldExposeSafeAuthMetadataColumns() {
+        // Given / When
+        SchemaIntrospectionResult.Detected result = introspectDetected();
+
+        // Then
+        assertThat(result.authColumns())
+                .extracting(DetectedColumn::columnName)
+                .contains("created_at", "email_confirmed_at", "last_sign_in_at")
+                .doesNotContain("encrypted_password", "confirmation_token", "recovery_token");
     }
 }

@@ -97,6 +97,8 @@ public class CampaignService {
                 .operator(request.operator())
                 .filterValue(request.filterValue())
                 .filterOrder(order)
+                .source(request.sourceOrDefault())
+                .jsonKey(request.jsonKey())
                 .build();
     }
 }
