@@ -56,13 +56,21 @@ class SchemaServiceTest {
         return new SchemaIntrospectionResult.Detected(
                 "profiles",
                 "public",
-                "email",
                 "id",
                 List.of(
                         new DetectedColumn("plan", "text", true, 3, false),
                         new DetectedColumn("full_name", "text", true, 0, false),
                         new DetectedColumn("created_at", "timestamptz", true, 0, false)
                 )
+        );
+    }
+
+    private SchemaIntrospectionResult.Detected secondCandidateResult() {
+        return new SchemaIntrospectionResult.Detected(
+                "subscriptions",
+                "public",
+                "user_id",
+                List.of(new DetectedColumn("status", "text", true, 2, false))
         );
     }
 
@@ -86,7 +94,7 @@ class SchemaServiceTest {
     void shouldConfirmSchemaWithColumnNames() {
         // Given
         OnboardingSession sessionWithSchema = baseSession()
-                .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", false));
+                .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", false));
         when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
 
         // When
@@ -102,7 +110,7 @@ class SchemaServiceTest {
     void shouldClearSchemaDetailsWhenTableNotDetected() {
         // Given
         OnboardingSession sessionWithSchema = baseSession()
-                .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", false));
+                .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", false));
         when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
         when(schemaIntrospectionService.introspect(anyString(), anyString()))
                 .thenReturn(new SchemaIntrospectionResult.NotDetected());
@@ -128,6 +136,64 @@ class SchemaServiceTest {
 
         // Then
         assertThatThrownBy(() -> schemaService.confirm("token", columns))
+                .isInstanceOf(InvalidOnboardingSessionException.class);
+    }
+
+    @Test
+    void shouldStoreCandidatesWhenMultipleTablesDetected() {
+        // Given
+        when(onboardingSessionStore.get("token")).thenReturn(baseSession());
+        when(schemaIntrospectionService.introspect(anyString(), anyString()))
+                .thenReturn(new SchemaIntrospectionResult.MultipleCandidates(List.of(detectedResult(), secondCandidateResult())));
+
+        // When
+        SchemaIntrospectionResult result = schemaService.detect("token");
+
+        // Then
+        assertThat(result).isInstanceOf(SchemaIntrospectionResult.MultipleCandidates.class);
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaDetails()).isNull();
+        assertThat(sessionCaptor.getValue().getSchemaCandidates()).extracting(SchemaIntrospectionResult.Detected::userTableName)
+                .containsExactly("profiles", "subscriptions");
+    }
+
+    @Test
+    void shouldSelectTableFromStoredCandidates() {
+        // Given
+        OnboardingSession sessionWithCandidates = baseSession()
+                .withSchemaCandidates(List.of(detectedResult(), secondCandidateResult()));
+        when(onboardingSessionStore.get("token")).thenReturn(sessionWithCandidates);
+
+        // When
+        SchemaIntrospectionResult.Detected chosen = schemaService.selectTable("token", "public", "subscriptions");
+
+        // Then
+        assertThat(chosen.userTableName()).isEqualTo("subscriptions");
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaDetails().userTable()).isEqualTo("subscriptions");
+        assertThat(sessionCaptor.getValue().getSchemaDetails().userIdColumn()).isEqualTo("user_id");
+        assertThat(sessionCaptor.getValue().getSchemaCandidates()).isNull();
+    }
+
+    @Test
+    void shouldThrowWhenSelectingTableNotInCandidateList() {
+        // Given
+        OnboardingSession sessionWithCandidates = baseSession()
+                .withSchemaCandidates(List.of(detectedResult(), secondCandidateResult()));
+        when(onboardingSessionStore.get("token")).thenReturn(sessionWithCandidates);
+
+        // Then
+        assertThatThrownBy(() -> schemaService.selectTable("token", "public", "not_a_real_table"))
+                .isInstanceOf(InvalidOnboardingSessionException.class);
+    }
+
+    @Test
+    void shouldThrowWhenSelectingTableWithoutPriorDetection() {
+        // Given
+        when(onboardingSessionStore.get("token")).thenReturn(baseSession()); // no candidates
+
+        // Then
+        assertThatThrownBy(() -> schemaService.selectTable("token", "public", "profiles"))
                 .isInstanceOf(InvalidOnboardingSessionException.class);
     }
 }

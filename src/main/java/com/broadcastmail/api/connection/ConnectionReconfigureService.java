@@ -46,6 +46,7 @@ public class ConnectionReconfigureService {
         connection.setEncryptedCreds(session.getEncryptedRolePassword());
         connection.setUserTableSchema(session.getSchemaDetails().userSchema());
         connection.setUserTableName(session.getSchemaDetails().userTable());
+        connection.setUserIdColumn(session.getSchemaDetails().userIdColumn());
         connectionRepository.save(connection);
 
         filterableColumnRepository.deleteByConnectionId(connection.getId());

@@ -97,7 +97,7 @@ class ConnectionControllerTest {
     @Test
     void shouldReturn200WhenUpdatingTable() throws Exception {
         var response = authedPatch("/api/v1/connections/table").contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateTableRequest("public", "profiles"))).exchange();
+                .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateTableRequest("public", "profiles", "id"))).exchange();
 
         assertThat(response).hasStatus(200);
     }
@@ -105,25 +105,18 @@ class ConnectionControllerTest {
     @Test
     void shouldNullEmailColumnWhenUpdatingTable() throws Exception {
         authedPatch("/api/v1/connections/table").contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateTableRequest("public", "profiles"))).exchange();
+                .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateTableRequest("public", "profiles", "id"))).exchange();
 
         Connection updated = connectionRepository.findByAccountId(account.getId()).orElseThrow();
         assertThat(updated.getUserTableName()).isEqualTo("profiles");
+        assertThat(updated.getUserIdColumn()).isEqualTo("id");
         assertThat(updated.getEmailColumn()).isNull();
     }
 
     @Test
-    void shouldReturn200WhenUpdatingEmailColumn() throws Exception {
-        var response = authedPatch("/api/v1/connections/email-column").contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateEmailColumnRequest("email"))).exchange();
-
-        assertThat(response).hasStatus(200);
-    }
-
-    @Test
     void shouldReturn200WhenUpdatingColumns() throws Exception {
-        when(schemaIntrospectionService.introspect(any(), any())).thenReturn(
-                new SchemaIntrospectionResult.Detected("profiles", "public", "email", "id",
+        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any())).thenReturn(
+                new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
                                 new DetectedColumn("is_verified", "boolean", true, null, false))));
 
@@ -135,8 +128,8 @@ class ConnectionControllerTest {
 
     @Test
     void shouldDeleteExistingColumnsWhenUpdatingColumns() throws Exception {
-        when(schemaIntrospectionService.introspect(any(), any())).thenReturn(
-                new SchemaIntrospectionResult.Detected("profiles", "public", "email", "id",
+        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any())).thenReturn(
+                new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
                                 new DetectedColumn("is_verified", "boolean", true, null, false))));
 

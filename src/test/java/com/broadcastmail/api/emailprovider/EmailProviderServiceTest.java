@@ -55,7 +55,7 @@ class EmailProviderServiceTest {
                 .encryptedRolePassword("encrypted-role-password")
                 .tokenExpiresAt(Instant.now().plusSeconds(3600))
                 .expiresAt(Instant.now().plusSeconds(1800))
-                .schemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", true))
+                .schemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", true))
                 .confirmedColumnNames(List.of("plan", "full_name"))
                 .build();
     }

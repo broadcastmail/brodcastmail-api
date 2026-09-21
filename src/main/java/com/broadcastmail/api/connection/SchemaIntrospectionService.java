@@ -21,23 +21,73 @@ public class SchemaIntrospectionService {
 
     private final EncryptionProperties encryptionProperties;
 
-
+    /**
+     * Finds every table with a FK to {@code auth.users.id} and fully introspects
+     * each one. Zero matches → {@code NotDetected}; exactly one → {@code Detected}
+     * for that table; more than one → {@code MultipleCandidates} so the caller can
+     * let the user pick.
+     */
     public SchemaIntrospectionResult introspect(String jdbcUrl, String encryptedRolePassword) {
         String rolePassword = SecurityUtil.decrypt(encryptedRolePassword, encryptionProperties.key());
         try (Connection connection = DriverManager.getConnection(jdbcUrl, "broadcastmail_reader", rolePassword);
              Statement stmt = connection.createStatement();) {
 
-            // Find table with FK to auth.users.id
-            ResultSet linkedRs = stmt.executeQuery(SupabaseSql.FIND_USER_LINKED_TABLES);
-            if (!linkedRs.next()) {
+            List<TableRef> candidates = findCandidateTables(stmt);
+            if (candidates.isEmpty()) {
                 return new SchemaIntrospectionResult.NotDetected();
             }
-            String linkedSchema = linkedRs.getString("table_schema");
-            String linkedTable = linkedRs.getString("table_name");
 
-            // Introspect that table's columns
-            ResultSet rs = stmt.executeQuery(SupabaseSql.INTROSPECT_SCHEMA);
-            Map<String, List<ColumnInfo>> tableColumns = new LinkedHashMap<>();
+            Map<String, List<ColumnInfo>> tableColumns = loadAllColumns(stmt);
+
+            List<SchemaIntrospectionResult.Detected> detected = candidates.stream()
+                    .map(ref -> buildDetected(connection, tableColumns, ref))
+                    .toList();
+
+            return detected.size() == 1
+                    ? detected.get(0)
+                    : new SchemaIntrospectionResult.MultipleCandidates(detected);
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Schema introspection failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Introspects one already-known table directly, without re-running FK
+     * detection — for callers (e.g. reconnect) that already know which table
+     * and FK column they want, rather than re-discovering candidates.
+     */
+    public SchemaIntrospectionResult.Detected introspectTable(
+            String jdbcUrl, String encryptedRolePassword, String schema, String table, String idColumn) {
+        String rolePassword = SecurityUtil.decrypt(encryptedRolePassword, encryptionProperties.key());
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, "broadcastmail_reader", rolePassword);
+             Statement stmt = connection.createStatement();) {
+
+            Map<String, List<ColumnInfo>> tableColumns = loadAllColumns(stmt);
+            return buildDetected(connection, tableColumns, new TableRef(schema, table, idColumn));
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Schema introspection failed: " + e.getMessage(), e);
+        }
+    }
+
+    private List<TableRef> findCandidateTables(Statement stmt) throws SQLException {
+        List<TableRef> candidates = new ArrayList<>();
+        try (ResultSet rs = stmt.executeQuery(SupabaseSql.FIND_USER_LINKED_TABLES)) {
+            while (rs.next()) {
+                candidates.add(new TableRef(
+                        rs.getString("table_schema"),
+                        rs.getString("table_name"),
+                        rs.getString("column_name")
+                ));
+            }
+        }
+        return candidates;
+    }
+
+    private Map<String, List<ColumnInfo>> loadAllColumns(Statement stmt) throws SQLException {
+        Map<String, List<ColumnInfo>> tableColumns = new LinkedHashMap<>();
+        try (ResultSet rs = stmt.executeQuery(SupabaseSql.INTROSPECT_SCHEMA)) {
             while (rs.next()) {
                 String key = rs.getString("table_schema") + "." + rs.getString("table_name");
                 tableColumns.computeIfAbsent(key, k -> new ArrayList<>())
@@ -46,44 +96,44 @@ public class SchemaIntrospectionService {
                                 rs.getString("data_type")
                         ));
             }
-
-            List<DetectedColumn> filterableColumns = new ArrayList<>();
-            List<ColumnInfo> profileColumns = tableColumns.get(linkedSchema + "." + linkedTable);
-            if (profileColumns != null) {
-                for (ColumnInfo col : profileColumns) {
-                    if (isNonFilterable(col.name())) continue;
-                    String uiType = mapToUiType(col.dataType());
-                    int cardinality = getCardinality(connection, linkedTable, col.name());
-                    boolean warning = cardinality > 50;
-                    filterableColumns.add(new DetectedColumn(
-                            col.name(),
-                            uiType,
-                            true,
-                            cardinality,
-                            warning
-                    ));
-                }
-            }
-
-            filterableColumns.add(new DetectedColumn(
-                    "created_at",
-                    "timestamptz",
-                    true,
-                    0,
-                    false
-            ));
-
-            return new SchemaIntrospectionResult.Detected(
-                    linkedTable,
-                    linkedSchema,
-                    "email",
-                    "id",
-                    filterableColumns
-            );
-
-        } catch (SQLException e) {
-            throw new RuntimeException("Schema introspection failed: " + e.getMessage(), e);
         }
+        return tableColumns;
+    }
+
+    private SchemaIntrospectionResult.Detected buildDetected(
+            Connection connection, Map<String, List<ColumnInfo>> tableColumns, TableRef ref) {
+        List<DetectedColumn> filterableColumns = new ArrayList<>();
+        List<ColumnInfo> profileColumns = tableColumns.get(ref.schema() + "." + ref.table());
+        if (profileColumns != null) {
+            for (ColumnInfo col : profileColumns) {
+                if (isNonFilterable(col.name())) continue;
+                String uiType = mapToUiType(col.dataType());
+                int cardinality = getCardinality(connection, ref.table(), col.name());
+                boolean warning = cardinality > 50;
+                filterableColumns.add(new DetectedColumn(
+                        col.name(),
+                        uiType,
+                        true,
+                        cardinality,
+                        warning
+                ));
+            }
+        }
+
+        filterableColumns.add(new DetectedColumn(
+                "created_at",
+                "timestamptz",
+                true,
+                0,
+                false
+        ));
+
+        return new SchemaIntrospectionResult.Detected(
+                ref.table(),
+                ref.schema(),
+                ref.idColumn(),
+                filterableColumns
+        );
     }
 
     private boolean isNonFilterable(String columnName) {
@@ -122,5 +172,7 @@ public class SchemaIntrospectionService {
         }
         return 0;
     }
+
+    private record TableRef(String schema, String table, String idColumn) {}
     private record ColumnInfo(String name, String dataType) {}
-        }
+}

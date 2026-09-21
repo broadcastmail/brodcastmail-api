@@ -83,7 +83,14 @@ POST /api/v1/onboarding/schema/detect
 → OnboardingSessionStore.get()
 → SchemaIntrospectionService.detect()
 → external JDBC → information_schema queries
-→ OnboardingSessionStore.update() ← stores detectedColumns
+→ OnboardingSessionStore.update() ← stores detectedColumns, or schemaCandidates
+  when more than one table has a FK to auth.users.id
+
+POST /api/v1/onboarding/schema/select-table ← only when detect() returned MULTIPLE_CANDIDATES
+→ OnboardingController.selectTable()
+→ SchemaService.selectTable() ← picks one of the already-introspected schemaCandidates,
+  no re-introspection
+→ OnboardingSessionStore.update() ← stores schemaDetails + detectedColumns for the chosen table
 
 POST /api/v1/onboarding/schema/confirm
 → OnboardingController.confirmSchema()

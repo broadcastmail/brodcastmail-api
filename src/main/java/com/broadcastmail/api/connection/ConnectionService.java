@@ -29,7 +29,7 @@ public class ConnectionService {
                 .userTableSchema(session.getSchemaDetails().userSchema())
                 .userTableName(session.getSchemaDetails().userTable())
                 .emailColumn("email")
-                .userIdColumn("id")
+                .userIdColumn(session.getSchemaDetails().userIdColumn())
                 .build();
         connectionRepository.save(connection);
 

@@ -22,7 +22,8 @@ public final class SupabaseSql {
     public static final String FIND_USER_LINKED_TABLES = """
             SELECT
                 kcu.table_schema,
-                kcu.table_name
+                kcu.table_name,
+                kcu.column_name
             FROM information_schema.referential_constraints rc
             JOIN information_schema.key_column_usage kcu
                 ON kcu.constraint_name = rc.constraint_name
@@ -33,7 +34,6 @@ public final class SupabaseSql {
             WHERE ref_kcu.table_schema = 'auth'
               AND ref_kcu.table_name = 'users'
               AND ref_kcu.column_name = 'id'
-            LIMIT 1
             """;
     public static final String RESOLVE_RECIPIENTS = "SELECT id, email FROM auth.user_emails";
     public static final String COUNT_RECIPIENTS = "SELECT COUNT(*) FROM auth.user_emails";

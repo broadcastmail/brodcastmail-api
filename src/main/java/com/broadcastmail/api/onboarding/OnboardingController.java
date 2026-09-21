@@ -10,6 +10,7 @@ import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.onboarding.dto.OnboardingStatusResponse;
 import com.broadcastmail.api.onboarding.dto.RecapData;
 import com.broadcastmail.api.onboarding.dto.SchemaConfirmRequest;
+import com.broadcastmail.api.onboarding.dto.SelectTableRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -111,6 +112,18 @@ public class OnboardingController {
     public ResponseEntity<SchemaIntrospectionResult> detectSchema(
             @CookieValue(name = "onboarding_session", required = false) String sessionToken) {
         SchemaIntrospectionResult result = schemaService.detect(sessionToken);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/schema/select-table")
+    public ResponseEntity<SchemaIntrospectionResult.Detected> selectTable(
+            @CookieValue(name = "onboarding_session", required = false) String sessionToken,
+            @RequestBody @Valid SelectTableRequest request) {
+        if (sessionToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        SchemaIntrospectionResult.Detected result =
+                schemaService.selectTable(sessionToken, request.userTableSchema(), request.userTableName());
         return ResponseEntity.ok(result);
     }
 }

@@ -99,15 +99,7 @@ public class ConnectionController {
     public ResponseEntity<Void> updateTable(
             @AuthenticationPrincipal UUID accountId,
             @RequestBody @Valid ConnectionRequests.UpdateTableRequest request) {
-        connectionUpdateService.updateTable(accountId, request.userTableSchema(), request.userTableName());
-        return ResponseEntity.ok().build();
-    }
-
-    @PatchMapping("/email-column")
-    public ResponseEntity<Void> updateEmailColumn(
-            @AuthenticationPrincipal UUID accountId,
-            @RequestBody @Valid ConnectionRequests.UpdateEmailColumnRequest request) {
-        connectionUpdateService.updateEmailColumn(accountId, request.emailColumn());
+        connectionUpdateService.updateTable(accountId, request.userTableSchema(), request.userTableName(), request.userIdColumn());
         return ResponseEntity.ok().build();
     }
 

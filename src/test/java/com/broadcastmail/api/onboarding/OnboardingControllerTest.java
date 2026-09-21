@@ -241,7 +241,7 @@ class OnboardingControllerTest {
 
     private String createSessionWithSchemaConfirmed() {
         return onboardingSessionStore.create(baseSession()
-                .schemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", true))
+                .schemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", true))
                 .confirmedColumnNames(List.of("plan", "full_name"))
                 .build());
     }

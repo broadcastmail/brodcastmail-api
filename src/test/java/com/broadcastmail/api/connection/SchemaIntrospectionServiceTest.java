@@ -69,7 +69,6 @@ class SchemaIntrospectionServiceTest {
         // Then
         assertThat(result.userTableName()).isEqualTo("profiles");
         assertThat(result.userTableSchema()).isEqualTo("public");
-        assertThat(result.emailColumn()).isEqualTo("email");
         assertThat(result.userIdColumn()).isEqualTo("id");
     }
 
