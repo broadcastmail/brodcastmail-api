@@ -35,21 +35,13 @@ public class ConnectionUpdateService {
         filterableColumnRepository.deleteByConnectionId(connection.getId());
     }
 
-    public void updateTable(UUID accountId, String userTableSchema, String userTableName) {
+    public void updateTable(UUID accountId, String userTableSchema, String userTableName, String userIdColumn) {
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new);
         connection.setUserTableSchema(userTableSchema);
         connection.setUserTableName(userTableName);
         connection.setEmailColumn(null);
-        connection.setUserIdColumn(null);
-        connectionRepository.save(connection);
-        filterableColumnRepository.deleteByConnectionId(connection.getId());
-    }
-
-    public void updateEmailColumn(UUID accountId, String emailColumn) {
-        Connection connection = connectionRepository.findByAccountId(accountId)
-                .orElseThrow(ConnectionNotFoundException::new);
-        connection.setEmailColumn(emailColumn);
+        connection.setUserIdColumn(userIdColumn);
         connectionRepository.save(connection);
         filterableColumnRepository.deleteByConnectionId(connection.getId());
     }
@@ -58,26 +50,27 @@ public class ConnectionUpdateService {
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new);
 
-        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(
+        SchemaIntrospectionResult.Detected detected = schemaIntrospectionService.introspectTable(
                 SupabaseSql.buildJdbcUrl(connection.getProjectRef()),
-                connection.getEncryptedCreds()
+                connection.getEncryptedCreds(),
+                connection.getUserTableSchema(),
+                connection.getUserTableName(),
+                connection.getUserIdColumn()
         );
 
-        if (result instanceof SchemaIntrospectionResult.Detected detected) {
-            filterableColumnRepository.deleteByConnectionId(connection.getId());
-            List<FilterableColumn> columns = detected.filterableColumns().stream()
-                    .filter(col -> columnNames.contains(col.columnName()))
-                    .map(col -> FilterableColumn.builder()
-                            .connectionId(connection.getId())
-                            .columnName(col.columnName())
-                            .columnType(col.columnType())
-                            .displayName(col.columnName())
-                            .enabled(true)
-                            .cardinalityWarning(col.cardinalityWarning())
-                            .cardinality(col.cardinality())
-                            .build())
-                    .toList();
-            filterableColumnRepository.saveAll(columns);
-        }
+        filterableColumnRepository.deleteByConnectionId(connection.getId());
+        List<FilterableColumn> columns = detected.filterableColumns().stream()
+                .filter(col -> columnNames.contains(col.columnName()))
+                .map(col -> FilterableColumn.builder()
+                        .connectionId(connection.getId())
+                        .columnName(col.columnName())
+                        .columnType(col.columnType())
+                        .displayName(col.columnName())
+                        .enabled(true)
+                        .cardinalityWarning(col.cardinalityWarning())
+                        .cardinality(col.cardinality())
+                        .build())
+                .toList();
+        filterableColumnRepository.saveAll(columns);
     }
 }

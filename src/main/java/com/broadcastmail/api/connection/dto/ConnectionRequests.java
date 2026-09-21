@@ -10,7 +10,7 @@ public class ConnectionRequests {
     public record UpdateProjectRequest(@NotBlank String projectRef) {}
     public record UpdateTableRequest(
             @NotBlank String userTableSchema,
-            @NotBlank String userTableName) {}
-    public record UpdateEmailColumnRequest(@NotBlank String emailColumn) {}
+            @NotBlank String userTableName,
+            @NotBlank String userIdColumn) {}
     public record UpdateColumnsRequest(@NotEmpty List<String> columnNames) {}
 }

@@ -42,7 +42,9 @@ public class RecipientPreviewService {
         FilterQuery filterQuery = filterSerializer.serialize(filters);
         String sql = filterQuery.sql().isEmpty()
                 ? SupabaseSql.COUNT_RECIPIENTS
-                : SupabaseSql.COUNT_RECIPIENTS + " " + filterQuery.sql();
+                : SupabaseSql.buildRecipientCountQuery(
+                        connection.getUserTableSchema(), connection.getUserTableName(), connection.getUserIdColumn())
+                        + " " + filterQuery.sql();
 
         try (java.sql.Connection conn = DriverManager.getConnection(jdbcUrl, "broadcastmail_reader", rolePassword);
              PreparedStatement stmt = conn.prepareStatement(sql)) {

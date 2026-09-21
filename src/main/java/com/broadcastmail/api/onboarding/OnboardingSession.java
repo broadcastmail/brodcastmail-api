@@ -2,6 +2,7 @@ package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
+import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.With;
@@ -29,6 +30,7 @@ public class OnboardingSession {
     private SchemaDetails schemaDetails;
     private List<String> confirmedColumnNames;
     private List<DetectedColumn> detectedColumns;
+    private List<SchemaIntrospectionResult.Detected> schemaCandidates;
 
 
     public OnboardingSession requireSchemaConfirmed() {
@@ -59,6 +61,7 @@ public class OnboardingSession {
     public record SchemaDetails(
             String userTable,
             String userSchema,
+            String userIdColumn,
             boolean confirmed
     ) {}
 
