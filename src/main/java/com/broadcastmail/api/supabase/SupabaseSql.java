@@ -38,6 +38,30 @@ public final class SupabaseSql {
     public static final String RESOLVE_RECIPIENTS = "SELECT id, email FROM auth.user_emails";
     public static final String COUNT_RECIPIENTS = "SELECT COUNT(*) FROM auth.user_emails";
 
+    /**
+     * Recipient count joined to the linked profile table, for when a campaign has
+     * filters on profile-table columns — those columns don't exist on auth.user_emails,
+     * so COUNT_RECIPIENTS alone can't apply them. An INNER JOIN, so it must only be used
+     * when there's at least one such filter: with none, it would wrongly exclude any
+     * auth user who doesn't yet have a profile row, undercounting COUNT_RECIPIENTS' plain result.
+     * Filter fragments stay unqualified (see CampaignFilterSerializer) because
+     * auth.user_emails only exposes id/email, and filterable columns never include
+     * either — so there's no ambiguity for Postgres to resolve between the two tables.
+     */
+    public static String buildRecipientCountQuery(String userTableSchema, String userTableName, String userIdColumn) {
+        requireIdentifier(userTableSchema, "schema");
+        requireIdentifier(userTableName, "table");
+        requireIdentifier(userIdColumn, "id column");
+        return "SELECT COUNT(*) FROM auth.user_emails ue JOIN \"" + userTableSchema + "\".\"" + userTableName
+                + "\" p ON p.\"" + userIdColumn + "\" = ue.id";
+    }
+
+    private static void requireIdentifier(String value, String label) {
+        if (value == null || !value.matches("[a-zA-Z_]\\w*")) {
+            throw new IllegalArgumentException("Invalid " + label + ": " + value);
+        }
+    }
+
     // auth.users always exists, unlike auth.user_emails (a view CREATE_READER_ROLE creates) —
     // usable to preview a project's user count before it's been selected/set up.
     public static final String COUNT_AUTH_USERS = "SELECT COUNT(*) FROM auth.users";
