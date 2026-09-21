@@ -77,8 +77,8 @@ class CampaignServiceTest {
     void shouldCreateCampaignWithFiltersAttached() {
         // Given
         CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, connection.getId(), List.of(
-                new FilterRequest("plan", FilterOperator.EQ, "free"),
-                new FilterRequest("created_at", FilterOperator.GT, "2024-01-01")
+                new FilterRequest("plan", FilterOperator.EQ, "free", null, null),
+                new FilterRequest("created_at", FilterOperator.GT, "2024-01-01", null, null)
         ));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> {
             Campaign c = inv.getArgument(0);

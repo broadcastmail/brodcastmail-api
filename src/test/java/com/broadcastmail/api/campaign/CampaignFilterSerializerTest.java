@@ -5,6 +5,7 @@ import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
 import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.common.campaign.filter.FilterQuery;
+import com.broadcastmail.common.campaign.filter.FilterSource;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CampaignFilterSerializerTest {
 
-    private CampaignFilterSerializer serializer = new CampaignFilterSerializer();
+    private final CampaignFilterSerializer serializer = new CampaignFilterSerializer();
 
     private CampaignFilter filter(String columnName, FilterOperator operator, String value, int order) {
         return CampaignFilter.builder()
@@ -22,6 +23,7 @@ class CampaignFilterSerializerTest {
                 .operator(operator)
                 .filterValue(value)
                 .filterOrder(order)
+                .source(FilterSource.PROFILE_TABLE)
                 .build();
     }
 
@@ -97,5 +99,69 @@ class CampaignFilterSerializerTest {
         FilterQuery result = serializer.serialize(filters);
         assertThat(result.sql()).isEqualTo("WHERE \"plan\" = ? AND \"created_at\" > ?");
         assertThat(result.parameters()).containsExactly("free", "2024-01-01");
+    }
+
+    @Test
+    void shouldBuildWhereClauseForAuthMetadataColumn() {
+        CampaignFilter filter = CampaignFilter.builder()
+                .columnName("email_confirmed_at")
+                .operator(FilterOperator.NEQ)
+                .filterValue("null")
+                .filterOrder(0)
+                .source(FilterSource.AUTH_METADATA)
+                .build();
+
+        FilterQuery result = serializer.serialize(List.of(filter));
+
+        assertThat(result.sql()).isEqualTo("WHERE \"email_confirmed_at\" != ?");
+    }
+
+    @Test
+    void shouldBuildJsonPathFragmentForAuthMetadataJson() {
+        CampaignFilter filter = CampaignFilter.builder()
+                .columnName("raw_user_meta_data")
+                .operator(FilterOperator.EQ)
+                .filterValue("referral")
+                .filterOrder(0)
+                .source(FilterSource.AUTH_METADATA_JSON)
+                .jsonKey("signup_source")
+                .build();
+
+        FilterQuery result = serializer.serialize(List.of(filter));
+
+        assertThat(result.sql()).isEqualTo("WHERE \"raw_user_meta_data\"->>'signup_source' = ?");
+        assertThat(result.parameters()).containsExactly("referral");
+    }
+
+    @Test
+    void shouldRejectAuthMetadataJsonWithDisallowedColumn() {
+        CampaignFilter filter = CampaignFilter.builder()
+                .columnName("plan")
+                .operator(FilterOperator.EQ)
+                .filterValue("pro")
+                .filterOrder(0)
+                .source(FilterSource.AUTH_METADATA_JSON)
+                .jsonKey("plan")
+                .build();
+        List<CampaignFilter> filters = List.of(filter);
+
+        assertThatThrownBy(() -> serializer.serialize(filters))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldRejectAuthMetadataJsonWithInvalidKey() {
+        CampaignFilter filter = CampaignFilter.builder()
+                .columnName("raw_user_meta_data")
+                .operator(FilterOperator.EQ)
+                .filterValue("x")
+                .filterOrder(0)
+                .source(FilterSource.AUTH_METADATA_JSON)
+                .jsonKey("bad key; --")
+                .build();
+        List<CampaignFilter> filters = List.of(filter);
+
+        assertThatThrownBy(() -> serializer.serialize(filters))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -38,9 +38,10 @@ public class SchemaIntrospectionService {
             }
 
             Map<String, List<ColumnInfo>> tableColumns = loadAllColumns(stmt);
+            List<DetectedColumn> authColumns = buildAuthColumns(connection, tableColumns);
 
             List<SchemaIntrospectionResult.Detected> detected = candidates.stream()
-                    .map(ref -> buildDetected(connection, tableColumns, ref))
+                    .map(ref -> buildDetected(connection, tableColumns, ref, authColumns))
                     .toList();
 
             return detected.size() == 1
@@ -64,7 +65,8 @@ public class SchemaIntrospectionService {
              Statement stmt = connection.createStatement();) {
 
             Map<String, List<ColumnInfo>> tableColumns = loadAllColumns(stmt);
-            return buildDetected(connection, tableColumns, new TableRef(schema, table, idColumn));
+            List<DetectedColumn> authColumns = buildAuthColumns(connection, tableColumns);
+            return buildDetected(connection, tableColumns, new TableRef(schema, table, idColumn), authColumns);
 
         } catch (SQLException e) {
             throw new RuntimeException("Schema introspection failed: " + e.getMessage(), e);
@@ -101,14 +103,15 @@ public class SchemaIntrospectionService {
     }
 
     private SchemaIntrospectionResult.Detected buildDetected(
-            Connection connection, Map<String, List<ColumnInfo>> tableColumns, TableRef ref) {
+            Connection connection, Map<String, List<ColumnInfo>> tableColumns, TableRef ref,
+            List<DetectedColumn> authColumns) {
         List<DetectedColumn> filterableColumns = new ArrayList<>();
         List<ColumnInfo> profileColumns = tableColumns.get(ref.schema() + "." + ref.table());
         if (profileColumns != null) {
             for (ColumnInfo col : profileColumns) {
                 if (isNonFilterable(col.name())) continue;
                 String uiType = mapToUiType(col.dataType());
-                int cardinality = getCardinality(connection, ref.table(), col.name());
+                int cardinality = getCardinality(connection, ref.schema(), ref.table(), col.name());
                 boolean warning = cardinality > 50;
                 filterableColumns.add(new DetectedColumn(
                         col.name(),
@@ -132,8 +135,31 @@ public class SchemaIntrospectionService {
                 ref.table(),
                 ref.schema(),
                 ref.idColumn(),
-                filterableColumns
+                filterableColumns,
+                authColumns
         );
+    }
+
+    /**
+     * Flat auth.users metadata columns available for filtering, sourced from the
+     * already-widened auth.user_emails view (see SupabaseSql.CREATE_READER_ROLE),
+     * restricted to the explicit safe allow-list — never every auth.users column.
+     * The same for every connection, so computed once per introspection call rather
+     * than per candidate table.
+     */
+    private List<DetectedColumn> buildAuthColumns(Connection connection, Map<String, List<ColumnInfo>> tableColumns) {
+        List<ColumnInfo> authUserColumns = tableColumns.get("auth.users");
+        if (authUserColumns == null) {
+            return List.of();
+        }
+        List<DetectedColumn> authColumns = new ArrayList<>();
+        for (ColumnInfo col : authUserColumns) {
+            if (!SupabaseSql.AUTH_METADATA_COLUMNS.contains(col.name())) continue;
+            String uiType = mapToUiType(col.dataType());
+            int cardinality = getCardinality(connection, "auth", "user_emails", col.name());
+            authColumns.add(new DetectedColumn(col.name(), uiType, true, cardinality, cardinality > 50));
+        }
+        return authColumns;
     }
 
     private boolean isNonFilterable(String columnName) {
@@ -153,16 +179,18 @@ public class SchemaIntrospectionService {
         };
     }
 
-    private int getCardinality(Connection conn, String tableName, String columnName) {
-        if (!columnName.matches("[a-zA-Z_]\\w*")) {
+    private static final String IDENTIFIER_PATTERN = "[a-zA-Z_]\\w*";
+
+    private int getCardinality(Connection conn, String schemaName, String tableName, String columnName) {
+        if (!columnName.matches(IDENTIFIER_PATTERN)) {
             return 999;
         }
-        if (!tableName.matches("[a-zA-Z_]\\w*")) {
+        if (!tableName.matches(IDENTIFIER_PATTERN) || !schemaName.matches(IDENTIFIER_PATTERN)) {
             return 999;
         }
 
         try(PreparedStatement stmt = conn.prepareStatement(
-                String.format("SELECT COUNT(DISTINCT \"%s\") FROM \"%s\"", columnName, tableName) //NOSONAR
+                String.format("SELECT COUNT(DISTINCT \"%s\") FROM \"%s\".\"%s\"", columnName, schemaName, tableName) //NOSONAR
         );) {
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) return rs.getInt(1);

@@ -1,5 +1,7 @@
 package com.broadcastmail.api.supabase;
 
+import java.util.Set;
+
 public final class SupabaseSql {
 
     private SupabaseSql() {} // prevent instantiation
@@ -9,9 +11,22 @@ public final class SupabaseSql {
         GRANT USAGE ON SCHEMA public TO broadcastmail_reader;
         GRANT USAGE ON SCHEMA auth TO broadcastmail_reader;
         GRANT SELECT ON ALL TABLES IN SCHEMA public TO broadcastmail_reader;
-        CREATE VIEW auth.user_emails AS SELECT id, email FROM auth.users;
+        CREATE VIEW auth.user_emails AS SELECT
+            id, email, created_at, updated_at, confirmed_at, email_confirmed_at,
+            phone, phone_confirmed_at, last_sign_in_at, banned_until, is_anonymous,
+            raw_app_meta_data, raw_user_meta_data
+        FROM auth.users;
         GRANT SELECT ON auth.user_emails TO broadcastmail_reader;
         """;
+
+    // Explicit allow-list of auth.users columns safe to expose for campaign filtering —
+    // must be kept in sync with the auth.user_emails view above. Never widen this to
+    // "every auth.users column": that table also holds encrypted_password, confirmation
+    // tokens, recovery tokens etc., which auth.user_emails deliberately excludes.
+    public static final Set<String> AUTH_METADATA_COLUMNS = Set.of(
+            "created_at", "updated_at", "confirmed_at", "email_confirmed_at",
+            "phone", "phone_confirmed_at", "last_sign_in_at", "banned_until", "is_anonymous"
+    );
 
     public static final String INTROSPECT_SCHEMA = """
                 SELECT table_schema, table_name, column_name, data_type

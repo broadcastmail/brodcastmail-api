@@ -29,10 +29,10 @@ public class SchemaService {
             case SchemaIntrospectionResult.Detected detected ->
                     applyDetected(session, detected).withSchemaCandidates(null);
             case SchemaIntrospectionResult.MultipleCandidates multiple ->
-                    session.withSchemaDetails(null).withDetectedColumns(null)
+                    session.withSchemaDetails(null).withDetectedColumns(null).withAuthColumns(null)
                             .withSchemaCandidates(multiple.candidates());
             case SchemaIntrospectionResult.NotDetected _ ->
-                    session.withSchemaDetails(null).withDetectedColumns(null).withSchemaCandidates(null);
+                    session.withSchemaDetails(null).withDetectedColumns(null).withAuthColumns(null).withSchemaCandidates(null);
         };
         onboardingSessionStore.updateSession(sessionToken, updated);
         return result;
@@ -49,7 +49,7 @@ public class SchemaService {
             throw new InvalidOnboardingSessionException();
         }
         SchemaIntrospectionResult.Detected chosen = session.getSchemaCandidates().stream()
-                .filter(c -> c.userTableSchema().equals(schema) && c.userTableName().equals(tableName))
+                .filter(c -> matchesTable(c, schema, tableName))
                 .findFirst()
                 .orElseThrow(InvalidOnboardingSessionException::new);
 
@@ -58,10 +58,15 @@ public class SchemaService {
         return chosen;
     }
 
+    private boolean matchesTable(SchemaIntrospectionResult.Detected candidate, String schema, String tableName) {
+        return candidate.userTableSchema().equals(schema) && candidate.userTableName().equals(tableName);
+    }
+
     private OnboardingSession applyDetected(OnboardingSession session, SchemaIntrospectionResult.Detected detected) {
         return session.withSchemaDetails(new OnboardingSession.SchemaDetails(
                         detected.userTableName(), detected.userTableSchema(), detected.userIdColumn(), false))
-                .withDetectedColumns(detected.filterableColumns());
+                .withDetectedColumns(detected.filterableColumns())
+                .withAuthColumns(detected.authColumns());
     }
 
     public SchemaIntrospectionResult detectForAccount(UUID accountId, String projectRef) {

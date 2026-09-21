@@ -61,7 +61,8 @@ class SchemaServiceTest {
                         new DetectedColumn("plan", "text", true, 3, false),
                         new DetectedColumn("full_name", "text", true, 0, false),
                         new DetectedColumn("created_at", "timestamptz", true, 0, false)
-                )
+                ),
+                List.of()
         );
     }
 
@@ -70,7 +71,8 @@ class SchemaServiceTest {
                 "subscriptions",
                 "public",
                 "user_id",
-                List.of(new DetectedColumn("status", "text", true, 2, false))
+                List.of(new DetectedColumn("status", "text", true, 2, false)),
+                List.of()
         );
     }
 

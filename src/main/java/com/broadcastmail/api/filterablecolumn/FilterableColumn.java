@@ -1,6 +1,7 @@
 package com.broadcastmail.api.filterablecolumn;
 
 
+import com.broadcastmail.common.campaign.filter.FilterSource;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -54,6 +55,13 @@ public class FilterableColumn {
     @Column(name = "cardinality_warning", nullable = false)
     private Boolean cardinalityWarning = false;
 
+    /** Which table this column actually comes from — the linked profile table, or auth.users (via auth.user_emails). */
+    @NotNull
+    @Getter
+    @ColumnDefault("'PROFILE_TABLE'")
+    @Column(name = "source", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private FilterSource source;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)

@@ -8,6 +8,7 @@ import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.filterablecolumn.FilterableColumn;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.support.CampaignTestFixtures;
+import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.Connection;
@@ -118,7 +119,8 @@ class ConnectionControllerTest {
         when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
-                                new DetectedColumn("is_verified", "boolean", true, null, false))));
+                                new DetectedColumn("is_verified", "boolean", true, null, false)),
+                        List.of()));
 
         var response = authedPatch("/api/v1/connections/columns").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateColumnsRequest(List.of("plan", "is_verified")))).exchange();
@@ -131,11 +133,12 @@ class ConnectionControllerTest {
         when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
-                                new DetectedColumn("is_verified", "boolean", true, null, false))));
+                                new DetectedColumn("is_verified", "boolean", true, null, false)),
+                        List.of()));
 
         filterableColumnRepository.save(
                 FilterableColumn.builder().connectionId(connection.getId()).columnName("old_column").columnType("text").displayName("old_column")
-                        .enabled(true).cardinalityWarning(false).build());
+                        .source(FilterSource.PROFILE_TABLE).enabled(true).cardinalityWarning(false).build());
 
         authedPatch("/api/v1/connections/columns").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateColumnsRequest(List.of("plan", "is_verified")))).exchange();

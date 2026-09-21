@@ -30,6 +30,7 @@ public class OnboardingSession {
     private SchemaDetails schemaDetails;
     private List<String> confirmedColumnNames;
     private List<DetectedColumn> detectedColumns;
+    private List<DetectedColumn> authColumns;
     private List<SchemaIntrospectionResult.Detected> schemaCandidates;
 
 
