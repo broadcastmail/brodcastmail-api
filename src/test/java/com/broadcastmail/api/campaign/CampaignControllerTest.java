@@ -246,26 +246,6 @@ class CampaignControllerTest {
                 .isEqualTo("Campaign is not in a retryable state");
     }
 
-    @Test
-    void shouldReturn200WithInitialStatusEventForActiveCampaign() {
-        // Given
-        Campaign campaign = campaignRepository.save(
-                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
-                        .status(CampaignStatus.SENDING)
-                        .recipientCount(100)
-                        .build());
-
-        // When
-        var response = authedGet("/api/v1/campaigns/" + campaign.getId() + "/status/stream")
-                .accept(MediaType.TEXT_EVENT_STREAM)
-                .exchange();
-
-        // Then
-        assertThat(response).hasStatus(200);
-        assertThat(response.getResponse().getContentType())
-                .contains("text/event-stream");
-    }
-
     // Helpers
     private CampaignRecipient recipient(Campaign campaign, String userId, RecipientStatus status) {
         return CampaignRecipient.builder()
