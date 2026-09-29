@@ -445,7 +445,12 @@ CREATE INDEX idx_campaign_filters_campaign_id
   complete (no pending/processing rows remaining). Also used by
   webhook receiver to update denormalized campaign counters.
 - SELECT WHERE campaign_id = ? AND status = 'failed' — retry
-  flow, loads failed recipients to create a mini retry campaign.
+  flow, copies failed recipients into a new mini retry campaign (with
+  fresh outbox rows). Failed rows are therefore kept on the original
+  campaign after completion, not deleted.
+- Each campaign may have at most one direct retry campaign. Further
+  retries are started from that retry campaign, preserving each attempt
+  as a separate campaign and preventing duplicate retries from the original.
 
 **Growth:**
 Most write-heavy table in the schema. At 1,000 customers:
