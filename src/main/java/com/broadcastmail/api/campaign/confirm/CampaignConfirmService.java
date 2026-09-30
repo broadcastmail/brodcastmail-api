@@ -1,10 +1,16 @@
 package com.broadcastmail.api.campaign.confirm;
 
+import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.CampaignService;
+import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.account.plan.PlanFeature;
+import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRetryRepository;
@@ -25,6 +31,9 @@ public class CampaignConfirmService {
     private final CampaignRepository campaignRepository;
     private final ConnectionRepository connectionRepository;
     private final CampaignRetryRepository retryCampaignRepository;
+    private final AccountRepository accountRepository;
+    private final CampaignFilterRepository campaignFilterRepository;
+    private final PlanFacade planFacade;
 
     @Transactional
     public void confirmCampaign(UUID accountId, UUID campaignId) {
@@ -35,6 +44,13 @@ public class CampaignConfirmService {
 
         connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new);
+
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(AccountNotFoundException::new);
+
+        if (!campaignFilterRepository.findByCampaignId(campaignId).isEmpty()) {
+            planFacade.enforceFeature(account, PlanFeature.FILTERS);
+        }
 
         campaign.setStatus(CampaignStatus.RESOLVING);
         campaignRepository.save(campaign);

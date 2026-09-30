@@ -32,7 +32,7 @@ public class MeController {
 
         return ResponseEntity.ok(new MeResponse(
                 account.getEmail(),
-                account.getPlan(),
+                account.getPlan().name(),
                 connection != null ? connection.getProjectRef() : null
         ));
     }

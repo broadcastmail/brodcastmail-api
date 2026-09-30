@@ -3,6 +3,7 @@ package com.broadcastmail.api.config;
 import com.broadcastmail.api.common.SecurityPaths;
 import com.broadcastmail.api.common.exceptions.SecurityConfigurationException;
 import com.broadcastmail.api.security.ApiKeyAuthFilter;
+import com.broadcastmail.api.security.PlanEnforcementFilter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -59,6 +60,7 @@ public class SecurityConfig {
     public SecurityFilterChain apiFilterChain(
             HttpSecurity http,
             ApiKeyAuthFilter apiKeyAuthFilter,
+            PlanEnforcementFilter planEnforcementFilter,
             CorsConfigurationSource corsConfigurationSource) {
         try {
             http
@@ -73,7 +75,10 @@ public class SecurityConfig {
                             .anyRequest().authenticated())
                     .addFilterBefore(
                             apiKeyAuthFilter,
-                            UsernamePasswordAuthenticationFilter.class);
+                            UsernamePasswordAuthenticationFilter.class)
+                    .addFilterAfter(
+                            planEnforcementFilter,
+                            ApiKeyAuthFilter.class);
             return http.build();
         } catch (Exception e) {
             throw new SecurityConfigurationException("Failed to configure API filter chain", e);
