@@ -66,7 +66,7 @@ class MeControllerTest {
         assertThat(response).bodyJson()
                 .extractingPath("$.plan")
                 .asString()
-                .isEqualTo(account.getPlan());
+                .isEqualTo(account.getPlan().name());
         assertThat(response).bodyJson()
                 .extractingPath("$.connectionName")
                 .asString()

@@ -1,9 +1,12 @@
 package com.broadcastmail.api.campaign.confirm;
 
+import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.campaign.CampaignService;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.common.campaign.Campaign;
@@ -15,7 +18,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.annotation.Import;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,6 +30,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@Import(TestContainersConfiguration.class)
 class CampaignConfirmServiceTest {
 
     @Mock
@@ -35,6 +41,8 @@ class CampaignConfirmServiceTest {
     private ConnectionRepository connectionRepository;
     @Mock
     private CampaignRetryRepository retryCampaignRepository;
+    @Mock private AccountRepository accountRepository;
+    @Mock private CampaignFilterRepository campaignFilterRepository;
 
     @InjectMocks
     private CampaignConfirmService campaignConfirmService;
@@ -55,7 +63,9 @@ class CampaignConfirmServiceTest {
         Campaign campaign = campaign(CampaignStatus.DRAFT);
         when(campaignService.getCampaign(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(campaign);
         when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.connection(ACCOUNT_ID).build()));
-
+        when(accountRepository.findById(ACCOUNT_ID))
+                .thenReturn(Optional.of(CampaignTestFixtures.account().build()));
+        when(campaignFilterRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(List.of());
         // When
         campaignConfirmService.confirmCampaign(ACCOUNT_ID, CAMPAIGN_ID);
 
