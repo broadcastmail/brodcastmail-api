@@ -6,6 +6,7 @@ import com.broadcastmail.api.config.ResendProperties;
 import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.account.plan.Plan;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.oauth.OAuthToken;
@@ -42,7 +43,7 @@ public class AccountCreationService {
                 .email(session.getOwnerEmail())
                 .passwordHash("")
                 .apiKeyHash(hashedApiKey)
-                .plan("free")
+                .plan(Plan.FREE)
                 .emailVerified(true)
                 .build();
         accountRepository.save(account);

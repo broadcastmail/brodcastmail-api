@@ -1,6 +1,7 @@
 package com.broadcastmail.api.common;
 
 import com.broadcastmail.api.common.exceptions.*;
+import com.broadcastmail.common.account.plan.PlanLimitExceededException;
 import com.stripe.exception.StripeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -99,6 +100,23 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleCampaignNotRetryableException(CampaignNotRetryableException ex) {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
+    @ExceptionHandler(PlanFeatureException.class)
+    public ResponseEntity<Map<String, String>> handlePlanFeatureException(PlanFeatureException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(Map.of(
+                        ERROR_KEY, "Feature not available on current plan",
+                        "feature", ex.getFeature().name()
+                ));
+    }
+
+    @ExceptionHandler(PlanLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handlePlanLimitExceededException(PlanLimitExceededException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 }

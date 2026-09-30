@@ -3,6 +3,7 @@ package com.broadcastmail.api;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.account.plan.Plan;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,7 @@ class SecurityTest {
                 .email("test@broadcastmail.io")
                 .passwordHash("")
                 .apiKeyHash(SecurityUtil.sha256(rawApiKey))
-                .plan("free")
+                .plan(Plan.FREE)
                 .emailVerified(true)
                 .build();
         accountRepository.save(account);

@@ -2,6 +2,7 @@ package com.broadcastmail.api.billing;
 
 import com.broadcastmail.api.config.AppProperties;
 import com.broadcastmail.api.config.StripeProperties;
+import com.broadcastmail.common.account.Account;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
@@ -9,6 +10,7 @@ import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -45,5 +47,11 @@ public class BillingService {
                 .build();
 
         return Session.create(params).getUrl();
+    }
+
+    private static final Set<String> ACTIVE_STATUSES = Set.of("active", "trialing");
+
+    public boolean isSubscriptionActive(Account account) {
+        return ACTIVE_STATUSES.contains(account.getStripeSubscriptionStatus());
     }
 }
