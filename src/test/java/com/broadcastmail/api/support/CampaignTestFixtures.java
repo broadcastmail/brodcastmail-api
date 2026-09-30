@@ -3,6 +3,7 @@ package com.broadcastmail.api.support;
 import com.broadcastmail.api.campaign.confirm.dto.RecipientRow;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.plan.Plan;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
@@ -30,7 +31,7 @@ public final class CampaignTestFixtures {
                 .email("test@example.com")
                 .passwordHash("")
                 .apiKeyHash(SecurityUtil.sha256(TEST_API_KEY))
-                .plan("free")
+                .plan(Plan.FREE)
                 .emailVerified(true);
     }
 

@@ -4,6 +4,7 @@ import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.account.plan.Plan;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,7 +43,7 @@ class AccountServiceTest {
                 .email("owner@example.com")
                 .passwordHash("")
                 .apiKeyHash(SecurityUtil.sha256("bm_live_oldkey"))
-                .plan("free")
+                .plan(Plan.FREE)
                 .emailVerified(true)
                 .build();
     }
