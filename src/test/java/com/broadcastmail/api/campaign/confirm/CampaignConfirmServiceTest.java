@@ -1,10 +1,13 @@
 package com.broadcastmail.api.campaign.confirm;
 
 import com.broadcastmail.api.TestContainersConfiguration;
+import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.CampaignService;
+import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -43,6 +46,8 @@ class CampaignConfirmServiceTest {
     private CampaignRetryRepository retryCampaignRepository;
     @Mock private AccountRepository accountRepository;
     @Mock private CampaignFilterRepository campaignFilterRepository;
+    @Mock private CampaignFilterValidator filterValidator;
+    @Mock private PlanFacade planFacade;
 
     @InjectMocks
     private CampaignConfirmService campaignConfirmService;
@@ -72,6 +77,26 @@ class CampaignConfirmServiceTest {
         // Then
         assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.RESOLVING);
         verify(campaignRepository).save(campaign);
+    }
+
+    @Test
+    void shouldRejectConfirmationWhenSavedFiltersAreStale() {
+        // Given
+        Campaign campaign = campaign(CampaignStatus.DRAFT);
+        when(campaignService.getCampaign(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(campaign);
+        when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.connection(ACCOUNT_ID).build()));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.account().build()));
+        List<com.broadcastmail.common.campaign.filter.CampaignFilter> filters =
+                List.of(com.broadcastmail.common.campaign.filter.CampaignFilter.builder().columnName("gone").build());
+        when(campaignFilterRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(filters);
+        doThrow(new InvalidCampaignFilterException(List.of("gone")))
+                .when(filterValidator).validateSaved(ACCOUNT_ID, filters);
+
+        // When / Then
+        assertThatThrownBy(() -> campaignConfirmService.confirmCampaign(ACCOUNT_ID, CAMPAIGN_ID))
+                .isInstanceOf(InvalidCampaignFilterException.class);
+        assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.DRAFT);
+        verify(campaignRepository, never()).save(any());
     }
 
     @Test

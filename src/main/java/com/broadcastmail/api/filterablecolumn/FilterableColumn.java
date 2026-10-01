@@ -43,6 +43,7 @@ public class FilterableColumn {
     private String displayName;
 
     @NotNull
+    @Getter
     @ColumnDefault("true")
     @Column(name = "enabled", nullable = false)
     private Boolean enabled = true;
