@@ -2,6 +2,7 @@ package com.broadcastmail.api.campaign;
 
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
+import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.campaign.filter.FilterOperator;
@@ -42,6 +43,8 @@ class CampaignServiceTest {
     private CampaignRepository campaignRepository;
     @Mock
     private CampaignFilterRepository campaignFilterRepository;
+    @Mock
+    private CampaignFilterValidator filterValidator;
 
 
     @Captor
@@ -151,7 +154,8 @@ class CampaignServiceTest {
                 Optional.of("New Name"),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
                 .thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -165,12 +169,44 @@ class CampaignServiceTest {
     }
 
     @Test
+    void shouldReplaceFiltersWhenProvidedOnUpdate()
+    {
+        Campaign existing = campaign(CampaignStatus.DRAFT).build();
+        UpdateCampaignRequest request = new UpdateCampaignRequest(
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                java.util.List.of(new com.broadcastmail.api.campaign.filter.dto.FilterRequest(
+                        "plan", com.broadcastmail.common.campaign.filter.FilterOperator.EQ, "pro", null, null)));
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
+        when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
+
+        verify(campaignFilterRepository).deleteAll(any());
+        verify(campaignFilterRepository).saveAll(org.mockito.ArgumentMatchers.argThat(
+                (java.util.List<com.broadcastmail.common.campaign.filter.CampaignFilter> l) -> l.size() == 1));
+    }
+
+    @Test
+    void shouldLeaveFiltersUntouchedWhenNullOnUpdate()
+    {
+        Campaign existing = campaign(CampaignStatus.DRAFT).build();
+        UpdateCampaignRequest request = new UpdateCampaignRequest(
+                Optional.of("X"), Optional.empty(), Optional.empty(), Optional.empty(), null);
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
+        when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
+
+        org.mockito.Mockito.verifyNoInteractions(campaignFilterRepository);
+    }
+
+    @Test
     void shouldRejectUpdateOnSendingCampaign()
     {
         // Given
         Campaign sending = campaign(CampaignStatus.SENDING).build();
         UpdateCampaignRequest request = new UpdateCampaignRequest(
-                Optional.of("New Name"), Optional.empty(), Optional.empty(), Optional.empty());
+                Optional.of("New Name"), Optional.empty(), Optional.empty(), Optional.empty(), null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
                 .thenReturn(Optional.of(sending));
 

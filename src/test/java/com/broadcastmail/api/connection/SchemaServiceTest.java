@@ -3,8 +3,11 @@ package com.broadcastmail.api.connection;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
+import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
+import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -15,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
@@ -31,6 +35,12 @@ class SchemaServiceTest {
 
     @Mock
     private SchemaIntrospectionService schemaIntrospectionService;
+
+    @Mock
+    private ConnectionRepository connectionRepository;
+
+    @Mock
+    private FilterableColumnRepository filterableColumnRepository;
 
     @Captor
     private ArgumentCaptor<OnboardingSession> sessionCaptor;
@@ -197,5 +207,33 @@ class SchemaServiceTest {
         // Then
         assertThatThrownBy(() -> schemaService.selectTable("token", "public", "profiles"))
                 .isInstanceOf(InvalidOnboardingSessionException.class);
+    }
+
+    @Test
+    void detectForAccountShouldReflectPersistedEnabledState() {
+        UUID accountId = UUID.randomUUID();
+        UUID connectionId = UUID.randomUUID();
+        Connection connection = new com.broadcastmail.common.connection.Connection();
+        connection.setId(connectionId);
+        connection.setProjectRef("project-ref");
+        connection.setEncryptedCreds("creds");
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(java.util.Optional.of(connection));
+        when(schemaIntrospectionService.introspect(anyString(), anyString())).thenReturn(
+                new SchemaIntrospectionResult.Detected("profiles", "public", "id",
+                        List.of(new com.broadcastmail.api.connection.dto.DetectedColumn("plan", "text", true, 3, false),
+                                new com.broadcastmail.api.connection.dto.DetectedColumn("country", "text", true, 3, false)),
+                        List.of()));
+        when(filterableColumnRepository.findByConnectionId(connectionId)).thenReturn(List.of(
+                com.broadcastmail.api.filterablecolumn.FilterableColumn.builder()
+                        .connectionId(connectionId).columnName("plan").columnType("text").displayName("plan")
+                        .source(com.broadcastmail.common.campaign.filter.FilterSource.PROFILE_TABLE)
+                        .enabled(true).cardinalityWarning(false).build()));
+
+        SchemaIntrospectionResult.Detected result =
+                (SchemaIntrospectionResult.Detected) schemaService.detectForAccount(accountId, null);
+
+       assertThat(result.filterableColumns())
+                .extracting(c -> c.columnName() + ":" + c.enabled())
+                .containsExactly("plan:true", "country:false");
     }
 }

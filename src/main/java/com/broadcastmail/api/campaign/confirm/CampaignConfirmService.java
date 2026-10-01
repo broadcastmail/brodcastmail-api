@@ -2,6 +2,7 @@ package com.broadcastmail.api.campaign.confirm;
 
 import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.CampaignService;
+import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
@@ -10,6 +11,7 @@ import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.account.plan.PlanFeature;
+import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.common.campaign.Campaign;
@@ -20,6 +22,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +37,7 @@ public class CampaignConfirmService {
     private final AccountRepository accountRepository;
     private final CampaignFilterRepository campaignFilterRepository;
     private final PlanFacade planFacade;
+    private final CampaignFilterValidator filterValidator;
 
     @Transactional
     public void confirmCampaign(UUID accountId, UUID campaignId) {
@@ -48,8 +52,10 @@ public class CampaignConfirmService {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(AccountNotFoundException::new);
 
-        if (!campaignFilterRepository.findByCampaignId(campaignId).isEmpty()) {
+        List<CampaignFilter> filters = campaignFilterRepository.findByCampaignId(campaignId);
+        if (!filters.isEmpty()) {
             planFacade.enforceFeature(account, PlanFeature.FILTERS);
+            filterValidator.validateSaved(accountId, filters);
         }
 
         campaign.setStatus(CampaignStatus.RESOLVING);

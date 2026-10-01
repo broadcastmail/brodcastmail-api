@@ -4,6 +4,7 @@ import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
+import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
@@ -25,11 +26,13 @@ import java.util.UUID;
 public class CampaignService {
     private final CampaignRepository campaignRepository;
     private final CampaignFilterRepository filterRepository;
+    private final CampaignFilterValidator filterValidator;
 
 
     @Transactional
     public Campaign createCampaign(UUID accountId, CreateCampaignRequest request)
     {
+        filterValidator.validateRequests(accountId, request.filters());
         Campaign campaign = mapToEntity(accountId, request);
         Campaign saved = campaignRepository.save(campaign);
         List<CampaignFilter> filters = new ArrayList<>();
@@ -65,6 +68,17 @@ public class CampaignService {
         request.subject().ifPresent(campaign::setSubject);
         request.bodyHtml().ifPresent(campaign::setBodyHtml);
         request.scheduledAt().ifPresent(campaign::setScheduledAt);
+
+        if (request.filters() != null) {
+            filterValidator.validateRequests(accountId, request.filters());
+            filterRepository.deleteAll(filterRepository.findByCampaignId(campaignId));
+            filterRepository.flush();
+            List<CampaignFilter> filters = new ArrayList<>();
+            for (int i = 0; i < request.filters().size(); i++) {
+                filters.add(mapToFilter(campaignId, i, request.filters().get(i)));
+            }
+            filterRepository.saveAll(filters);
+        }
 
         return campaignRepository.save(campaign);
     }

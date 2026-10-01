@@ -68,6 +68,13 @@ public class GlobalExceptionHandler {
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 
+    @ExceptionHandler(InvalidCampaignFilterException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidCampaignFilter(InvalidCampaignFilterException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
     @ExceptionHandler(ConnectionNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleConnectionNotFound(ConnectionNotFoundException ex) {
         return ResponseEntity

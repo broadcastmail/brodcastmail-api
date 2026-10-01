@@ -60,7 +60,7 @@ public class CampaignController {
 
     @PatchMapping("/{id}")
     public ResponseEntity<CampaignResponse> updateCampaign(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id,
-                                                           @RequestBody UpdateCampaignRequest request) {
+                                                           @RequestBody @Valid UpdateCampaignRequest request) {
         return ResponseEntity.ok(CampaignResponse.from(campaignService.updateCampaign(accountId, id, request)));
     }
 
