@@ -4,7 +4,11 @@ package com.broadcastmail.api.campaign.dto;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
 
+import com.broadcastmail.common.campaign.filter.CampaignFilter;
+
 import java.time.OffsetDateTime;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 public record CampaignResponse(
@@ -23,9 +27,16 @@ public record CampaignResponse(
         OffsetDateTime scheduledAt,
         OffsetDateTime sentAt,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        List<CampaignFilterResponse> filters
 ) {
+    /** For campaigns whose filters aren't relevant to the caller (e.g. retry campaigns). */
     public static CampaignResponse from(Campaign campaign) {
+        return from(campaign, List.of());
+    }
+
+    /** Filters are returned in their saved order. */
+    public static CampaignResponse from(Campaign campaign, List<CampaignFilter> filters) {
         return new CampaignResponse(
                 campaign.getId(),
                 campaign.getConnectionId(),
@@ -42,7 +53,11 @@ public record CampaignResponse(
                 campaign.getScheduledAt(),
                 campaign.getSentAt(),
                 campaign.getCreatedAt(),
-                campaign.getUpdatedAt()
+                campaign.getUpdatedAt(),
+                filters.stream()
+                        .sorted(Comparator.comparingInt(CampaignFilter::getFilterOrder))
+                        .map(CampaignFilterResponse::from)
+                        .toList()
         );
     }
 }

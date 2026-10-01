@@ -50,18 +50,22 @@ public class CampaignController {
     @PostMapping
     public ResponseEntity<CampaignResponse> createCampaign(@AuthenticationPrincipal UUID accountId,
                                                            @RequestBody @Valid CreateCampaignRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(CampaignResponse.from(campaignService.createCampaign(accountId, request)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(withFilters(campaignService.createCampaign(accountId, request)));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<CampaignResponse> getCampaign(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
-        return ResponseEntity.ok(CampaignResponse.from(campaignService.getCampaign(accountId, id)));
+        return ResponseEntity.ok(withFilters(campaignService.getCampaign(accountId, id)));
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<CampaignResponse> updateCampaign(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id,
                                                            @RequestBody @Valid UpdateCampaignRequest request) {
-        return ResponseEntity.ok(CampaignResponse.from(campaignService.updateCampaign(accountId, id, request)));
+        return ResponseEntity.ok(withFilters(campaignService.updateCampaign(accountId, id, request)));
+    }
+
+    private CampaignResponse withFilters(Campaign campaign) {
+        return CampaignResponse.from(campaign, campaignService.getFilters(campaign.getId()));
     }
 
     @DeleteMapping("/{id}")

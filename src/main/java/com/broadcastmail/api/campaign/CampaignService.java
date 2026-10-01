@@ -51,6 +51,10 @@ public class CampaignService {
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
     }
 
+    public List<CampaignFilter> getFilters(UUID campaignId) {
+        return filterRepository.findByCampaignId(campaignId);
+    }
+
     public Page<Campaign> listCampaigns(UUID accountId, Pageable pageable) {
         return campaignRepository.findByAccountId(accountId, pageable);
     }
