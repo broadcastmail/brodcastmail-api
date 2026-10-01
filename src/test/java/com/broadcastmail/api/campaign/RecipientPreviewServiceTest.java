@@ -45,6 +45,9 @@ class RecipientPreviewServiceTest {
     @Mock
     private CampaignFilterRepository filterRepository;
 
+    @Mock
+    private com.broadcastmail.api.campaign.filter.CampaignFilterValidator filterValidator;
+
     private RecipientPreviewService recipientPreviewService;
 
     @BeforeEach
@@ -54,7 +57,8 @@ class RecipientPreviewServiceTest {
                 connectionRepository,
                 new EncryptionProperties(ENCRYPTION_KEY),
                 filterRepository,
-                new CampaignFilterSerializer()
+                new CampaignFilterSerializer(),
+                filterValidator
         );
     }
 
@@ -73,6 +77,34 @@ class RecipientPreviewServiceTest {
         java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
         when(sqlConnection.prepareStatement(anyString())).thenReturn(statement);
         return sqlConnection;
+    }
+
+    @Test
+    void shouldRejectPreviewOfCampaignNotOwnedByAccount() {
+        UUID accountId = UUID.randomUUID();
+        UUID campaignId = UUID.randomUUID();
+        when(campaignService.getCampaign(accountId, campaignId))
+                .thenThrow(new com.broadcastmail.api.common.exceptions.CampaignNotFoundException(campaignId));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> recipientPreviewService.preview(accountId, campaignId))
+                .isInstanceOf(com.broadcastmail.api.common.exceptions.CampaignNotFoundException.class);
+        verifyNoInteractions(filterRepository, connectionRepository);
+    }
+
+    @Test
+    void shouldRejectPreviewWhenSavedFiltersAreStale() {
+        UUID accountId = UUID.randomUUID();
+        UUID campaignId = UUID.randomUUID();
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
+        List<com.broadcastmail.common.campaign.filter.CampaignFilter> filters =
+                List.of(com.broadcastmail.common.campaign.filter.CampaignFilter.builder().columnName("gone").build());
+        when(filterRepository.findByCampaignId(campaignId)).thenReturn(filters);
+        doThrow(new com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException(List.of("gone")))
+                .when(filterValidator).validateSaved(accountId, filters);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> recipientPreviewService.preview(accountId, campaignId))
+                .isInstanceOf(com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException.class);
+        verify(connectionRepository, never()).save(any());
     }
 
     @Test

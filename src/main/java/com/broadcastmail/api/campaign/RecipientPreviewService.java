@@ -1,5 +1,6 @@
 package com.broadcastmail.api.campaign;
 
+import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.common.SecurityUtil;
@@ -29,9 +30,11 @@ public class RecipientPreviewService {
     private final EncryptionProperties encryptionProperties;
     private final CampaignFilterRepository filterRepository;
     private final CampaignFilterSerializer filterSerializer;
+    private final CampaignFilterValidator filterValidator;
 
     public Integer preview(UUID accountId, UUID campaignId)
     {
+        campaignService.getCampaign(accountId, campaignId);
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
 
@@ -39,6 +42,7 @@ public class RecipientPreviewService {
         String rolePassword = SecurityUtil.decrypt(connection.getEncryptedCreds(), encryptionProperties.key());
 
         List<CampaignFilter> filters = filterRepository.findByCampaignId(campaignId);
+        filterValidator.validateSaved(accountId, filters);
         FilterQuery filterQuery = filterSerializer.serialize(filters);
         String sql = filterQuery.sql().isEmpty()
                 ? SupabaseSql.COUNT_RECIPIENTS
