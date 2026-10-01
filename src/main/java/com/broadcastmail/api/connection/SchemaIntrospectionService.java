@@ -123,13 +123,18 @@ public class SchemaIntrospectionService {
             }
         }
 
-        filterableColumns.add(new DetectedColumn(
-                "created_at",
-                "timestamptz",
-                true,
-                0,
-                false
-        ));
+        // Synthetic fallback — skipped when the table already has a real created_at, which the loop above added.
+        boolean hasCreatedAt = profileColumns != null
+                && profileColumns.stream().anyMatch(c -> c.name().equals("created_at"));
+        if (!hasCreatedAt) {
+            filterableColumns.add(new DetectedColumn(
+                    "created_at",
+                    "timestamptz",
+                    true,
+                    0,
+                    false
+            ));
+        }
 
         return new SchemaIntrospectionResult.Detected(
                 ref.table(),

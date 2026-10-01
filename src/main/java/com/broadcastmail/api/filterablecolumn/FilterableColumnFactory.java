@@ -3,6 +3,7 @@ package com.broadcastmail.api.filterablecolumn;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -35,6 +36,8 @@ public final class FilterableColumnFactory {
         }
         return columns.stream()
                 .filter(col -> confirmedNames.contains(col.columnName()))
+                .collect(Collectors.toMap(DetectedColumn::columnName, col -> col, (first, dup) -> first, LinkedHashMap::new))
+                .values().stream()
                 .map(col -> FilterableColumn.builder()
                         .connectionId(connectionId)
                         .columnName(col.columnName())
