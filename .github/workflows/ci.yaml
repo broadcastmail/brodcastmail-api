@@ -59,3 +59,5 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/broadcastmail-api:${{ steps.tag.outputs.tag }}
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.PACKAGES_TOKEN }}
