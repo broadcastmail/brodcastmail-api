@@ -137,9 +137,9 @@ V1 in active development. Target launch: August 22, 2026.
 | Supabase OAuth connection | Done |
 | Schema introspection | Done     |
 | Campaign CRUD |  Done   |
-| Fan-out worker |  In progress   |
-| Delivery tracking |  Planned   |
-| Frontend dashboard |  Planned   |
+| Fan-out worker |  Done   |
+| Delivery tracking |  Done   |
+| Frontend dashboard |  Done   |
 | Stripe billing |  Planned   |
 
 ---
