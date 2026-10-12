@@ -3,18 +3,16 @@ package com.broadcastmail.api.campaign;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
-import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
-import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
 import com.broadcastmail.common.campaign.filter.FilterQuery;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
+import com.broadcastmail.api.supabase.CustomerConnectionFactory;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -27,7 +25,7 @@ public class RecipientPreviewService {
 
     private final CampaignService campaignService;
     private final ConnectionRepository connectionRepository;
-    private final EncryptionProperties encryptionProperties;
+    private final CustomerConnectionFactory connectionFactory;
     private final CampaignFilterRepository filterRepository;
     private final CampaignFilterSerializer filterSerializer;
     private final CampaignFilterValidator filterValidator;
@@ -38,9 +36,6 @@ public class RecipientPreviewService {
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
 
-        String jdbcUrl = SupabaseSql.buildJdbcUrl(connection.getProjectRef());
-        String rolePassword = SecurityUtil.decrypt(connection.getEncryptedCreds(), encryptionProperties.key());
-
         List<CampaignFilter> filters = filterRepository.findByCampaignId(campaignId);
         filterValidator.validateSaved(accountId, filters);
         FilterQuery filterQuery = filterSerializer.serialize(filters);
@@ -50,7 +45,7 @@ public class RecipientPreviewService {
                         connection.getUserTableSchema(), connection.getUserTableName(), connection.getUserIdColumn())
                         + " " + filterQuery.sql();
 
-        try (java.sql.Connection conn = DriverManager.getConnection(jdbcUrl, "broadcastmail_reader", rolePassword);
+        try (java.sql.Connection conn = connectionFactory.open(connection);
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             for (int i = 0; i < filterQuery.parameters().size(); i++) {

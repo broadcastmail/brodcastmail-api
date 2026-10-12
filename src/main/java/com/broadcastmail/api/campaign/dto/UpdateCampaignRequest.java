@@ -13,5 +13,8 @@ public record UpdateCampaignRequest(
         Optional<String> subject,
         Optional<String> bodyHtml,
         Optional<OffsetDateTime> scheduledAt,
-        List<@Valid FilterRequest> filters
+        List<@Valid FilterRequest> filters,
+        Optional<String> audienceMode,
+        List<String> includedIds,
+        List<String> excludedIds
 ) {}

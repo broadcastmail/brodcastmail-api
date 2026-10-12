@@ -68,6 +68,13 @@ public class GlobalExceptionHandler {
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 
+    @ExceptionHandler(AudienceNotConfiguredException.class)
+    public ResponseEntity<Map<String, String>> handleAudienceNotConfigured(AudienceNotConfiguredException ex) {
+        return ResponseEntity
+                .status(HttpStatus.UNPROCESSABLE_CONTENT)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
     @ExceptionHandler(InvalidCampaignFilterException.class)
     public ResponseEntity<Map<String, String>> handleInvalidCampaignFilter(InvalidCampaignFilterException ex) {
         return ResponseEntity
@@ -81,8 +88,6 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND)
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
-
-
 
     @ExceptionHandler(InvalidUnsubscribeTokenException.class)
     public ResponseEntity<Map<String, String>> handleInvalidUnsubscribeToken(InvalidUnsubscribeTokenException ex) {

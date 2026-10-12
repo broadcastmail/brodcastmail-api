@@ -4,6 +4,7 @@ import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.CampaignService;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
+import com.broadcastmail.api.common.exceptions.AudienceNotConfiguredException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
@@ -53,6 +54,9 @@ public class CampaignConfirmService {
                 .orElseThrow(AccountNotFoundException::new);
 
         List<CampaignFilter> filters = campaignFilterRepository.findByCampaignId(campaignId);
+        if (campaign.getAudienceMode() == null && filters.isEmpty()) {
+            throw new AudienceNotConfiguredException();
+        }
         if (!filters.isEmpty()) {
             planFacade.enforceFeature(account, PlanFeature.FILTERS);
             filterValidator.validateSaved(accountId, filters);

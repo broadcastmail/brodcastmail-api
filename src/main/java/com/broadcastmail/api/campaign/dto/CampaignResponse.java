@@ -1,10 +1,12 @@
 package com.broadcastmail.api.campaign.dto;
 
 
+import com.broadcastmail.api.common.LowerCaseEnumSerializer;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
-
+import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import java.time.OffsetDateTime;
 import java.util.Comparator;
@@ -28,7 +30,10 @@ public record CampaignResponse(
         OffsetDateTime sentAt,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
-        List<CampaignFilterResponse> filters
+        List<CampaignFilterResponse> filters,
+        @JsonSerialize(using = LowerCaseEnumSerializer.class) AudienceMode audienceMode,
+        List<String> includedIds,
+        List<String> excludedIds
 ) {
     /** For campaigns whose filters aren't relevant to the caller (e.g. retry campaigns). */
     public static CampaignResponse from(Campaign campaign) {
@@ -57,7 +62,10 @@ public record CampaignResponse(
                 filters.stream()
                         .sorted(Comparator.comparingInt(CampaignFilter::getFilterOrder))
                         .map(CampaignFilterResponse::from)
-                        .toList()
+                        .toList(),
+                campaign.getAudienceMode(),
+                campaign.getIncludedIds(),
+                campaign.getExcludedIds()
         );
     }
 }

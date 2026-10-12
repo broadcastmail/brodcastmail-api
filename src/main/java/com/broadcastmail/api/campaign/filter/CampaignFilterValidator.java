@@ -2,6 +2,7 @@ package com.broadcastmail.api.campaign.filter;
 
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
@@ -23,13 +24,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CampaignFilterValidator {
 
-    private static final String IDENTIFIER_PATTERN = "[a-zA-Z_]\\w*";
-
     private final ConnectionRepository connectionRepository;
     private final FilterableColumnRepository filterableColumnRepository;
 
     public void validateRequests(UUID accountId, List<FilterRequest> requests) {
-        if (requests == null || requests.isEmpty()) return;
         validate(accountId, requests.stream()
                 .map(r -> new Candidate(r.columnName(), r.sourceOrDefault(), r.jsonKey()))
                 .toList());
@@ -55,7 +53,7 @@ public class CampaignFilterValidator {
             if (c.source() == FilterSource.AUTH_METADATA_JSON) {
                 if (!CampaignFilterSerializer.JSON_METADATA_COLUMNS.contains(c.columnName())) {
                     problems.add("'" + c.columnName() + "' is not a valid metadata column");
-                } else if (c.jsonKey() == null || !c.jsonKey().matches(IDENTIFIER_PATTERN)) {
+                } else if (c.jsonKey() == null || !SupabaseSql.IDENTIFIER_PATTERN.matcher(c.jsonKey()).matches()) {
                     problems.add("'" + c.jsonKey() + "' is not a valid key for " + c.columnName());
                 }
             } else if (!enabled.contains(key(c.source(), c.columnName()))) {

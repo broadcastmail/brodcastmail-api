@@ -2,12 +2,14 @@ package com.broadcastmail.api.campaign;
 
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
+import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
+import com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
@@ -72,6 +74,25 @@ public class CampaignService {
         request.subject().ifPresent(campaign::setSubject);
         request.bodyHtml().ifPresent(campaign::setBodyHtml);
         request.scheduledAt().ifPresent(campaign::setScheduledAt);
+
+        request.audienceMode().ifPresent(raw -> {
+            try {
+                campaign.setAudienceMode(AudienceMode.valueOf(raw.toUpperCase()));
+            } catch (IllegalArgumentException _) {
+                throw new InvalidCampaignFilterException(List.of("Invalid audienceMode: " + raw));
+            }
+        });
+
+        if (request.includedIds() != null) {
+            if (request.includedIds().size() > 5000) {
+                throw new InvalidCampaignFilterException(List.of("includedIds exceeds the 5,000 limit"));
+            }
+            campaign.setIncludedIds(request.includedIds());
+        }
+
+        if (request.excludedIds() != null) {
+            campaign.setExcludedIds(request.excludedIds());
+        }
 
         if (request.filters() != null) {
             filterValidator.validateRequests(accountId, request.filters());
