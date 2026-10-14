@@ -9,7 +9,9 @@ import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
+import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
@@ -32,6 +34,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CampaignServiceTest {
@@ -45,7 +48,10 @@ class CampaignServiceTest {
     private CampaignFilterRepository campaignFilterRepository;
     @Mock
     private CampaignFilterValidator filterValidator;
-
+    @Mock
+    private ConnectionRepository connectionRepository;
+    @Mock
+    private CampaignRecipientRepository recipientRepository;
 
     @Captor
     private ArgumentCaptor<List<CampaignFilter>> filterCaptor;
@@ -65,7 +71,8 @@ class CampaignServiceTest {
     @Test
     void shouldCreateCampaignInDraftStatus() {
         // Given
-        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, connection.getId(), null);
+        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, null);
+        when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(connection));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // When
@@ -79,10 +86,11 @@ class CampaignServiceTest {
     @Test
     void shouldCreateCampaignWithFiltersAttached() {
         // Given
-        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, connection.getId(), List.of(
+        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, List.of(
                 new FilterRequest("plan", FilterOperator.EQ, "free", null, null),
                 new FilterRequest("created_at", FilterOperator.GT, "2024-01-01", null, null)
         ));
+        when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(connection));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> {
             Campaign c = inv.getArgument(0);
             c.setId(UUID.randomUUID());
@@ -150,12 +158,7 @@ class CampaignServiceTest {
     void shouldApplyPatchToDraftCampaign()
     {
         Campaign existing = campaign(CampaignStatus.DRAFT).name("Old Name").build();
-        UpdateCampaignRequest request = new UpdateCampaignRequest(
-                Optional.of("New Name"),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                null);
+        UpdateCampaignRequest request = UpdateCampaignRequest.builder().name(Optional.of("New Name")).build();
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
                 .thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -175,7 +178,8 @@ class CampaignServiceTest {
         UpdateCampaignRequest request = new UpdateCampaignRequest(
                 Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
                 java.util.List.of(new com.broadcastmail.api.campaign.filter.dto.FilterRequest(
-                        "plan", com.broadcastmail.common.campaign.filter.FilterOperator.EQ, "pro", null, null)));
+                        "plan", com.broadcastmail.common.campaign.filter.FilterOperator.EQ, "pro", null, null)),
+                Optional.empty(), null, null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -191,7 +195,8 @@ class CampaignServiceTest {
     {
         Campaign existing = campaign(CampaignStatus.DRAFT).build();
         UpdateCampaignRequest request = new UpdateCampaignRequest(
-                Optional.of("X"), Optional.empty(), Optional.empty(), Optional.empty(), null);
+                Optional.of("X"), Optional.empty(), Optional.empty(), Optional.empty(), null,
+                Optional.empty(), null, null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -206,7 +211,8 @@ class CampaignServiceTest {
         // Given
         Campaign sending = campaign(CampaignStatus.SENDING).build();
         UpdateCampaignRequest request = new UpdateCampaignRequest(
-                Optional.of("New Name"), Optional.empty(), Optional.empty(), Optional.empty(), null);
+                Optional.of("New Name"), Optional.empty(), Optional.empty(), Optional.empty(), null,
+                Optional.empty(), null, null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
                 .thenReturn(Optional.of(sending));
 

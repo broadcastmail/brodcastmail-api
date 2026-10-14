@@ -121,6 +121,9 @@ public class CampaignConfirmService {
     }
 
     private Campaign createRetryCampaign(Campaign original, long failedRecipients) {
+        if (original.getRetryOfCampaignId() != null) {
+            throw new CampaignNotRetryableException();
+        }
         if (retryCampaignRepository.hasRetryCampaign(original.getId())) {
             throw new CampaignNotRetryableException();
         }

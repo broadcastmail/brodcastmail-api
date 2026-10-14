@@ -16,6 +16,7 @@ import java.util.UUID;
 public record CampaignResponse(
         UUID id,
         UUID connectionId,
+        UUID retryOfCampaignId,
         String name,
         String subject,
         String bodyHtml,
@@ -45,6 +46,7 @@ public record CampaignResponse(
         return new CampaignResponse(
                 campaign.getId(),
                 campaign.getConnectionId(),
+                campaign.getRetryOfCampaignId(),
                 campaign.getName(),
                 campaign.getSubject(),
                 campaign.getBodyHtml(),
