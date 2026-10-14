@@ -28,6 +28,7 @@ public class CampaignFilterValidator {
     private final FilterableColumnRepository filterableColumnRepository;
 
     public void validateRequests(UUID accountId, List<FilterRequest> requests) {
+        if (requests == null || requests.isEmpty()) return;
         validate(accountId, requests.stream()
                 .map(r -> new Candidate(r.columnName(), r.sourceOrDefault(), r.jsonKey()))
                 .toList());

@@ -158,7 +158,13 @@ class CampaignServiceTest {
     void shouldApplyPatchToDraftCampaign()
     {
         Campaign existing = campaign(CampaignStatus.DRAFT).name("Old Name").build();
-        UpdateCampaignRequest request = UpdateCampaignRequest.builder().name(Optional.of("New Name")).build();
+        UpdateCampaignRequest request = UpdateCampaignRequest.builder()
+                .name(Optional.of("New Name"))
+                .subject(Optional.empty())
+                .bodyHtml(Optional.empty())
+                .scheduledAt(Optional.empty())
+                .audienceMode(Optional.empty())
+                .build();
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
                 .thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));

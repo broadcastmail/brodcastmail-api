@@ -3,6 +3,7 @@ package com.broadcastmail.api.campaign.confirm;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.CampaignService;
+import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
@@ -59,7 +60,7 @@ class CampaignConfirmServiceTest {
     private Campaign campaign(CampaignStatus status) {
         return Campaign.builder().id(CAMPAIGN_ID).accountId(ACCOUNT_ID).connectionId(UUID.randomUUID()).name("Newsletter").subject("Hello")
                 .bodyHtml("<p>Hi</p>").status(status).deliveredCount(95).sentCount(100).openedCount(30)
-                .bouncedCount(2).failedCount(5).build();
+                .bouncedCount(2).failedCount(5).audienceMode(AudienceMode.ALL).build();
     }
 
     @Test
