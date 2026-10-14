@@ -1,8 +1,10 @@
 package com.broadcastmail.api.campaign;
 
+import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
-import com.broadcastmail.api.config.EncryptionProperties;
+import com.broadcastmail.api.supabase.CustomerConnectionFactory;
+import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
@@ -15,10 +17,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -28,6 +28,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -46,7 +47,10 @@ class RecipientPreviewServiceTest {
     private CampaignFilterRepository filterRepository;
 
     @Mock
-    private com.broadcastmail.api.campaign.filter.CampaignFilterValidator filterValidator;
+    private CampaignFilterValidator filterValidator;
+
+    @Mock
+    private CustomerConnectionFactory connectionFactory;
 
     private RecipientPreviewService recipientPreviewService;
 
@@ -55,7 +59,7 @@ class RecipientPreviewServiceTest {
         recipientPreviewService = new RecipientPreviewService(
                 campaignService,
                 connectionRepository,
-                new EncryptionProperties(ENCRYPTION_KEY),
+                connectionFactory,
                 filterRepository,
                 new CampaignFilterSerializer(),
                 filterValidator
@@ -86,7 +90,7 @@ class RecipientPreviewServiceTest {
         when(campaignService.getCampaign(accountId, campaignId))
                 .thenThrow(new com.broadcastmail.api.common.exceptions.CampaignNotFoundException(campaignId));
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> recipientPreviewService.preview(accountId, campaignId))
+        assertThatThrownBy(() -> recipientPreviewService.preview(accountId, campaignId))
                 .isInstanceOf(com.broadcastmail.api.common.exceptions.CampaignNotFoundException.class);
         verifyNoInteractions(filterRepository, connectionRepository);
     }
@@ -102,7 +106,7 @@ class RecipientPreviewServiceTest {
         doThrow(new com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException(List.of("gone")))
                 .when(filterValidator).validateSaved(accountId, filters);
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> recipientPreviewService.preview(accountId, campaignId))
+        assertThatThrownBy(() -> recipientPreviewService.preview(accountId, campaignId))
                 .isInstanceOf(com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException.class);
         verify(connectionRepository, never()).save(any());
     }
@@ -122,17 +126,13 @@ class RecipientPreviewServiceTest {
         when(resultSet.next()).thenReturn(true);
         when(resultSet.getInt(1)).thenReturn(42);
         java.sql.Connection sqlConnection = stubJdbcConnection(statement);
+        when(connectionFactory.open(any())).thenReturn(sqlConnection);
 
-        try (MockedStatic<DriverManager> driverManager = mockStatic(DriverManager.class)) {
-            driverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
-                    .thenReturn(sqlConnection);
+        // When
+        Integer count = recipientPreviewService.preview(accountId, campaignId);
 
-            // When
-            Integer count = recipientPreviewService.preview(accountId, campaignId);
-
-            // Then
-            assertThat(count).isEqualTo(42);
-        }
+        // Then
+        assertThat(count).isEqualTo(42);
 
         // The service mutates and persists the same Connection it read the estimate onto
         verify(connectionRepository).save(connection);
@@ -151,18 +151,13 @@ class RecipientPreviewServiceTest {
         when(statement.executeQuery()).thenReturn(resultSet);
         when(resultSet.next()).thenReturn(false);
         java.sql.Connection sqlConnection = stubJdbcConnection(statement);
+        when(connectionFactory.open(any())).thenReturn(sqlConnection);
 
-        try (MockedStatic<DriverManager> driverManager = mockStatic(DriverManager.class)) {
-            driverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
-                    .thenReturn(sqlConnection);
+        // When
+        Integer count = recipientPreviewService.preview(accountId, campaignId);
 
-            // When
-            Integer count = recipientPreviewService.preview(accountId, campaignId);
-
-            // Then
-            assertThat(count).isZero();
-        }
-
+        // Then
+        assertThat(count).isZero();
         verify(connectionRepository, never()).save(any());
     }
 
@@ -179,23 +174,18 @@ class RecipientPreviewServiceTest {
     }
 
     @Test
-    void shouldWrapSqlExceptionAsRuntimeException() {
+    void shouldWrapSqlExceptionAsRuntimeException() throws SQLException {
         // Given
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
-        SQLException connectionRefused = new SQLException("connection refused");
+        when(connectionFactory.open(any())).thenThrow(new SQLException("connection refused"));
 
-        try (MockedStatic<DriverManager> driverManager = mockStatic(DriverManager.class)) {
-            driverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
-                    .thenThrow(connectionRefused);
-
-            // When / Then
-            assertThatThrownBy(() -> recipientPreviewService.preview(accountId, campaignId))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("connection refused");
-        }
+        // When / Then
+        assertThatThrownBy(() -> recipientPreviewService.preview(accountId, campaignId))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("connection refused");
     }
 
     @Test
@@ -223,18 +213,14 @@ class RecipientPreviewServiceTest {
         java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         when(sqlConnection.prepareStatement(sqlCaptor.capture())).thenReturn(statement);
+        when(connectionFactory.open(any())).thenReturn(sqlConnection);
 
-        try (MockedStatic<DriverManager> driverManager = mockStatic(DriverManager.class)) {
-            driverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
-                    .thenReturn(sqlConnection);
-
-            // When
-            recipientPreviewService.preview(accountId, campaignId);
-        }
+        // When
+        recipientPreviewService.preview(accountId, campaignId);
 
         // Then
         assertThat(sqlCaptor.getValue()).isEqualTo(
-                "SELECT COUNT(*) FROM auth.user_emails ue JOIN \"public\".\"profiles\" p ON p.\"id\" = ue.id WHERE \"plan\" = ?");
+                SupabaseSql.buildRecipientCountQuery("public", "profiles", "id") + " WHERE \"plan\" = ?");
         verify(statement).setObject(1, "pro");
     }
 
@@ -255,17 +241,13 @@ class RecipientPreviewServiceTest {
         java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         when(sqlConnection.prepareStatement(sqlCaptor.capture())).thenReturn(statement);
+        when(connectionFactory.open(any())).thenReturn(sqlConnection);
 
-        try (MockedStatic<DriverManager> driverManager = mockStatic(DriverManager.class)) {
-            driverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
-                    .thenReturn(sqlConnection);
-
-            // When
-            recipientPreviewService.preview(accountId, campaignId);
-        }
+        // When
+        recipientPreviewService.preview(accountId, campaignId);
 
         // Then - no join needed (and none wanted: it would wrongly exclude auth
         // users without a profile row yet, since it's an INNER JOIN)
-        assertThat(sqlCaptor.getValue()).isEqualTo("SELECT COUNT(*) FROM auth.user_emails");
+        assertThat(sqlCaptor.getValue()).isEqualTo(SupabaseSql.COUNT_RECIPIENTS);
     }
 }

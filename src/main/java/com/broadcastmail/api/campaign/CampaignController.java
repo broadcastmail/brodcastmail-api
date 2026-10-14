@@ -74,6 +74,15 @@ public class CampaignController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{id}/recipients")
+    public ResponseEntity<Page<RecipientResponse>> getRecipients(
+            @AuthenticationPrincipal UUID accountId,
+            @PathVariable UUID id,
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(campaignService.getCampaignRecipients(accountId, id, status, pageable));
+    }
+
     @GetMapping("/{id}/preview")
     public ResponseEntity<RecipientPreviewResponse> previewRecipients(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
         int count = recipientPreviewService.preview(accountId, id);

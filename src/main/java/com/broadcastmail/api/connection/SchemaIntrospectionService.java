@@ -184,13 +184,12 @@ public class SchemaIntrospectionService {
         };
     }
 
-    private static final String IDENTIFIER_PATTERN = "[a-zA-Z_]\\w*";
-
     private int getCardinality(Connection conn, String schemaName, String tableName, String columnName) {
-        if (!columnName.matches(IDENTIFIER_PATTERN)) {
+        if (!SupabaseSql.IDENTIFIER_PATTERN.matcher(columnName).matches()) {
             return 999;
         }
-        if (!tableName.matches(IDENTIFIER_PATTERN) || !schemaName.matches(IDENTIFIER_PATTERN)) {
+        if (!SupabaseSql.IDENTIFIER_PATTERN.matcher(tableName).matches()
+                || !SupabaseSql.IDENTIFIER_PATTERN.matcher(schemaName).matches()) {
             return 999;
         }
 

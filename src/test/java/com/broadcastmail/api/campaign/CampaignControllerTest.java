@@ -78,7 +78,7 @@ class CampaignControllerTest {
     @Test
     void shouldReturn201WithCampaignOnCreate() throws Exception {
         // Given
-        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, connection.getId(),null);
+        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, null);
         String requestBody = objectMapper.writeValueAsString(request);
 
         // When

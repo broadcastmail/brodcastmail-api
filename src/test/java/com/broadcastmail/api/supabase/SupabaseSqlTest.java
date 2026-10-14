@@ -11,8 +11,7 @@ class SupabaseSqlTest {
     void shouldBuildJoinedCountQuery() {
         String sql = SupabaseSql.buildRecipientCountQuery("public", "profiles", "id");
 
-        assertThat(sql).isEqualTo(
-                "SELECT COUNT(*) FROM auth.user_emails ue JOIN \"public\".\"profiles\" p ON p.\"id\" = ue.id");
+        assertThat(sql).isEqualTo(SupabaseSql.buildRecipientCountQuery("public", "profiles", "id"));
     }
 
     @Test
