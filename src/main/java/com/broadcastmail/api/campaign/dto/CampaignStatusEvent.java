@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record CampaignStatusEvent(
         UUID id,
+        String name,
         CampaignStatus status,
         Integer recipientsCount,
         Integer sentCount,
@@ -18,6 +19,7 @@ public record CampaignStatusEvent(
     public static CampaignStatusEvent from(Campaign campaign) {
         return new CampaignStatusEvent(
                 campaign.getId(),
+                campaign.getName(),
                 campaign.getStatus(),
                 campaign.getRecipientCount(),
                 campaign.getSentCount(),

@@ -1,6 +1,7 @@
 package com.broadcastmail.api.account.metrics;
 
 import com.broadcastmail.api.account.metrics.dto.AccountMetricsResponse;
+import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.DeliveryStats;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
@@ -19,6 +20,7 @@ public class AccountMetricsService {
     private final ConnectionRepository connectionRepository;
     private final CampaignRepository campaignRepository;
     private final CampaignRecipientRepository campaignRecipientRepository;
+    private final AccountRepository accountRepository;
 
     public AccountMetricsResponse getMetrics(UUID accountId) {
         OffsetDateTime since = OffsetDateTime.now(ZoneId.systemDefault()).minusDays(30);
@@ -40,13 +42,17 @@ public class AccountMetricsService {
         long recipientsUsed = campaignRecipientRepository
                 .countUniqueRecipientsSince(accountId, since);
 
+        int recipientsLimit = accountRepository.findById(accountId)
+                .map(a -> a.getPlan().strategy().recipientLimit())
+                .orElse(500);
+
         return new AccountMetricsResponse(
                 audience,
                 audienceSource,
                 stats.getDelivered(),
                 deliveryRate,
                 recipientsUsed,
-                500
+                recipientsLimit
         );
     }
 }

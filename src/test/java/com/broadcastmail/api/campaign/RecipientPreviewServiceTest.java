@@ -1,6 +1,7 @@
 package com.broadcastmail.api.campaign;
 
 import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
@@ -234,7 +235,7 @@ class RecipientPreviewServiceTest {
 
         // Then
         assertThat(sqlCaptor.getValue()).isEqualTo(
-                "SELECT COUNT(*) FROM auth.user_emails ue JOIN \"public\".\"profiles\" p ON p.\"id\" = ue.id WHERE \"plan\" = ?");
+                SupabaseSql.buildRecipientCountQuery("public", "profiles", "id") + " WHERE \"plan\" = ?");
         verify(statement).setObject(1, "pro");
     }
 

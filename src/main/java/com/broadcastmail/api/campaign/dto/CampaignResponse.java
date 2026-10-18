@@ -1,10 +1,13 @@
 package com.broadcastmail.api.campaign.dto;
 
 
+import com.broadcastmail.api.common.LowerCaseEnumSerializer;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
-
+import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import jakarta.validation.constraints.NotNull;
 
 import java.time.OffsetDateTime;
 import java.util.Comparator;
@@ -12,23 +15,27 @@ import java.util.List;
 import java.util.UUID;
 
 public record CampaignResponse(
-        UUID id,
-        UUID connectionId,
-        String name,
-        String subject,
-        String bodyHtml,
-        CampaignStatus status,
+        @NotNull UUID id,
+        @NotNull UUID connectionId,
+        UUID retryOfCampaignId,
+        @NotNull String name,
+        @NotNull String subject,
+        @NotNull String bodyHtml,
+        @NotNull CampaignStatus status,
         Integer recipientCount,
-        Integer sentCount,
-        Integer deliveredCount,
-        Integer openedCount,
-        Integer bouncedCount,
-        Integer failedCount,
+        @NotNull Integer sentCount,
+        @NotNull Integer deliveredCount,
+        @NotNull Integer openedCount,
+        @NotNull Integer bouncedCount,
+        @NotNull Integer failedCount,
         OffsetDateTime scheduledAt,
         OffsetDateTime sentAt,
-        OffsetDateTime createdAt,
-        OffsetDateTime updatedAt,
-        List<CampaignFilterResponse> filters
+        @NotNull OffsetDateTime createdAt,
+        @NotNull OffsetDateTime updatedAt,
+        @NotNull List<CampaignFilterResponse> filters,
+        @NotNull @JsonSerialize(using = LowerCaseEnumSerializer.class) AudienceMode audienceMode,
+        List<String> includedIds,
+        List<String> excludedIds
 ) {
     /** For campaigns whose filters aren't relevant to the caller (e.g. retry campaigns). */
     public static CampaignResponse from(Campaign campaign) {
@@ -40,6 +47,7 @@ public record CampaignResponse(
         return new CampaignResponse(
                 campaign.getId(),
                 campaign.getConnectionId(),
+                campaign.getRetryOfCampaignId(),
                 campaign.getName(),
                 campaign.getSubject(),
                 campaign.getBodyHtml(),
@@ -57,7 +65,10 @@ public record CampaignResponse(
                 filters.stream()
                         .sorted(Comparator.comparingInt(CampaignFilter::getFilterOrder))
                         .map(CampaignFilterResponse::from)
-                        .toList()
+                        .toList(),
+                campaign.getAudienceMode(),
+                campaign.getIncludedIds(),
+                campaign.getExcludedIds()
         );
     }
 }

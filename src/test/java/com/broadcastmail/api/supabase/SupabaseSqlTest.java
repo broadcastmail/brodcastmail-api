@@ -12,7 +12,7 @@ class SupabaseSqlTest {
         String sql = SupabaseSql.buildRecipientCountQuery("public", "profiles", "id");
 
         assertThat(sql).isEqualTo(
-                "SELECT COUNT(*) FROM auth.user_emails ue JOIN \"public\".\"profiles\" p ON p.\"id\" = ue.id");
+                "SELECT COUNT(*) FROM auth.user_emails auth JOIN \"public\".\"profiles\" linked ON linked.\"id\" = auth.id");
     }
 
     @Test
