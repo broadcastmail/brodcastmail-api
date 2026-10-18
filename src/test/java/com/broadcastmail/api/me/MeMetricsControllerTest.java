@@ -1,4 +1,4 @@
-package com.broadcastmail.api.account.metrics;
+package com.broadcastmail.api.me;
 
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureMockMvc
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
-class AccountMetricsControllerTest {
+class MeMetricsControllerTest {
 
     @Autowired private MockMvcTester mockMvc;
     @Autowired private AccountRepository accountRepository;
@@ -61,7 +61,7 @@ class AccountMetricsControllerTest {
     void shouldReturn200WithMetrics() {
         // When
         var response = mockMvc.get()
-                .uri("/api/v1/account/metrics")
+                .uri("/api/v1/me/metrics")
                 .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
                 .exchange();
 
@@ -78,7 +78,7 @@ class AccountMetricsControllerTest {
 
         // When
         var response = mockMvc.get()
-                .uri("/api/v1/account/metrics")
+                .uri("/api/v1/me/metrics")
                 .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
                 .exchange();
 
@@ -98,7 +98,7 @@ class AccountMetricsControllerTest {
 
         // When
         var response = mockMvc.get()
-                .uri("/api/v1/account/metrics")
+                .uri("/api/v1/me/metrics")
                 .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
                 .exchange();
 
@@ -119,7 +119,7 @@ class AccountMetricsControllerTest {
 
         // When
         var response = mockMvc.get()
-                .uri("/api/v1/account/metrics")
+                .uri("/api/v1/me/metrics")
                 .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
                 .exchange();
 
@@ -143,7 +143,7 @@ class AccountMetricsControllerTest {
 
         // When
         var response = mockMvc.get()
-                .uri("/api/v1/account/metrics")
+                .uri("/api/v1/me/metrics")
                 .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
                 .exchange();
 
@@ -155,7 +155,7 @@ class AccountMetricsControllerTest {
     void shouldReturn401WhenNoApiKey() {
         // When
         var response = mockMvc.get()
-                .uri("/api/v1/account/metrics")
+                .uri("/api/v1/me/metrics")
                 .exchange();
 
         // Then

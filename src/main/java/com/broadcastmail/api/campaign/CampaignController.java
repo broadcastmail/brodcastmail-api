@@ -7,6 +7,7 @@ import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.task.TaskExecutor;
@@ -24,8 +25,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
-import static reactor.netty.http.HttpConnectionLiveness.log;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
+@Tag(name = "campaigns")
 @RestController
 @RequestMapping("/api/v1/campaigns")
 @RequiredArgsConstructor

@@ -1,6 +1,7 @@
 package com.broadcastmail.api.account.metrics;
 
 import com.broadcastmail.api.account.metrics.dto.AccountMetricsResponse;
+import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.DeliveryStats;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
@@ -28,6 +29,8 @@ class AccountMetricsServiceTest {
     private CampaignRepository campaignRepository;
     @Mock
     private CampaignRecipientRepository campaignRecipientRepository;
+    @Mock
+    private AccountRepository accountRepository;
 
     @InjectMocks
     private AccountMetricsService accountMetricsService;

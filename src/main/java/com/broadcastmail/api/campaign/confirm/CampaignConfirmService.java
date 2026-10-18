@@ -76,6 +76,8 @@ public class CampaignConfirmService {
             restartResolution(campaign);
             return Optional.empty();
         }
+        Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
+        planFacade.enforceRecipientLimit(account, (int) failedRecipients);
         return Optional.of(createRetryCampaign(campaign, failedRecipients));
     }
 
@@ -90,6 +92,8 @@ public class CampaignConfirmService {
         if (failedRecipients == 0) {
             throw new CampaignNotRetryableException();
         }
+        Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
+        planFacade.enforceRecipientLimit(account, (int) failedRecipients);
         return createRetryCampaign(campaign, failedRecipients);
     }
 

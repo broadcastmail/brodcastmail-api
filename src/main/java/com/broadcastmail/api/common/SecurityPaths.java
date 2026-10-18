@@ -12,7 +12,11 @@ public class SecurityPaths {
             "/api/v1/oauth/**",
             "/api/v1/onboarding/**",
             "/unsubscribe",
-            "/actuator/health"
+            "/actuator/health",
+            "/webhooks/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/v3/api-docs/**"
     );
 
     public static String[] publicPaths() {
