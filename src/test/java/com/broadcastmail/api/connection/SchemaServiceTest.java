@@ -3,7 +3,7 @@ package com.broadcastmail.api.connection;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
-import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
+import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.common.connection.Connection;
@@ -224,7 +224,7 @@ class SchemaServiceTest {
                                 new com.broadcastmail.api.connection.dto.DetectedColumn("country", "text", true, 3, false)),
                         List.of()));
         when(filterableColumnRepository.findByConnectionId(connectionId)).thenReturn(List.of(
-                com.broadcastmail.api.filterablecolumn.FilterableColumn.builder()
+                com.broadcastmail.common.filterablecolumn.FilterableColumn.builder()
                         .connectionId(connectionId).columnName("plan").columnType("text").displayName("plan")
                         .source(com.broadcastmail.common.campaign.filter.FilterSource.PROFILE_TABLE)
                         .enabled(true).cardinalityWarning(false).build()));

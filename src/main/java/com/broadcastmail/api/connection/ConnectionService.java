@@ -1,8 +1,8 @@
 package com.broadcastmail.api.connection;
 
-import com.broadcastmail.api.filterablecolumn.FilterableColumn;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
-import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
+import com.broadcastmail.common.filterablecolumn.FilterableColumn;
+import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
