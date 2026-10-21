@@ -8,7 +8,7 @@ import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.account.plan.Plan;
 import com.broadcastmail.common.connection.ConnectionRepository;
-import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
+import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.oauth.OAuthToken;
 import com.broadcastmail.api.resend.ResendClient;
 import com.broadcastmail.api.token.OAuthTokenRepository;

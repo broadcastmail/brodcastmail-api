@@ -4,7 +4,7 @@ import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException;
-import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
+import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
 import com.broadcastmail.common.campaign.filter.FilterSource;
