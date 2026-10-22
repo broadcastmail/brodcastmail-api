@@ -96,6 +96,12 @@ public class CampaignController {
         return ResponseEntity.accepted().build();
     }
 
+    @DeleteMapping("/{id}/schedule")
+    public ResponseEntity<Void> unscheduleCampaign(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
+        campaignService.unscheduleCampaign(accountId, id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/confirm")
     public ResponseEntity<Void> confirmCampaign(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
         campaignConfirmService.confirmCampaign(accountId, id);

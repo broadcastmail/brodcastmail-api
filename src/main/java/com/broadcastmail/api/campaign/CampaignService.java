@@ -36,6 +36,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -157,6 +159,17 @@ public class CampaignService {
         }
         return recipientRepository.findByCampaignIdAndStatus(campaignId, recipientStatus, pageable)
                 .map(RecipientResponse::from);
+    }
+
+    public void unscheduleCampaign(UUID accountId, UUID campaignId) {
+        Campaign campaign = getCampaign(accountId, campaignId);
+        if (campaign.getStatus() != CampaignStatus.RESOLVING || campaign.getScheduledAt() == null
+                || !campaign.getScheduledAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
+            throw new CampaignNotEditableException();
+        }
+        campaign.setStatus(CampaignStatus.DRAFT);
+        campaign.setScheduledAt(null);
+        campaignRepository.save(campaign);
     }
 
     public void sendTestEmail(UUID accountId, UUID campaignId, @Valid TestEmailRequest request) {

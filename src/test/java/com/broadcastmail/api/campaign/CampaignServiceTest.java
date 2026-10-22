@@ -36,6 +36,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -296,6 +298,30 @@ class CampaignServiceTest {
         assertThatThrownBy(() -> campaignService.sendTestEmail(ACCOUNT_ID, CAMPAIGN_ID, new TestEmailRequest(Map.of())))
                 .isInstanceOf(CampaignNotEditableException.class);
         verifyNoInteractions(resendClient);
+    }
+
+@Test
+    void shouldRejectUnscheduleWhenScheduledAtAlreadyPassed() {
+        // Given
+        Campaign scheduled = campaign(CampaignStatus.RESOLVING)
+                .scheduledAt(OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(1))
+                .build();
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(scheduled));
+
+        // When / Then
+        assertThatThrownBy(() -> campaignService.unscheduleCampaign(ACCOUNT_ID, CAMPAIGN_ID))
+                .isInstanceOf(CampaignNotEditableException.class);
+    }
+
+    @Test
+    void shouldRejectUnscheduleWhenNoScheduledAt() {
+        // Given
+        Campaign resolving = campaign(CampaignStatus.RESOLVING).build();
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(resolving));
+
+        // When / Then
+        assertThatThrownBy(() -> campaignService.unscheduleCampaign(ACCOUNT_ID, CAMPAIGN_ID))
+                .isInstanceOf(CampaignNotEditableException.class);
     }
 
     private void givenTestEmailSetup(String bodyHtml, String subject) {
