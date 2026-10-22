@@ -1,8 +1,14 @@
 package com.broadcastmail.api.campaign;
 
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
+import com.broadcastmail.api.campaign.dto.TestEmailRequest;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
+import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.config.EncryptionProperties;
+import com.broadcastmail.api.resend.ResendClient;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.campaign.filter.FilterOperator;
@@ -15,6 +21,8 @@ import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
+import com.broadcastmail.common.emailprovider.EmailProvider;
+import com.broadcastmail.common.emailprovider.EmailProviderRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -52,6 +61,14 @@ class CampaignServiceTest {
     private ConnectionRepository connectionRepository;
     @Mock
     private CampaignRecipientRepository recipientRepository;
+    @Mock
+    private EmailProviderRepository emailProviderRepository;
+    @Mock
+    private AccountRepository accountRepository;
+    @Mock
+    private ResendClient resendClient;
+    @Mock
+    private EncryptionProperties encryptionProperties;
 
     @Captor
     private ArgumentCaptor<List<CampaignFilter>> filterCaptor;
@@ -60,6 +77,9 @@ class CampaignServiceTest {
     private Connection connection;
     @InjectMocks
     private CampaignService campaignService;
+
+    private static final String ENCRYPTION_KEY = "12345678901234567890123456789012";
+    private static final String TEST_API_KEY = "re_test_abc123";
 
     private Campaign.CampaignBuilder campaign(CampaignStatus status) {
         return Campaign.builder()
@@ -252,5 +272,42 @@ class CampaignServiceTest {
         assertThatThrownBy(() -> campaignService.deleteCampaign(ACCOUNT_ID, CAMPAIGN_ID))
                 .isInstanceOf(CampaignNotEditableException.class);
         verify(campaignRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void shouldSendTestEmailToAccountOwnerEmail() {
+        // Given
+        givenTestEmailSetup("<p>Hi {{name}}</p>", "Hello");
+
+        // When
+        campaignService.sendTestEmail(ACCOUNT_ID, CAMPAIGN_ID, new TestEmailRequest(Map.of("name", "John")));
+
+        // Then
+        verify(resendClient).sendTestEmail(ACCOUNT_ID, TEST_API_KEY, "sender@example.com", "user@example.com", "Hello", "<p>Hi John</p>");
+    }
+
+    @Test
+    void shouldRejectTestEmailOnNonDraftCampaign() {
+        // Given
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
+                .thenReturn(Optional.of(campaign(CampaignStatus.SENDING).build()));
+
+        // When / Then
+        assertThatThrownBy(() -> campaignService.sendTestEmail(ACCOUNT_ID, CAMPAIGN_ID, new TestEmailRequest(Map.of())))
+                .isInstanceOf(CampaignNotEditableException.class);
+        verifyNoInteractions(resendClient);
+    }
+
+    private void givenTestEmailSetup(String bodyHtml, String subject) {
+        EmailProvider provider = mock(EmailProvider.class);
+        Account account = mock(Account.class);
+        when(provider.getEncryptedApiKey()).thenReturn(SecurityUtil.encrypt(TEST_API_KEY, ENCRYPTION_KEY));
+        when(provider.getFromAddress()).thenReturn("sender@example.com");
+        when(account.getEmail()).thenReturn("user@example.com");
+        when(encryptionProperties.key()).thenReturn(ENCRYPTION_KEY);
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
+                .thenReturn(Optional.of(campaign(CampaignStatus.DRAFT).subject(subject).bodyHtml(bodyHtml).build()));
+        when(emailProviderRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(provider));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(account));
     }
 }

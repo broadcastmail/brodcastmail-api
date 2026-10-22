@@ -89,6 +89,13 @@ public class CampaignController {
         return ResponseEntity.ok(new RecipientPreviewResponse(count));
     }
 
+    @PostMapping("/{id}/test/send")
+    public ResponseEntity<Void> sendTestEmail(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id,
+                                              @RequestBody @Valid TestEmailRequest request) {
+        campaignService.sendTestEmail(accountId, id, request);
+        return ResponseEntity.accepted().build();
+    }
+
     @PostMapping("/{id}/confirm")
     public ResponseEntity<Void> confirmCampaign(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
         campaignConfirmService.confirmCampaign(accountId, id);

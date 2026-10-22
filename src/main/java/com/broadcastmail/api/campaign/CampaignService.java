@@ -2,12 +2,19 @@ package com.broadcastmail.api.campaign;
 
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.api.campaign.dto.RecipientResponse;
+import com.broadcastmail.api.campaign.dto.TestEmailRequest;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
+import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.config.EncryptionProperties;
+import com.broadcastmail.api.resend.ResendClient;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
+import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
@@ -18,6 +25,9 @@ import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import com.broadcastmail.common.campaign.recipient.RecipientStatus;
 import com.broadcastmail.common.connection.ConnectionRepository;
+import com.broadcastmail.common.emailprovider.EmailProvider;
+import com.broadcastmail.common.emailprovider.EmailProviderRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
@@ -28,7 +38,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +51,10 @@ public class CampaignService {
     private final CampaignFilterValidator filterValidator;
     private final ConnectionRepository connectionRepository;
     private final CampaignRecipientRepository recipientRepository;
+    private final EmailProviderRepository emailProviderRepository;
+    private final AccountRepository accountRepository;
+    private final ResendClient resendClient;
+    private final EncryptionProperties encryptionProperties;
 
 
     @Transactional
@@ -142,6 +159,22 @@ public class CampaignService {
                 .map(RecipientResponse::from);
     }
 
+    public void sendTestEmail(UUID accountId, UUID campaignId, @Valid TestEmailRequest request) {
+        Campaign campaign = getCampaign(accountId, campaignId);
+        if (campaign.getStatus() != CampaignStatus.DRAFT) {
+            throw new CampaignNotEditableException();
+        }
+        EmailProvider provider = emailProviderRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new IllegalStateException("No email provider configured for account"));
+
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(AccountNotFoundException::new);
+
+        String apiKey = SecurityUtil.decrypt(provider.getEncryptedApiKey(), encryptionProperties.key());
+
+        String body = applyTemplateVariables(campaign.getBodyHtml(), request.variables());
+        resendClient.sendTestEmail(accountId, apiKey, provider.getFromAddress(), account.getEmail(), campaign.getSubject(), body);
+    }
     private Campaign mapToEntity(UUID accountId, UUID connectionId, CreateCampaignRequest request) {
         return Campaign.builder()
                 .accountId(accountId)
@@ -152,6 +185,20 @@ public class CampaignService {
                 .connectionId(connectionId)
                 .scheduledAt(request.scheduledAt())
                 .build();
+    }
+
+    private static final Pattern TEMPLATE_VAR_PATTERN = Pattern.compile("\\{\\{([a-zA-Z_]\\w*)\\}\\}");
+
+    private String applyTemplateVariables(String html, Map<String, String> variables) {
+        if (variables == null || variables.isEmpty() || !html.contains("{{")) return html;
+        StringBuffer sb = new StringBuffer();
+        Matcher m = TEMPLATE_VAR_PATTERN.matcher(html);
+        while (m.find()) {
+            String val = variables.getOrDefault(m.group(1), m.group(0));
+            m.appendReplacement(sb, Matcher.quoteReplacement(val));
+        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     private String sanitize(String html) {
