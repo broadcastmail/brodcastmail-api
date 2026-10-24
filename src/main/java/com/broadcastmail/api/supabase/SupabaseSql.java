@@ -145,7 +145,7 @@ public final class SupabaseSql {
                     if (label.equals("__id") || label.equals("__email") || label.equals("__total")) continue;
                     attributes.put(label, rs.getObject(i));
                 }
-                recipients.add(new AudienceListResponse.AudienceRecipient(id, email, attributes));
+                recipients.add(new AudienceListResponse.AudienceRecipient(id, email, attributes, false));
             }
             return new AudienceQueryResult(total, recipients);
         }

@@ -12,6 +12,7 @@ import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
+import com.broadcastmail.common.unsubscribe.UnsubscribeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,6 +53,9 @@ class RecipientPreviewServiceTest {
     @Mock
     private CustomerConnectionFactory connectionFactory;
 
+    @Mock
+    private UnsubscribeRepository unsubscribeRepository;
+
     private RecipientPreviewService recipientPreviewService;
 
     @BeforeEach
@@ -62,7 +66,8 @@ class RecipientPreviewServiceTest {
                 connectionFactory,
                 filterRepository,
                 new CampaignFilterSerializer(),
-                filterValidator
+                filterValidator,
+                unsubscribeRepository
         );
     }
 

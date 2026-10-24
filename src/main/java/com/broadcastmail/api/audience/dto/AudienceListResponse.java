@@ -13,6 +13,7 @@ public record AudienceListResponse(
     public record AudienceRecipient(
             UUID id,
             String email,
-            Map<String, Object> attributes
+            Map<String, Object> attributes,
+            boolean unsubscribed
     ) {}
 }
