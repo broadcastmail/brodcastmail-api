@@ -11,6 +11,7 @@ import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
+import com.broadcastmail.common.unsubscribe.UnsubscribeRepository;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.query.SortDirection;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -28,6 +30,7 @@ public class AudienceService {
     private final FilterableColumnRepository filterableColumnRepository;
     private final CustomerConnectionFactory connectionFactory;
     private final CampaignFilterValidator filterValidator;
+    private final UnsubscribeRepository unsubscribeRepository;
 
     public AudienceListResponse list(
             UUID accountId,
@@ -67,10 +70,23 @@ public class AudienceService {
             String nextCursor = result.recipients().size() == limit
                     ? AudienceCursor.encode(result.recipients().getLast(), sortKey)
                     : null;
-            return new AudienceListResponse(result.recipients(), nextCursor, nextCursor != null, result.total());
+            List<AudienceListResponse.AudienceRecipient> marked = markUnsubscribed(accountId, result.recipients());
+            return new AudienceListResponse(marked, nextCursor, nextCursor != null, result.total());
         } catch (SQLException e) {
             throw new RuntimeException("Audience list failed: " + e.getMessage(), e);
         }
+    }
+
+    private List<AudienceListResponse.AudienceRecipient> markUnsubscribed(
+            UUID accountId, List<AudienceListResponse.AudienceRecipient> recipients) {
+        if (recipients.isEmpty()) return recipients;
+        List<String> emails = recipients.stream().map(AudienceListResponse.AudienceRecipient::email).toList();
+        Set<String> suppressed = unsubscribeRepository.findSuppressedEmails(accountId, emails);
+        if (suppressed.isEmpty()) return recipients;
+        return recipients.stream()
+                .map(r -> new AudienceListResponse.AudienceRecipient(
+                        r.id(), r.email(), r.attributes(), suppressed.contains(r.email())))
+                .toList();
     }
 
     private static boolean hasLinkedTable(Connection connection) {

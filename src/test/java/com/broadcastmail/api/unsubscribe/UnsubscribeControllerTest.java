@@ -2,7 +2,6 @@ package com.broadcastmail.api.unsubscribe;
 
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.config.AppProperties;
-import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,7 @@ class UnsubscribeControllerTest {
     private AppProperties appProperties;
 
     @MockitoBean
-    private CampaignRecipientRepository campaignRecipientRepository;
+    private UnsubscribeService unsubscribeService;
 
     @Test
     void shouldRedirectToFrontendAndMarkRecipientUnsubscribedWhenTokenIsValid() {
@@ -53,7 +52,7 @@ class UnsubscribeControllerTest {
         assertThat(response).hasStatus(302);
         assertThat(response.getResponse().getHeader("Location"))
                 .isEqualTo(appProperties.frontend().url() + "/unsubscribed");
-        verify(campaignRecipientRepository).markUnsubscribed(recipientId);
+        verify(unsubscribeService).unsubscribe(recipientId);
     }
 
     @Test
@@ -71,7 +70,7 @@ class UnsubscribeControllerTest {
                 .extractingPath("$.error")
                 .asString()
                 .isEqualTo("Invalid unsubscribe token");
-        verifyNoInteractions(campaignRecipientRepository);
+        verifyNoInteractions(unsubscribeService);
     }
 
     @Test
@@ -93,7 +92,7 @@ class UnsubscribeControllerTest {
 
         // Then
         assertThat(response).hasStatus(401);
-        verifyNoInteractions(campaignRecipientRepository);
+        verifyNoInteractions(unsubscribeService);
     }
 
     @Test
@@ -114,7 +113,7 @@ class UnsubscribeControllerTest {
 
         // Then
         assertThat(response).hasStatus(401);
-        verifyNoInteractions(campaignRecipientRepository);
+        verifyNoInteractions(unsubscribeService);
     }
 
     private String validTokenFor(UUID recipientId) {
