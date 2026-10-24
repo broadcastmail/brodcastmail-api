@@ -26,7 +26,7 @@ public class UnsubscribeController {
         unsubscribeService.unsubscribe(recipientId);
         return ResponseEntity
                 .status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, appProperties.frontend().url() + "/unsubscribed")
+                .header(HttpHeaders.LOCATION, appProperties.frontend().url() + "/unsubscribed?confirmed=1")
                 .build();
     }
 }

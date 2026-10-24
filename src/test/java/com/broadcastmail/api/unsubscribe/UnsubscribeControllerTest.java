@@ -51,7 +51,7 @@ class UnsubscribeControllerTest {
         // Then
         assertThat(response).hasStatus(302);
         assertThat(response.getResponse().getHeader("Location"))
-                .isEqualTo(appProperties.frontend().url() + "/unsubscribed");
+                .isEqualTo(appProperties.frontend().url() + "/unsubscribed?confirmed=1");
         verify(unsubscribeService).unsubscribe(recipientId);
     }
 
