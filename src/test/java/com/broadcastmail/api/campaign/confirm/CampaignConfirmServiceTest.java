@@ -10,6 +10,7 @@ import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.support.CampaignTestFixtures;
@@ -24,6 +25,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.annotation.Import;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -78,6 +81,42 @@ class CampaignConfirmServiceTest {
         // Then
         assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.RESOLVING);
         verify(campaignRepository).save(campaign);
+    }
+
+    @Test
+    void shouldEnforceSchedulingFeatureWhenConfirmingScheduledCampaign() {
+        // Given
+        Campaign campaign = Campaign.builder().id(CAMPAIGN_ID).accountId(ACCOUNT_ID)
+                .connectionId(UUID.randomUUID()).name("Newsletter").subject("Hello")
+                .bodyHtml("<p>Hi</p>").status(CampaignStatus.DRAFT).audienceMode(AudienceMode.ALL)
+                .scheduledAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(1))
+                .build();
+        when(campaignService.getCampaign(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(campaign);
+        when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.connection(ACCOUNT_ID).build()));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.account().build()));
+        when(campaignFilterRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(List.of());
+
+        // When
+        campaignConfirmService.confirmCampaign(ACCOUNT_ID, CAMPAIGN_ID);
+
+        // Then
+        verify(planFacade).enforceFeature(any(), eq(PlanFeature.SCHEDULING));
+    }
+
+    @Test
+    void shouldNotEnforceSchedulingFeatureForUnscheduledCampaign() {
+        // Given
+        Campaign campaign = campaign(CampaignStatus.DRAFT);
+        when(campaignService.getCampaign(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(campaign);
+        when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.connection(ACCOUNT_ID).build()));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.account().build()));
+        when(campaignFilterRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(List.of());
+
+        // When
+        campaignConfirmService.confirmCampaign(ACCOUNT_ID, CAMPAIGN_ID);
+
+        // Then
+        verify(planFacade, never()).enforceFeature(any(), eq(PlanFeature.SCHEDULING));
     }
 
     @Test
