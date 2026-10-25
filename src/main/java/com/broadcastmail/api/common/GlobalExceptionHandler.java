@@ -115,6 +115,13 @@ public class GlobalExceptionHandler {
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 
+    @ExceptionHandler(ResendDailyLimitActiveException.class)
+    public ResponseEntity<Map<String, String>> handleResendDailyLimitActive(ResendDailyLimitActiveException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
     @ExceptionHandler(PlanFeatureException.class)
     public ResponseEntity<Map<String, String>> handlePlanFeatureException(PlanFeatureException ex) {
         return ResponseEntity

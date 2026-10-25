@@ -9,6 +9,7 @@ import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.api.common.exceptions.ResendDailyLimitActiveException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.account.plan.PlanFeature;
@@ -47,6 +48,10 @@ public class CampaignConfirmService {
             throw new CampaignNotEditableException();
         }
 
+        if (campaignRepository.existsByAccountIdAndFailureReason(accountId, "RATE_LIMITED")) {
+            throw new ResendDailyLimitActiveException();
+        }
+
         connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new);
 
@@ -60,6 +65,9 @@ public class CampaignConfirmService {
         if (!filters.isEmpty()) {
             planFacade.enforceFeature(account, PlanFeature.FILTERS);
             filterValidator.validateSaved(accountId, filters);
+        }
+        if (campaign.getScheduledAt() != null) {
+            planFacade.enforceFeature(account, PlanFeature.SCHEDULING);
         }
 
         campaign.setStatus(CampaignStatus.RESOLVING);
