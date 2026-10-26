@@ -25,6 +25,7 @@ public class ConnectionUpdateService {
     private final ConnectionRepository connectionRepository;
     private final FilterableColumnRepository filterableColumnRepository;
     private final SchemaIntrospectionService schemaIntrospectionService;
+    private final EmailSourceService emailSourceService;
 
     public void updateProject(UUID accountId, String projectRef) {
         Connection connection = connectionRepository.findByAccountId(accountId)
@@ -32,24 +33,35 @@ public class ConnectionUpdateService {
         connection.setProjectRef(projectRef);
         connection.setUserTableName(null);
         connection.setUserTableSchema(null);
-        connection.setEmailColumn(null);
         connection.setUserIdColumn(null);
+        connection.clearEmailTable();
         connectionRepository.save(connection);
         filterableColumnRepository.deleteByConnectionId(connection.getId());
     }
 
-    public void updateTable(UUID accountId, String userTableSchema, String userTableName, String userIdColumn) {
+    public void updateSchemaTable(UUID accountId, String userTableSchema, String userTableName, String userIdColumn) {
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new);
         connection.setUserTableSchema(userTableSchema);
         connection.setUserTableName(userTableName);
-        connection.setEmailColumn(null);
         connection.setUserIdColumn(userIdColumn);
         connectionRepository.save(connection);
         filterableColumnRepository.deleteByConnectionId(connection.getId());
     }
 
-    public void updateColumns(UUID accountId, List<String> columnNames) {
+    public void updateEmailTable(UUID accountId, String emailTableSchema, String emailTableName, String emailColumn) {
+        Connection connection = connectionRepository.findByAccountId(accountId)
+                .orElseThrow(ConnectionNotFoundException::new);
+        String pk = emailSourceService.detectPrimaryKey(
+                SupabaseSql.buildJdbcUrl(connection.getProjectRef()), connection.getEncryptedCreds(), emailTableSchema, emailTableName);
+        connection.setEmailTableSchema(emailTableSchema);
+        connection.setEmailTableName(emailTableName);
+        connection.setEmailTableIdColumn(pk);
+        connection.setEmailColumn(emailColumn);
+        connectionRepository.save(connection);
+    }
+
+    public void updateSchemaColumns(UUID accountId, List<String> columnNames) {
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new);
 

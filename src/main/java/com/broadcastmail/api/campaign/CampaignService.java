@@ -14,6 +14,7 @@ import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
+import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
@@ -57,6 +58,7 @@ public class CampaignService {
     private final AccountRepository accountRepository;
     private final ResendClient resendClient;
     private final EncryptionProperties encryptionProperties;
+    private final PlanFacade planFacade;
 
 
     @Transactional
@@ -117,6 +119,8 @@ public class CampaignService {
             if (request.includedIds().size() > 5000) {
                 throw new InvalidCampaignFilterException(List.of("includedIds exceeds the 5,000 limit"));
             }
+            Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
+            planFacade.enforceRecipientLimit(account, request.includedIds().size());
             campaign.setIncludedIds(request.includedIds());
         }
 

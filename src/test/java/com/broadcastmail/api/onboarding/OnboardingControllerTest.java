@@ -243,6 +243,7 @@ class OnboardingControllerTest {
         return onboardingSessionStore.create(baseSession()
                 .schemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", true))
                 .confirmedColumnNames(List.of("plan", "full_name"))
+                .emailTableConfirmed(true)
                 .build());
     }
 

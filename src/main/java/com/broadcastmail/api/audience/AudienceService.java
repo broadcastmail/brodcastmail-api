@@ -7,6 +7,7 @@ import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.supabase.CustomerConnectionFactory;
+import com.broadcastmail.api.supabase.ConnectionQueryContext;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
@@ -54,16 +55,14 @@ public class AudienceService {
                 .findByConnectionIdAndColumnName(connection.getId(), sortKey)
                 .map(FilterableColumn::getSource)
                 .orElse(FilterSource.AUTH_METADATA);
-        String sortAlias = sortSource == FilterSource.PROFILE_TABLE ? "linked" : "auth";
-        SupabaseSql.SortSpec sort = new SupabaseSql.SortSpec(sortAlias, sortKey, sortDirection);
+        ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
+        SupabaseSql.SortSpec sort = ctx.buildSortSpec(sortSource, sortKey, sortDirection);
 
         String baseWhere = SupabaseSql.buildWhereClause(filters);
         List<Object> countParams = SupabaseSql.buildFilterParams(filters);
-        AudienceCursor.PageQuery page = AudienceCursor.buildPageQuery(cursor, baseWhere, countParams, sort);
+        AudienceCursor.PageQuery page = AudienceCursor.buildPageQuery(cursor, baseWhere, countParams, sort, ctx.idRef());
 
-        String sql = SupabaseSql.buildAudienceQuery(
-                hasLinkedTable(connection), connection.getUserTableSchema(), connection.getUserTableName(),
-                connection.getUserIdColumn(), baseWhere, page.whereClause(), sort);
+        String sql = ctx.buildAudienceQuery(baseWhere, page.whereClause(), sort);
 
         try (java.sql.Connection conn = connectionFactory.open(connection)) {
             SupabaseSql.AudienceQueryResult result = SupabaseSql.queryAudience(conn, sql, countParams, page.pageParams(), limit);
@@ -89,7 +88,4 @@ public class AudienceService {
                 .toList();
     }
 
-    private static boolean hasLinkedTable(Connection connection) {
-        return connection.getUserTableName() != null;
-    }
 }

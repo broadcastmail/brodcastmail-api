@@ -17,6 +17,17 @@ public final class SupabaseSql {
 
     public static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[a-zA-Z_]\\w*");
 
+    public static final String AUTH_ALIAS = "auth";
+    public static final String EMAIL_ALIAS = "email";
+    public static final String READER_ROLE = "broadcastmail_reader";
+    public static final String ORDER_BY = "ORDER BY ";
+
+    static final String SCHEMA_LABEL = "schema";
+    static final String TABLE_LABEL = "table";
+    static final String COUNT_FROM = "SELECT COUNT(*) FROM \"";
+    static final String QDOT = "\".\"";
+    static final String LINKED_JOIN = "\" linked ON linked.\"";
+
     public record SortSpec(String alias, String key, SortDirection direction) {}
 
     public static final String CREATE_READER_ROLE = """
@@ -59,28 +70,43 @@ public final class SupabaseSql {
               AND ref_kcu.table_name = 'users'
               AND ref_kcu.column_name = 'id'
             """;
+    public static final String FIND_ALL_PRIMARY_KEYS = """
+            SELECT tc.table_schema || '.' || tc.table_name AS table_key, kcu.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+                AND tc.table_name = kcu.table_name
+            WHERE tc.constraint_type = 'PRIMARY KEY'
+                AND tc.table_schema NOT IN ('auth', 'information_schema', 'pg_catalog', 'pg_toast')
+            ORDER BY tc.table_schema, tc.table_name, kcu.ordinal_position
+            """;
+
+    public static final String FIND_TABLE_PRIMARY_KEY = """
+            SELECT kcu.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+                AND tc.table_name = kcu.table_name
+            WHERE tc.constraint_type = 'PRIMARY KEY'
+                AND tc.table_schema = ?
+                AND tc.table_name = ?
+            ORDER BY kcu.ordinal_position
+            LIMIT 1
+            """;
+
     public static final String RESOLVE_RECIPIENTS = "SELECT id, email FROM auth.user_emails";
     public static final String COUNT_RECIPIENTS = "SELECT COUNT(*) FROM auth.user_emails";
 
-    /**
-     * Recipient count joined to the linked profile table, for when a campaign has
-     * filters on profile-table columns — those columns don't exist on auth.user_emails,
-     * so COUNT_RECIPIENTS alone can't apply them. An INNER JOIN, so it must only be used
-     * when there's at least one such filter: with none, it would wrongly exclude any
-     * auth user who doesn't yet have a profile row, undercounting COUNT_RECIPIENTS' plain result.
-     * Filter fragments stay unqualified (see CampaignFilterSerializer) because
-     * auth.user_emails only exposes id/email, and filterable columns never include
-     * either — so there's no ambiguity for Postgres to resolve between the two tables.
-     */
-    public static String buildRecipientCountQuery(String userTableSchema, String userTableName, String userIdColumn) {
-        requireIdentifier(userTableSchema, "schema");
-        requireIdentifier(userTableName, "table");
-        requireIdentifier(userIdColumn, "id column");
-        return "SELECT COUNT(*) FROM auth.user_emails auth JOIN \"" + userTableSchema + "\".\"" + userTableName
-                + "\" linked ON linked.\"" + userIdColumn + "\" = auth.id";
-    }
+    public static final int EMAIL_SAMPLE_SIZE = 10;
+    public static final String CHECK_EMAIL_COLUMN =
+            "SELECT COUNT(*) > 0 AND COUNT(*) FILTER (WHERE \"%s\" ~ '^[^@ ]+@[^@ ]+\\.[^@ ]+$') = COUNT(*) " +
+            "FROM (SELECT \"%s\" FROM \"%s\".\"%s\" WHERE \"%s\" IS NOT NULL LIMIT " + EMAIL_SAMPLE_SIZE + ") t";
+    public static final String COUNT_DISTINCT_COLUMN =
+            "SELECT COUNT(DISTINCT \"%s\") FROM \"%s\".\"%s\"";
 
-    private static void requireIdentifier(String value, String label) {
+    static void requireIdentifier(String value, String label) {
         if (value == null || !IDENTIFIER_PATTERN.matcher(value).matches()) {
             throw new IllegalArgumentException("Invalid " + label + ": " + value);
         }
@@ -97,32 +123,7 @@ public final class SupabaseSql {
     }
     public record AudienceQueryResult(long total, List<AudienceListResponse.AudienceRecipient> recipients) {}
 
-    /**
-     * Builds a CTE that fetches the page and the full filter-scoped count in one round-trip.
-     * Params order: countParams (baseWhere) first, then pageParams (whereClause), then LIMIT last.
-     */
-    public static String buildAudienceQuery(boolean hasLinkedTable, String schema, String table, String idColumn,
-                                            String baseWhere, String whereClause, SortSpec sort) {
-        String join = buildLinkedTableJoin(hasLinkedTable, schema, table, idColumn);
-        String select = hasLinkedTable ? "auth.id AS __id, auth.email AS __email, linked.*" : "auth.id AS __id, auth.email AS __email";
-        String dir = sort.direction() == SortDirection.ASCENDING ? "ASC" : "DESC";
-        String orderBy = "id".equals(sort.key())
-                ? "ORDER BY auth.\"id\" " + dir
-                : "ORDER BY " + sort.alias() + ".\"" + sort.key() + "\" " + dir + " NULLS LAST, auth.\"id\" " + dir;
-        return """
-                WITH base_count AS (
-                    SELECT COUNT(*) AS __total
-                    FROM auth.user_emails auth %s %s
-                ),
-                page AS (
-                    SELECT %s
-                    FROM auth.user_emails auth %s %s %s LIMIT ?
-                )
-                SELECT page.*, (SELECT __total FROM base_count) AS __total FROM page
-                """.formatted(join, baseWhere, select, join, whereClause, orderBy);
-    }
-
-    public static AudienceQueryResult queryAudience(Connection conn, String sql,
+    public static AudienceQueryResult queryAudience(java.sql.Connection conn, String sql,
                                                     List<Object> countParams, List<Object> pageParams,
                                                     int limit) throws SQLException {
         List<Object> params = new ArrayList<>(countParams);
@@ -149,28 +150,6 @@ public final class SupabaseSql {
             }
             return new AudienceQueryResult(total, recipients);
         }
-    }
-
-    public static String buildCursorFragment(SortSpec sort) {
-        String op = sort.direction() == SortDirection.ASCENDING ? ">" : "<";
-        if ("id".equals(sort.key())) {
-            return "auth.\"id\" " + op + " ?";
-        }
-        return "(" + sort.alias() + ".\"" + sort.key() + "\" " + op + " ? OR ("
-                + sort.alias() + ".\"" + sort.key() + "\" = ? AND auth.\"id\" " + op + " ?))";
-    }
-
-    public static List<Object> buildCursorParams(String sortKey, String lastSortVal, UUID lastId) {
-        if ("id".equals(sortKey)) {
-            return List.of(lastId);
-        }
-        return Arrays.asList(lastSortVal, lastSortVal, lastId);
-    }
-
-    private static String buildLinkedTableJoin(boolean hasLinkedTable, String schema, String table, String idColumn) {
-        return hasLinkedTable
-                ? "LEFT JOIN \"" + schema + "\".\"" + table + "\" linked ON linked.\"" + idColumn + "\" = auth.id"
-                : "";
     }
 
     public static String buildWhereClause(List<FilterRequest> filters) {
