@@ -7,6 +7,7 @@ import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.supabase.CustomerConnectionFactory;
+import com.broadcastmail.api.supabase.ConnectionQueryContext;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
@@ -54,15 +55,14 @@ public class AudienceService {
                 .findByConnectionIdAndColumnName(connection.getId(), sortKey)
                 .map(FilterableColumn::getSource)
                 .orElse(FilterSource.AUTH_METADATA);
-        String idRef = SupabaseSql.buildIdRef(connection);
-        SupabaseSql.SortSpec sort = new SupabaseSql.SortSpec(
-                SupabaseSql.buildSortAlias(connection, sortSource), sortKey, sortDirection);
+        ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
+        SupabaseSql.SortSpec sort = ctx.buildSortSpec(sortSource, sortKey, sortDirection);
 
         String baseWhere = SupabaseSql.buildWhereClause(filters);
         List<Object> countParams = SupabaseSql.buildFilterParams(filters);
-        AudienceCursor.PageQuery page = AudienceCursor.buildPageQuery(cursor, baseWhere, countParams, sort, idRef);
+        AudienceCursor.PageQuery page = AudienceCursor.buildPageQuery(cursor, baseWhere, countParams, sort, ctx.idRef());
 
-        String sql = SupabaseSql.buildAudienceQuery(connection, connection.getUserTableName() != null, baseWhere, page.whereClause(), sort);
+        String sql = ctx.buildAudienceQuery(baseWhere, page.whereClause(), sort);
 
         try (java.sql.Connection conn = connectionFactory.open(connection)) {
             SupabaseSql.AudienceQueryResult result = SupabaseSql.queryAudience(conn, sql, countParams, page.pageParams(), limit);

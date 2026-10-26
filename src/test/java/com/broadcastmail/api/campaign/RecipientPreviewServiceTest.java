@@ -3,6 +3,7 @@ package com.broadcastmail.api.campaign;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
+import com.broadcastmail.api.supabase.ConnectionQueryContext;
 import com.broadcastmail.api.supabase.CustomerConnectionFactory;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
@@ -225,7 +226,7 @@ class RecipientPreviewServiceTest {
 
         // Then
         assertThat(sqlCaptor.getValue()).isEqualTo(
-                SupabaseSql.buildRecipientCountQuery(buildConnection(accountId)) + " WHERE \"plan\" = ?");
+                ConnectionQueryContext.from(buildConnection(accountId)).buildRecipientCountQuery() + " WHERE \"plan\" = ?");
         verify(statement).setObject(1, "pro");
     }
 

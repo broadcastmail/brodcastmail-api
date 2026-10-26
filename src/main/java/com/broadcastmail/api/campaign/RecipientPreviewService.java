@@ -9,6 +9,7 @@ import com.broadcastmail.common.campaign.filter.FilterQuery;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.supabase.CustomerConnectionFactory;
+import com.broadcastmail.api.supabase.ConnectionQueryContext;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.unsubscribe.UnsubscribeRepository;
 import lombok.RequiredArgsConstructor;
@@ -76,14 +77,12 @@ public class RecipientPreviewService {
 
     private String buildCountSql(Connection connection, FilterQuery filterQuery,
                                   boolean hasFilters, boolean hasSuppressed) {
-        boolean authEmail = SupabaseSql.usesAuthEmail(connection);
-        String emailRef = authEmail ? "email" : "\"" + connection.getEmailColumn() + "\"";
+        ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
         if (!hasFilters) {
-            String base = SupabaseSql.buildBaseCountQuery(connection);
-            return hasSuppressed ? base + " WHERE " + emailRef + " != ALL(?)" : base;
+            String base = ctx.buildBaseCountQuery();
+            return hasSuppressed ? base + " WHERE " + ctx.emailColumnExpression() + " != ALL(?)" : base;
         }
-        String tablePrefix = authEmail ? "auth." : "";
-        String base = SupabaseSql.buildRecipientCountQuery(connection) + " " + filterQuery.sql();
-        return hasSuppressed ? base + " AND " + tablePrefix + emailRef + " != ALL(?)" : base;
+        String base = ctx.buildRecipientCountQuery() + " " + filterQuery.sql();
+        return hasSuppressed ? base + " AND " + ctx.emailColumnExpression() + " != ALL(?)" : base;
     }
 }

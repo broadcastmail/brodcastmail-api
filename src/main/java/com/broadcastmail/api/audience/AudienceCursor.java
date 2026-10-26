@@ -2,8 +2,10 @@ package com.broadcastmail.api.audience;
 
 import com.broadcastmail.api.audience.dto.AudienceListResponse;
 import com.broadcastmail.api.supabase.SupabaseSql;
+import org.hibernate.query.SortDirection;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -23,10 +25,26 @@ public final class AudienceCursor {
         List<Object> pageParams = new ArrayList<>(filterParams);
         if (cursor.isEmpty()) return new PageQuery(baseWhere, pageParams);
         Decoded c = decode(cursor.get());
-        String fragment = SupabaseSql.buildCursorFragment(sort, idRef);
+        String fragment = buildCursorFragment(sort, idRef);
         String whereClause = baseWhere.isEmpty() ? "WHERE " + fragment : baseWhere + " AND " + fragment;
-        pageParams.addAll(SupabaseSql.buildCursorParams(sort.key(), c.sortVal(), c.id()));
+        pageParams.addAll(buildCursorParams(sort.key(), c.sortVal(), c.id()));
         return new PageQuery(whereClause, pageParams);
+    }
+
+    private static String buildCursorFragment(SupabaseSql.SortSpec sort, String idRef) {
+        String op = sort.direction() == SortDirection.ASCENDING ? ">" : "<";
+        if (idRef.endsWith(".\"" + sort.key() + "\"")) {
+            return idRef + " " + op + " ?";
+        }
+        return "(" + sort.alias() + ".\"" + sort.key() + "\" " + op + " ? OR ("
+                + sort.alias() + ".\"" + sort.key() + "\" = ? AND " + idRef + " " + op + " ?))";
+    }
+
+    private static List<Object> buildCursorParams(String sortKey, String lastSortVal, UUID lastId) {
+        if ("id".equals(sortKey)) {
+            return List.of(lastId);
+        }
+        return Arrays.asList(lastSortVal, lastSortVal, lastId);
     }
 
     public static Decoded decode(String cursor) {
