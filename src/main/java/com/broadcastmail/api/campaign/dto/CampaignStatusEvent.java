@@ -13,7 +13,8 @@ public record CampaignStatusEvent(
         Integer openedCount,
         Integer deliveredCount,
         Integer bouncedCount,
-        Integer failedCount
+        Integer failedCount,
+        String failureReason
 ) {
     public static CampaignStatusEvent from(Campaign campaign) {
         return new CampaignStatusEvent(
@@ -24,7 +25,8 @@ public record CampaignStatusEvent(
                 campaign.getOpenedCount(),
                 campaign.getDeliveredCount(),
                 campaign.getBouncedCount(),
-                campaign.getFailedCount()
+                campaign.getFailedCount(),
+                campaign.getFailureReason()
         );
     }
 }

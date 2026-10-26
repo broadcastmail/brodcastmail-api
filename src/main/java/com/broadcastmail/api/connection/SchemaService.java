@@ -3,6 +3,7 @@ package com.broadcastmail.api.connection;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
+import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
@@ -24,31 +25,34 @@ import java.util.function.UnaryOperator;
 public class SchemaService {
 
     private final OAuthSessionStore onboardingSessionStore;
+    private final SupabaseIntrospectionService supabaseIntrospectionService;
     private final SchemaIntrospectionService schemaIntrospectionService;
     private final ConnectionRepository connectionRepository;
     private final FilterableColumnRepository filterableColumnRepository;
 
     public SchemaIntrospectionResult detect(String sessionToken) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken);
-        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(session.getJdbcUrl(), session.getEncryptedRolePassword());
+        SupabaseIntrospectionData data = supabaseIntrospectionService.introspect(
+                session.getJdbcUrl(), session.getEncryptedRolePassword());
+        SchemaIntrospectionResult result = schemaIntrospectionService.process(data);
         OnboardingSession updated = switch (result) {
             case SchemaIntrospectionResult.Detected detected ->
-                    applyDetected(session, detected).withSchemaCandidates(null);
-            case SchemaIntrospectionResult.MultipleCandidates(List<SchemaIntrospectionResult.Detected> candidates) ->
+                    applyDetected(session, detected)
+                            .withSchemaCandidates(null)
+                            .withIntrospectionData(data);
+            case SchemaIntrospectionResult.MultipleCandidates(var candidates) ->
                     session.withSchemaDetails(null).withDetectedColumns(null).withAuthColumns(null)
-                            .withSchemaCandidates(candidates);
+                            .withSchemaCandidates(candidates)
+                            .withIntrospectionData(data);
             case SchemaIntrospectionResult.NotDetected _ ->
-                    session.withSchemaDetails(null).withDetectedColumns(null).withAuthColumns(null).withSchemaCandidates(null);
+                    session.withSchemaDetails(null).withDetectedColumns(null).withAuthColumns(null)
+                            .withSchemaCandidates(null)
+                            .withIntrospectionData(null);
         };
         onboardingSessionStore.updateSession(sessionToken, updated);
         return result;
     }
 
-    /**
-     * Picks one of the tables offered by a prior {@code detect()} that returned
-     * {@code MultipleCandidates}. Re-uses that already-introspected data instead
-     * of hitting the database again.
-     */
     public SchemaIntrospectionResult.Detected selectTable(String sessionToken, String schema, String tableName) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken);
         if (session.getSchemaCandidates() == null) {
@@ -59,8 +63,7 @@ public class SchemaService {
                 .findFirst()
                 .orElseThrow(InvalidOnboardingSessionException::new);
 
-        OnboardingSession updated = applyDetected(session, chosen).withSchemaCandidates(null);
-        onboardingSessionStore.updateSession(sessionToken, updated);
+        onboardingSessionStore.updateSession(sessionToken, applyDetected(session, chosen).withSchemaCandidates(null));
         return chosen;
     }
 
@@ -97,8 +100,7 @@ public class SchemaService {
         return switch (result) {
             case SchemaIntrospectionResult.Detected d -> applyPersisted.apply(d);
             case SchemaIntrospectionResult.MultipleCandidates(List<SchemaIntrospectionResult.Detected> candidates) ->
-                    new SchemaIntrospectionResult.MultipleCandidates(
-                            candidates.stream().map(applyPersisted).toList());
+                    new SchemaIntrospectionResult.MultipleCandidates(candidates.stream().map(applyPersisted).toList());
             case SchemaIntrospectionResult.NotDetected n -> n;
         };
     }
@@ -115,4 +117,5 @@ public class SchemaService {
                 .withConfirmedColumnNames(columnNames);
         onboardingSessionStore.updateSession(sessionToken, updated);
     }
+
 }

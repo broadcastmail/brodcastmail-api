@@ -3,6 +3,7 @@ package com.broadcastmail.api.campaign;
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.api.campaign.dto.TestEmailRequest;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
+import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.config.EncryptionProperties;
@@ -71,6 +72,8 @@ class CampaignServiceTest {
     private ResendClient resendClient;
     @Mock
     private EncryptionProperties encryptionProperties;
+    @Mock
+    private PlanFacade planFacade;
 
     @Captor
     private ArgumentCaptor<List<CampaignFilter>> filterCaptor;
@@ -295,7 +298,8 @@ class CampaignServiceTest {
                 .thenReturn(Optional.of(campaign(CampaignStatus.SENDING).build()));
 
         // When / Then
-        assertThatThrownBy(() -> campaignService.sendTestEmail(ACCOUNT_ID, CAMPAIGN_ID, new TestEmailRequest(Map.of())))
+        TestEmailRequest testRequest = new TestEmailRequest(Map.of());
+        assertThatThrownBy(() -> campaignService.sendTestEmail(ACCOUNT_ID, CAMPAIGN_ID, testRequest))
                 .isInstanceOf(CampaignNotEditableException.class);
         verifyNoInteractions(resendClient);
     }

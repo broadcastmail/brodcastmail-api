@@ -111,7 +111,7 @@ class ConnectionControllerTest {
         Connection updated = connectionRepository.findByAccountId(account.getId()).orElseThrow();
         assertThat(updated.getUserTableName()).isEqualTo("profiles");
         assertThat(updated.getUserIdColumn()).isEqualTo("id");
-        assertThat(updated.getEmailColumn()).isNull();
+        assertThat(updated.getEmailColumn()).isEqualTo(connection.getEmailColumn());
     }
 
     @Test

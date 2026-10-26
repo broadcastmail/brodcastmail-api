@@ -2,15 +2,19 @@ package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.auth.CookieService;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
+import com.broadcastmail.api.connection.EmailSourceService;
 import com.broadcastmail.api.connection.SchemaService;
+import com.broadcastmail.api.connection.dto.EmailSourceResult;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.emailprovider.EmailProviderService;
 import com.broadcastmail.api.emailprovider.dto.EmailProviderRequest;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
+import com.broadcastmail.api.onboarding.dto.ConfirmEmailTableRequest;
 import com.broadcastmail.api.onboarding.dto.OnboardingStatusResponse;
 import com.broadcastmail.api.onboarding.dto.RecapData;
 import com.broadcastmail.api.onboarding.dto.SchemaConfirmRequest;
 import com.broadcastmail.api.onboarding.dto.SelectTableRequest;
+
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +33,7 @@ public class OnboardingController {
     private final OnboardingService onboardingService;
     private final OAuthSessionStore onboardingSessionStore;
     private final SchemaService schemaService;
+    private final EmailSourceService emailSourceService;
     private final CookieService cookieService;
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -75,6 +80,9 @@ public class OnboardingController {
             if (session.getSchemaDetails() == null || !session.getSchemaDetails().confirmed()) {
                 return ResponseEntity.ok(new OnboardingStatusResponse(OnboardingStep.CONFIRM_SCHEMA));
             }
+            if (!session.isEmailTableConfirmed()) {
+                return ResponseEntity.ok(new OnboardingStatusResponse(OnboardingStep.CONFIRM_EMAIL_TABLE));
+            }
             if (session.getResendDetails() == null) {
                 return ResponseEntity.ok(new OnboardingStatusResponse(OnboardingStep.CONNECT_RESEND));
             }
@@ -105,6 +113,23 @@ public class OnboardingController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         schemaService.confirm(sessionToken, request.columnNames());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/email-source")
+    public ResponseEntity<EmailSourceResult> detectEmailSource(
+            @CookieValue(name = "onboarding_session", required = false) String sessionToken) {
+        return ResponseEntity.ok(emailSourceService.detect(sessionToken));
+    }
+
+    @PostMapping("/email-source/confirm")
+    public ResponseEntity<Void> confirmEmailTable(
+            @CookieValue(name = "onboarding_session", required = false) String sessionToken,
+            @RequestBody(required = false) ConfirmEmailTableRequest request) {
+        if (sessionToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        emailSourceService.confirm(sessionToken, request);
         return ResponseEntity.ok().build();
     }
 

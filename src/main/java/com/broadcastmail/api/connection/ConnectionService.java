@@ -24,6 +24,7 @@ public class ConnectionService {
     private final FilterableColumnRepository filterableColumnRepository;
 
     public void createConnection(UUID accountId, OnboardingSession session) {
+        OnboardingSession.EmailTableDetails emailTable = session.getEmailTableDetails();
         Connection connection = Connection.builder()
                 .accountId(accountId)
                 .projectRef(session.getProjectRef())
@@ -31,8 +32,11 @@ public class ConnectionService {
                 .encryptedCreds(session.getEncryptedRolePassword())
                 .userTableSchema(session.getSchemaDetails().userSchema())
                 .userTableName(session.getSchemaDetails().userTable())
-                .emailColumn("email")
                 .userIdColumn(session.getSchemaDetails().userIdColumn())
+                .emailTableSchema(emailTable.emailTableSchema())
+                .emailTableName(emailTable.emailTableName())
+                .emailTableIdColumn(emailTable.emailTableIdColumn())
+                .emailColumn(emailTable.emailColumn())
                 .build();
         connectionRepository.save(connection);
 

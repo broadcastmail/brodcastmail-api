@@ -3,6 +3,7 @@ package com.broadcastmail.api.connection;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
+import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
@@ -18,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +34,9 @@ class SchemaServiceTest {
 
     @Mock
     private OAuthSessionStore onboardingSessionStore;
+
+    @Mock
+    private SupabaseIntrospectionService supabaseIntrospectionService;
 
     @Mock
     private SchemaIntrospectionService schemaIntrospectionService;
@@ -89,8 +94,10 @@ class SchemaServiceTest {
     @Test
     void shouldStoreDetectedTableAfterIntrospection() {
         // Given
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
-        when(schemaIntrospectionService.introspect(anyString(), anyString())).thenReturn(detectedResult());
+        when(supabaseIntrospectionService.introspect(anyString(), anyString())).thenReturn(data);
+        when(schemaIntrospectionService.process(data)).thenReturn(detectedResult());
 
         // When
         schemaService.detect("token");
@@ -123,9 +130,10 @@ class SchemaServiceTest {
         // Given
         OnboardingSession sessionWithSchema = baseSession()
                 .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", false));
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
         when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
-        when(schemaIntrospectionService.introspect(anyString(), anyString()))
-                .thenReturn(new SchemaIntrospectionResult.NotDetected());
+        when(supabaseIntrospectionService.introspect(anyString(), anyString())).thenReturn(data);
+        when(schemaIntrospectionService.process(data)).thenReturn(new SchemaIntrospectionResult.NotDetected());
 
         // When
         SchemaIntrospectionResult result = schemaService.detect("token");
@@ -154,9 +162,11 @@ class SchemaServiceTest {
     @Test
     void shouldStoreCandidatesWhenMultipleTablesDetected() {
         // Given
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
-        when(schemaIntrospectionService.introspect(anyString(), anyString()))
-                .thenReturn(new SchemaIntrospectionResult.MultipleCandidates(List.of(detectedResult(), secondCandidateResult())));
+        when(supabaseIntrospectionService.introspect(anyString(), anyString())).thenReturn(data);
+        when(schemaIntrospectionService.process(data)).thenReturn(
+                new SchemaIntrospectionResult.MultipleCandidates(List.of(detectedResult(), secondCandidateResult())));
 
         // When
         SchemaIntrospectionResult result = schemaService.detect("token");

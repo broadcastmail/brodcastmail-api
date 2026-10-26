@@ -76,14 +76,14 @@ public class RecipientPreviewService {
 
     private String buildCountSql(Connection connection, FilterQuery filterQuery,
                                   boolean hasFilters, boolean hasSuppressed) {
+        boolean authEmail = SupabaseSql.usesAuthEmail(connection);
+        String emailRef = authEmail ? "email" : "\"" + connection.getEmailColumn() + "\"";
         if (!hasFilters) {
-            return hasSuppressed
-                    ? SupabaseSql.COUNT_RECIPIENTS + " WHERE email != ALL(?)"
-                    : SupabaseSql.COUNT_RECIPIENTS;
+            String base = SupabaseSql.buildBaseCountQuery(connection);
+            return hasSuppressed ? base + " WHERE " + emailRef + " != ALL(?)" : base;
         }
-        String base = SupabaseSql.buildRecipientCountQuery(
-                connection.getUserTableSchema(), connection.getUserTableName(), connection.getUserIdColumn())
-                + " " + filterQuery.sql();
-        return hasSuppressed ? base + " AND auth.email != ALL(?)" : base;
+        String tablePrefix = authEmail ? "auth." : "";
+        String base = SupabaseSql.buildRecipientCountQuery(connection) + " " + filterQuery.sql();
+        return hasSuppressed ? base + " AND " + tablePrefix + emailRef + " != ALL(?)" : base;
     }
 }

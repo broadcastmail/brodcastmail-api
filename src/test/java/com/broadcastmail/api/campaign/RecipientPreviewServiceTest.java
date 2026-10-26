@@ -225,7 +225,7 @@ class RecipientPreviewServiceTest {
 
         // Then
         assertThat(sqlCaptor.getValue()).isEqualTo(
-                SupabaseSql.buildRecipientCountQuery("public", "profiles", "id") + " WHERE \"plan\" = ?");
+                SupabaseSql.buildRecipientCountQuery(buildConnection(accountId)) + " WHERE \"plan\" = ?");
         verify(statement).setObject(1, "pro");
     }
 

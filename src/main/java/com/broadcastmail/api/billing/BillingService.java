@@ -5,14 +5,19 @@ import com.broadcastmail.api.config.StripeProperties;
 import com.broadcastmail.common.account.Account;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Subscription;
+import com.stripe.model.SubscriptionCollection;
 import com.stripe.model.checkout.Session;
+import com.stripe.param.SubscriptionListParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BillingService {
@@ -47,6 +52,23 @@ public class BillingService {
                 .build();
 
         return Session.create(params).getUrl();
+    }
+
+    public void cancelSubscriptionsForCustomer(String stripeCustomerId) {
+        if (stripeCustomerId == null) return;
+        try {
+            Stripe.apiKey = stripeProperties.secretKey();
+            SubscriptionCollection subscriptions = Subscription.list(
+                    SubscriptionListParams.builder()
+                            .setCustomer(stripeCustomerId)
+                            .setStatus(SubscriptionListParams.Status.ACTIVE)
+                            .build());
+            for (Subscription sub : subscriptions.getData()) {
+                sub.cancel();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to cancel Stripe subscriptions for customer {}: {}", stripeCustomerId, e.getMessage());
+        }
     }
 
     private static final Set<String> ACTIVE_STATUSES = Set.of("active", "trialing");

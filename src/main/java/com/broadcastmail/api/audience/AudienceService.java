@@ -54,16 +54,15 @@ public class AudienceService {
                 .findByConnectionIdAndColumnName(connection.getId(), sortKey)
                 .map(FilterableColumn::getSource)
                 .orElse(FilterSource.AUTH_METADATA);
-        String sortAlias = sortSource == FilterSource.PROFILE_TABLE ? "linked" : "auth";
-        SupabaseSql.SortSpec sort = new SupabaseSql.SortSpec(sortAlias, sortKey, sortDirection);
+        String idRef = SupabaseSql.buildIdRef(connection);
+        SupabaseSql.SortSpec sort = new SupabaseSql.SortSpec(
+                SupabaseSql.buildSortAlias(connection, sortSource), sortKey, sortDirection);
 
         String baseWhere = SupabaseSql.buildWhereClause(filters);
         List<Object> countParams = SupabaseSql.buildFilterParams(filters);
-        AudienceCursor.PageQuery page = AudienceCursor.buildPageQuery(cursor, baseWhere, countParams, sort);
+        AudienceCursor.PageQuery page = AudienceCursor.buildPageQuery(cursor, baseWhere, countParams, sort, idRef);
 
-        String sql = SupabaseSql.buildAudienceQuery(
-                hasLinkedTable(connection), connection.getUserTableSchema(), connection.getUserTableName(),
-                connection.getUserIdColumn(), baseWhere, page.whereClause(), sort);
+        String sql = SupabaseSql.buildAudienceQuery(connection, connection.getUserTableName() != null, baseWhere, page.whereClause(), sort);
 
         try (java.sql.Connection conn = connectionFactory.open(connection)) {
             SupabaseSql.AudienceQueryResult result = SupabaseSql.queryAudience(conn, sql, countParams, page.pageParams(), limit);
@@ -89,7 +88,4 @@ public class AudienceService {
                 .toList();
     }
 
-    private static boolean hasLinkedTable(Connection connection) {
-        return connection.getUserTableName() != null;
-    }
 }

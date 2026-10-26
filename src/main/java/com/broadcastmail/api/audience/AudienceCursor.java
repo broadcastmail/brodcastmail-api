@@ -18,11 +18,12 @@ public final class AudienceCursor {
     public record PageQuery(String whereClause, List<Object> pageParams) {}
 
     public static PageQuery buildPageQuery(Optional<String> cursor, String baseWhere,
-                                           List<Object> filterParams, SupabaseSql.SortSpec sort) {
+                                           List<Object> filterParams, SupabaseSql.SortSpec sort,
+                                           String idRef) {
         List<Object> pageParams = new ArrayList<>(filterParams);
         if (cursor.isEmpty()) return new PageQuery(baseWhere, pageParams);
         Decoded c = decode(cursor.get());
-        String fragment = SupabaseSql.buildCursorFragment(sort);
+        String fragment = SupabaseSql.buildCursorFragment(sort, idRef);
         String whereClause = baseWhere.isEmpty() ? "WHERE " + fragment : baseWhere + " AND " + fragment;
         pageParams.addAll(SupabaseSql.buildCursorParams(sort.key(), c.sortVal(), c.id()));
         return new PageQuery(whereClause, pageParams);

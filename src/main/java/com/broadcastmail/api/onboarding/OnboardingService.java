@@ -24,34 +24,24 @@ public class OnboardingService {
     public String completeOnboarding(String sessionToken) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken)
                 .requireSchemaConfirmed()
+                .requireEmailTableConfirmed()
                 .requireResendDetails();
         AccountCreationResult result = accountCreationService.createFromOnboarding(session);
         connectionService.createConnection(result.accountId(), session);
         return result.rawApiKey();
     }
 
-    public void testConnection(String sessionToken)
-    {
-        OnboardingSession onboardingSession = onboardingSessionStore
-                .get(sessionToken)
-                .requireSchemaConfirmed();
+    public void testConnection(String sessionToken) {
+        OnboardingSession onboardingSession = onboardingSessionStore.get(sessionToken);
 
         String rolePassword = onboardingSession.getEncryptedRolePassword();
         String jdbcUrl = onboardingSession.getJdbcUrl();
-        try
-            (Connection connection = DriverManager.getConnection(jdbcUrl,"broadcastmail_reader", rolePassword);
-            Statement stmt = connection.createStatement()
-            )
-        {
+
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, "broadcastmail_reader", rolePassword);
+             Statement stmt = connection.createStatement()) {
             stmt.execute("SELECT 1 FROM auth.user_emails LIMIT 1");
-        }
-
-
-        catch (SQLException _)
-        {
+        } catch (SQLException _) {
             throw new ConnectionNotFoundException();
         }
-
-
     }
 }

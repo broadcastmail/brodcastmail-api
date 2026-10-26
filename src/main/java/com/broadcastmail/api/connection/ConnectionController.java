@@ -3,6 +3,7 @@ package com.broadcastmail.api.connection;
 import com.broadcastmail.api.auth.CookieService;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.oauth.dto.ProjectOption;
+import com.broadcastmail.api.connection.dto.EmailSourceResult;
 import com.broadcastmail.api.onboarding.dto.SchemaConfirmRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -24,12 +25,14 @@ import com.broadcastmail.api.connection.dto.ConnectionRequests;
 import java.util.List;
 import java.util.UUID;
 
+
 @RestController
 @RequestMapping("/api/v1/connections")
 @RequiredArgsConstructor
 public class ConnectionController {
 
     private final SchemaService schemaService;
+    private final EmailSourceService emailSourceService;
     private final ConnectionReconfigureService connectionReconfigureService;
     private final ConnectionQueryService connectionQueryService;
     private final ConnectionUpdateService connectionUpdateService;
@@ -80,6 +83,12 @@ public class ConnectionController {
         return ResponseEntity.ok(connectionQueryService.listProjects(accountId));
     }
 
+    @GetMapping("/email-source")
+    public ResponseEntity<EmailSourceResult> detectEmailSource(
+            @AuthenticationPrincipal UUID accountId) {
+        return ResponseEntity.ok(emailSourceService.detectForAccount(accountId));
+    }
+
     @GetMapping("/schema/reconnect")
     public ResponseEntity<SchemaIntrospectionResult> detectSchemaForReconnect(
             @AuthenticationPrincipal UUID accountId,
@@ -99,7 +108,15 @@ public class ConnectionController {
     public ResponseEntity<Void> updateTable(
             @AuthenticationPrincipal UUID accountId,
             @RequestBody @Valid ConnectionRequests.UpdateTableRequest request) {
-        connectionUpdateService.updateTable(accountId, request.userTableSchema(), request.userTableName(), request.userIdColumn());
+        connectionUpdateService.updateSchemaTable(accountId, request.userTableSchema(), request.userTableName(), request.userIdColumn());
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/email-source")
+    public ResponseEntity<Void> updateEmailTable(
+            @AuthenticationPrincipal UUID accountId,
+            @RequestBody ConnectionRequests.UpdateEmailTableRequest request) {
+        connectionUpdateService.updateEmailTable(accountId, request.emailTableSchema(), request.emailTableName(), request.emailColumn());
         return ResponseEntity.ok().build();
     }
 
@@ -107,7 +124,7 @@ public class ConnectionController {
     public ResponseEntity<Void> updateColumns(
             @AuthenticationPrincipal UUID accountId,
             @RequestBody @Valid ConnectionRequests.UpdateColumnsRequest request) {
-        connectionUpdateService.updateColumns(accountId, request.columnNames());
+        connectionUpdateService.updateSchemaColumns(accountId, request.columnNames());
         return ResponseEntity.ok().build();
     }
 }

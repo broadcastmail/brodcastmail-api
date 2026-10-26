@@ -4,7 +4,6 @@ import com.broadcastmail.api.billing.BillingService;
 import com.broadcastmail.api.common.exceptions.PlanFeatureException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.plan.PlanFeature;
-import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -12,7 +11,6 @@ import org.springframework.stereotype.Component;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
-import static org.hibernate.engine.transaction.internal.jta.JtaStatusHelper.isActive;
 
 @Component
 @RequiredArgsConstructor
