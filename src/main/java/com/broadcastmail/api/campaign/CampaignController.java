@@ -102,6 +102,12 @@ public class CampaignController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{id}/acknowledge-rate-limit")
+    public ResponseEntity<Void> acknowledgeRateLimit(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
+        campaignService.acknowledgeRateLimit(accountId, id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/confirm")
     public ResponseEntity<Void> confirmCampaign(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
         campaignConfirmService.confirmCampaign(accountId, id);

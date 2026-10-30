@@ -14,7 +14,8 @@ public record CampaignStatusEvent(
         Integer deliveredCount,
         Integer bouncedCount,
         Integer failedCount,
-        String failureReason
+        String failureReason,
+        boolean rateLimitAcknowledged
 ) {
     public static CampaignStatusEvent from(Campaign campaign) {
         return new CampaignStatusEvent(
@@ -26,7 +27,8 @@ public record CampaignStatusEvent(
                 campaign.getDeliveredCount(),
                 campaign.getBouncedCount(),
                 campaign.getFailedCount(),
-                campaign.getFailureReason()
+                campaign.getFailureReason(),
+                campaign.isRateLimitAcknowledged()
         );
     }
 }

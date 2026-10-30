@@ -1,4 +1,4 @@
-package com.broadcastmail.api.unsubscribe;
+package com.broadcastmail.api.suppressions;
 
 import com.broadcastmail.api.config.AppProperties;
 import lombok.RequiredArgsConstructor;
@@ -17,13 +17,13 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UnsubscribeController {
     private final UnsubscribeTokenVerifier unsubscribeTokenVerifier;
-    private final UnsubscribeService unsubscribeService;
+    private final SuppressionService suppressionService;
     private final AppProperties appProperties;
 
     @GetMapping
     public ResponseEntity<Void> unsubscribe(@RequestParam String token) {
         UUID recipientId = unsubscribeTokenVerifier.verify(token);
-        unsubscribeService.unsubscribe(recipientId);
+        suppressionService.unsubscribe(recipientId);
         return ResponseEntity
                 .status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, appProperties.frontend().url() + "/unsubscribed?confirmed=1")

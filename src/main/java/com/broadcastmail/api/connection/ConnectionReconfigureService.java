@@ -21,6 +21,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +32,20 @@ public class ConnectionReconfigureService {
     private final FilterableColumnRepository filterableColumnRepository;
     private final OAuthTokenRepository oAuthTokenRepository;
     private final EncryptionProperties encryptionProperties;
+
+    @Transactional
+    public void resetForReconfigure(UUID accountId) {
+        Connection connection = connectionRepository.findByAccountId(accountId)
+                .orElseThrow(ConnectionNotFoundException::new);
+
+        connection.setUserTableSchema(null);
+        connection.setUserTableName(null);
+        connection.setUserIdColumn(null);
+        connection.clearEmailTable();
+        connectionRepository.save(connection);
+
+        filterableColumnRepository.deleteByConnectionId(connection.getId());
+    }
 
     @Transactional
     public void reconfigure(String sessionToken) {

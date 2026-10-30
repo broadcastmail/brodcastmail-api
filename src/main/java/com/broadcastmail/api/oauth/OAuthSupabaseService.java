@@ -6,6 +6,7 @@ import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.common.exceptions.NoSupabaseProjectsException;
 import com.broadcastmail.api.common.exceptions.OAuthStateValidationException;
 import com.broadcastmail.api.config.EncryptionProperties;
+import com.broadcastmail.api.connection.ConnectionReconfigureService;
 import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
@@ -33,6 +34,7 @@ public class OAuthSupabaseService {
     private final AccountRepository accountRepository;
     private final AccountService accountService;
     private final OAuthSessionService oAuthSessionService;
+    private final ConnectionReconfigureService connectionReconfigureService;
 
     @Value("${supabase.oauth.client-id}")
     private String clientId;
@@ -126,6 +128,10 @@ public class OAuthSupabaseService {
             String encryptedAccessToken,
             String encryptedRefreshToken,
             Instant tokenExpiresAt) {
+
+        // Reset immediately — reconfigure is destructive from the moment OAuth completes.
+        // If the user abandons the flow mid-way, the old table/column settings are already gone.
+        connectionReconfigureService.resetForReconfigure(accountId);
 
         List<SupabaseProject> projects = supabaseManagementClient.listProjects(rawAccessToken);
         if (projects.isEmpty()) {

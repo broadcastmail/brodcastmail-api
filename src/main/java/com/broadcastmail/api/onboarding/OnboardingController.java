@@ -67,6 +67,21 @@ public class OnboardingController {
                 .build();
     }
     @SuppressWarnings("java:S6863") // status endpoint always returns 200 by design — step is never an error
+    @DeleteMapping("/session")
+    public ResponseEntity<Void> abandonSession(
+            @CookieValue(name = "onboarding_session", required = false) String sessionToken,
+            HttpServletResponse response) {
+        if (sessionToken != null) {
+            try {
+                onboardingSessionStore.invalidate(sessionToken);
+            } catch (InvalidOnboardingSessionException _) {
+                // already gone — that's fine
+            }
+        }
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieService.clearOnboardingCookie().toString());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/status")
     public ResponseEntity<OnboardingStatusResponse> status(
             @CookieValue(name = "onboarding_session", required = false) String sessionToken) {

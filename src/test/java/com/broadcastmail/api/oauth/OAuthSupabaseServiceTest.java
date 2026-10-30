@@ -4,6 +4,7 @@ import com.broadcastmail.api.account.AccountService;
 import com.broadcastmail.api.common.exceptions.NoSupabaseProjectsException;
 import com.broadcastmail.api.common.exceptions.OAuthStateValidationException;
 import com.broadcastmail.api.config.EncryptionProperties;
+import com.broadcastmail.api.connection.ConnectionReconfigureService;
 import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
@@ -42,6 +43,8 @@ class OAuthSupabaseServiceTest {
     private AccountService accountService;
     @Mock
     private OAuthSessionService oAuthSessionService;
+    @Mock
+    private ConnectionReconfigureService connectionReconfigureService;
 
     private OAuthSupabaseService oAuthSupabaseService;
 
@@ -50,7 +53,7 @@ class OAuthSupabaseServiceTest {
         EncryptionProperties encryptionProperties = new EncryptionProperties(ENCRYPTION_KEY);
         oAuthSupabaseService =
                 new OAuthSupabaseService(oAuthStateStore, supabaseManagementClient, onboardingSessionStore, accountRepository, accountService,
-                        oAuthSessionService, encryptionProperties);
+                        oAuthSessionService, connectionReconfigureService, encryptionProperties);
     }
 
     private SupabaseTokenResponse tokenResponse() {
