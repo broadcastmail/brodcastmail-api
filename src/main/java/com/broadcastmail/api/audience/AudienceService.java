@@ -12,7 +12,8 @@ import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
-import com.broadcastmail.common.unsubscribe.UnsubscribeRepository;
+import com.broadcastmail.common.suppressions.Suppression;
+import com.broadcastmail.common.suppressions.SuppressionsRepository;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.query.SortDirection;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,6 @@ import org.springframework.stereotype.Service;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -31,7 +31,7 @@ public class AudienceService {
     private final FilterableColumnRepository filterableColumnRepository;
     private final CustomerConnectionFactory connectionFactory;
     private final CampaignFilterValidator filterValidator;
-    private final UnsubscribeRepository unsubscribeRepository;
+    private final SuppressionsRepository suppressionsRepository;
 
     public AudienceListResponse list(
             UUID accountId,
@@ -80,7 +80,7 @@ public class AudienceService {
             UUID accountId, List<AudienceListResponse.AudienceRecipient> recipients) {
         if (recipients.isEmpty()) return recipients;
         List<String> emails = recipients.stream().map(AudienceListResponse.AudienceRecipient::email).toList();
-        Set<String> suppressed = unsubscribeRepository.findSuppressedEmails(accountId, emails);
+        List<String> suppressed = suppressionsRepository.findByAccountIdAndEmailIn(accountId, emails).stream().map(Suppression::getEmail).toList();
         if (suppressed.isEmpty()) return recipients;
         return recipients.stream()
                 .map(r -> new AudienceListResponse.AudienceRecipient(

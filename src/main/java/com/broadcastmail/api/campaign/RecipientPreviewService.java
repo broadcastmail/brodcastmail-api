@@ -10,8 +10,8 @@ import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.supabase.CustomerConnectionFactory;
 import com.broadcastmail.api.supabase.ConnectionQueryContext;
-import com.broadcastmail.api.supabase.SupabaseSql;
-import com.broadcastmail.common.unsubscribe.UnsubscribeRepository;
+import com.broadcastmail.common.suppressions.Suppression;
+import com.broadcastmail.common.suppressions.SuppressionsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -32,7 +32,7 @@ public class RecipientPreviewService {
     private final CampaignFilterRepository filterRepository;
     private final CampaignFilterSerializer filterSerializer;
     private final CampaignFilterValidator filterValidator;
-    private final UnsubscribeRepository unsubscribeRepository;
+    private final SuppressionsRepository suppressionsRepository;
 
     public Integer preview(UUID accountId, UUID campaignId) {
         campaignService.getCampaign(accountId, campaignId);
@@ -43,7 +43,9 @@ public class RecipientPreviewService {
         filterValidator.validateSaved(accountId, filters);
         FilterQuery filterQuery = filterSerializer.serialize(filters);
 
-        List<String> suppressed = unsubscribeRepository.findEmailsByAccountId(accountId);
+        List<String> suppressed = suppressionsRepository.findByAccountId(accountId).stream()
+                .map(Suppression::getEmail)
+                .toList();
         boolean hasFilters = !filterQuery.sql().isEmpty();
         boolean hasSuppressed = !suppressed.isEmpty();
 

@@ -142,6 +142,12 @@ public class CampaignService {
         return campaignRepository.save(campaign);
     }
 
+    public void acknowledgeRateLimit(UUID accountId, UUID campaignId) {
+        Campaign campaign = getCampaign(accountId, campaignId);
+        campaign.setRateLimitAcknowledged(true);
+        campaignRepository.save(campaign);
+    }
+
     public void deleteCampaign(UUID accountId, UUID campaignId) {
         Campaign campaign = getCampaign(accountId, campaignId);
         if (campaign.getStatus() != CampaignStatus.DRAFT) {

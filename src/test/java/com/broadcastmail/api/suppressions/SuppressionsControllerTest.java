@@ -1,4 +1,4 @@
-package com.broadcastmail.api.unsubscribe;
+package com.broadcastmail.api.suppressions;
 
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.config.AppProperties;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestContainersConfiguration.class)
-class UnsubscribeControllerTest {
+class SuppressionsControllerTest {
 
     @Autowired
     private MockMvcTester mockMvc;
@@ -34,7 +34,7 @@ class UnsubscribeControllerTest {
     private AppProperties appProperties;
 
     @MockitoBean
-    private UnsubscribeService unsubscribeService;
+    private SuppressionService suppressionService;
 
     @Test
     void shouldRedirectToFrontendAndMarkRecipientUnsubscribedWhenTokenIsValid() {
@@ -52,7 +52,7 @@ class UnsubscribeControllerTest {
         assertThat(response).hasStatus(302);
         assertThat(response.getResponse().getHeader("Location"))
                 .isEqualTo(appProperties.frontend().url() + "/unsubscribed?confirmed=1");
-        verify(unsubscribeService).unsubscribe(recipientId);
+        verify(suppressionService).unsubscribe(recipientId);
     }
 
     @Test
@@ -70,7 +70,7 @@ class UnsubscribeControllerTest {
                 .extractingPath("$.error")
                 .asString()
                 .isEqualTo("Invalid unsubscribe token");
-        verifyNoInteractions(unsubscribeService);
+        verifyNoInteractions(suppressionService);
     }
 
     @Test
@@ -92,7 +92,7 @@ class UnsubscribeControllerTest {
 
         // Then
         assertThat(response).hasStatus(401);
-        verifyNoInteractions(unsubscribeService);
+        verifyNoInteractions(suppressionService);
     }
 
     @Test
@@ -113,7 +113,7 @@ class UnsubscribeControllerTest {
 
         // Then
         assertThat(response).hasStatus(401);
-        verifyNoInteractions(unsubscribeService);
+        verifyNoInteractions(suppressionService);
     }
 
     private String validTokenFor(UUID recipientId) {
