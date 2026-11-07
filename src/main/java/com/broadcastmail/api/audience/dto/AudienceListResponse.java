@@ -14,6 +14,6 @@ public record AudienceListResponse(
             UUID id,
             String email,
             Map<String, Object> attributes,
-            boolean unsubscribed
+            boolean suspended
     ) {}
 }

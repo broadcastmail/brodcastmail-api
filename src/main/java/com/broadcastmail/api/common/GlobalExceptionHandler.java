@@ -138,4 +138,11 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.FORBIDDEN)
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
+
+    @ExceptionHandler(EmailAlreadyTakenException.class)
+    public ResponseEntity<Map<String, String>> handleEmailAlreadyTaken(EmailAlreadyTakenException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
 }

@@ -90,6 +90,8 @@ public class SchemaIntrospectionService {
                 ref.table(), ref.schema(), ref.idColumn(), filterableColumns, authColumns);
     }
 
+
+    // Columns that are not filterable by the user, either because they are system columns or because they are sensitive.
     private boolean isNonFilterable(String columnName) {
         return columnName.equals("id") ||
                 columnName.equals("email") ||
@@ -101,8 +103,9 @@ public class SchemaIntrospectionService {
     private String mapToUiType(String postgresType) {
         return switch (postgresType.toLowerCase()) {
             case "boolean" -> "boolean";
-            case "integer", "bigint", "numeric", "real", "double precision" -> "integer";
-            case "timestamp with time zone", "timestamp without time zone", "date" -> "timestamptz";
+            case "integer", "bigint", "numeric", "real", "double precision" -> "number";
+            case "date" -> "date";
+            case "timestamp with time zone", "timestamp without time zone" -> "datetime";
             default -> "text";
         };
     }

@@ -61,6 +61,12 @@ public class ConnectionUpdateService {
         connectionRepository.save(connection);
     }
 
+    public void deleteProfileColumns(UUID accountId) {
+        Connection connection = connectionRepository.findByAccountId(accountId)
+                .orElseThrow(ConnectionNotFoundException::new);
+        filterableColumnRepository.deleteByConnectionIdAndSource(connection.getId(), FilterSource.PROFILE_TABLE);
+    }
+
     public void updateSchemaColumns(UUID accountId, List<String> columnNames) {
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new);

@@ -2,6 +2,7 @@ package com.broadcastmail.api.connection;
 
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
+import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
 
@@ -67,6 +69,21 @@ public class SchemaService {
         return chosen;
     }
 
+    public void skipProfileTable(String sessionToken) {
+        OnboardingSession session = onboardingSessionStore.get(sessionToken);
+        List<DetectedColumn> authColumns = Optional.ofNullable(session.getAuthColumns())
+                .or(() -> Optional.ofNullable(session.getSchemaCandidates())
+                        .filter(c -> !c.isEmpty())
+                        .map(c -> c.getFirst().authColumns()))
+                .orElse(List.of());
+        OnboardingSession updated = session
+                .withSchemaDetails(new OnboardingSession.SchemaDetails(null, null, null, true))
+                .withDetectedColumns(List.of())
+                .withAuthColumns(authColumns)
+                .withSchemaCandidates(null);
+        onboardingSessionStore.updateSession(sessionToken, updated);
+    }
+
     private boolean matchesTable(SchemaIntrospectionResult.Detected candidate, String schema, String tableName) {
         return candidate.userTableSchema().equals(schema) && candidate.userTableName().equals(tableName);
     }
@@ -106,7 +123,7 @@ public class SchemaService {
     }
 
 
-    public void confirm(String sessionToken, List<String> columnNames) {
+    public void selectColumns(String sessionToken, List<String> columnNames) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken).requireSchemaDetected();
         OnboardingSession updated = session.withSchemaDetails(
                         new OnboardingSession.SchemaDetails(

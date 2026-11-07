@@ -117,7 +117,7 @@ class SchemaServiceTest {
         when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
 
         // When
-        schemaService.confirm("token", List.of("plan", "full_name"));
+        schemaService.selectColumns("token", List.of("plan", "full_name"));
 
         // Then
         verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
@@ -155,7 +155,7 @@ class SchemaServiceTest {
         List<String> columns = List.of("plan");
 
         // Then
-        assertThatThrownBy(() -> schemaService.confirm("token", columns))
+        assertThatThrownBy(() -> schemaService.selectColumns("token", columns))
                 .isInstanceOf(InvalidOnboardingSessionException.class);
     }
 

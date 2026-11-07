@@ -41,19 +41,30 @@ public class OAuthSessionService {
         return new OAuthCallbackResult.NewUserSingleProject(sessionToken);
     }
 
-    public String setupReconfigureSession (
+    public String setupReconfigureSession(
             UUID accountId,
+            String ownerEmail,
             String projectRef,
-            String rawAccessToken,
             String encryptedAccessToken,
             String encryptedRefreshToken,
             Instant tokenExpiresAt) {
 
-        return provisionSession(rawAccessToken, projectRef, OnboardingSession.builder()
+        String projectUrl = "https://" + projectRef + ".supabase.co";
+        String jdbcUrl = "jdbc:postgresql://db." + projectRef + ".supabase.co:5432/postgres";
+
+        OnboardingSession session = OnboardingSession.builder()
                 .accountId(accountId)
+                .ownerEmail(ownerEmail)
+                .projectRef(projectRef)
+                .projectUrl(projectUrl)
+                .jdbcUrl(jdbcUrl)
                 .encryptedAccessToken(encryptedAccessToken)
                 .encryptedRefreshToken(encryptedRefreshToken)
-                .tokenExpiresAt(tokenExpiresAt));
+                .tokenExpiresAt(tokenExpiresAt)
+                .expiresAt(Instant.now().plusSeconds(1800))
+                .build();
+
+        return onboardingSessionStore.create(session);
     }
 
     /**
@@ -82,12 +93,24 @@ public class OAuthSessionService {
         String rawAccessToken = SecurityUtil.decrypt(
                 partial.encryptedAccessToken(), encryptionProperties.key());
 
-        OAuthCallbackResult.NewUserSingleProject result = setupProjectAndCreateSession(
-                projectRef, rawAccessToken,
-                partial.ownerEmail(),
-                partial.encryptedAccessToken(),
-                partial.encryptedRefreshToken(),
-                partial.tokenExpiresAt());
+        OAuthCallbackResult.NewUserSingleProject result;
+        if (partial.isReconfigure()) {
+            String sessionToken = setupReconfigureSession(
+                    partial.accountId(),
+                    partial.ownerEmail(),
+                    projectRef,
+                    partial.encryptedAccessToken(),
+                    partial.encryptedRefreshToken(),
+                    partial.tokenExpiresAt());
+            result = new OAuthCallbackResult.NewUserSingleProject(sessionToken);
+        } else {
+            result = setupProjectAndCreateSession(
+                    projectRef, rawAccessToken,
+                    partial.ownerEmail(),
+                    partial.encryptedAccessToken(),
+                    partial.encryptedRefreshToken(),
+                    partial.tokenExpiresAt());
+        }
 
         onboardingSessionStore.invalidatePartial(partialSessionToken);
         return result;

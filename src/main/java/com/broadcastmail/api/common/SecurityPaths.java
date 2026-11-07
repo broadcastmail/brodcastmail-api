@@ -13,6 +13,8 @@ public class SecurityPaths {
             "/api/v1/onboarding/**",
             "/unsubscribe",
             "/actuator/health"
+//            ,"/swagger-ui/**",
+//            "/v3/api-docs/**"
     );
 
     public static String[] publicPaths() {
