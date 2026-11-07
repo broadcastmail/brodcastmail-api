@@ -29,11 +29,12 @@ public record PartialOnboardingSession(
 
     public static PartialOnboardingSession forReconfigure(
             UUID accountId,
+            String ownerEmail,
             String encryptedAccessToken,
             String encryptedRefreshToken,
             Instant tokenExpiresAt,
             List<SupabaseProject> projects) {
-        return new PartialOnboardingSession(null, encryptedAccessToken,
+        return new PartialOnboardingSession(ownerEmail, encryptedAccessToken,
                 encryptedRefreshToken, tokenExpiresAt,
                 Instant.now().plus(Duration.ofMinutes(30)), projects, accountId);
     }

@@ -5,10 +5,13 @@ import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.connection.dto.ConnectionRequests;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
+import com.broadcastmail.api.emailprovider.EmailProviderService;
+import com.broadcastmail.api.emailprovider.dto.EmailProviderInfoResponse;
+import com.broadcastmail.api.emailprovider.dto.VerifyKeyResponse;
+import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.support.CampaignTestFixtures;
-import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.Connection;
@@ -54,6 +57,8 @@ class ConnectionControllerTest {
     private ObjectMapper objectMapper;
     @MockitoBean
     private SchemaIntrospectionService schemaIntrospectionService;
+    @MockitoBean
+    private EmailProviderService emailProviderService;
 
     private Account account;
     private Connection connection;
@@ -74,7 +79,7 @@ class ConnectionControllerTest {
 
     @Test
     void shouldReturn200WhenUpdatingProject() throws Exception {
-        var response = authedPatch("/api/v1/connections/project").contentType(MediaType.APPLICATION_JSON)
+        var response = authedPatch("/api/v1/connections/reconnect/project").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateProjectRequest("new-ref"))).exchange();
 
         assertThat(response).hasStatus(200);
@@ -82,10 +87,8 @@ class ConnectionControllerTest {
 
     @Test
     void shouldNullDownstreamFieldsWhenUpdatingProject() throws Exception {
-        var response = authedPatch("/api/v1/connections/project").contentType(MediaType.APPLICATION_JSON)
+        authedPatch("/api/v1/connections/reconnect/project").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateProjectRequest("new-ref"))).exchange();
-
-        assertThat(response).hasStatus(200);
 
         Connection updated = connectionRepository.findByAccountId(account.getId()).orElseThrow();
 
@@ -96,16 +99,16 @@ class ConnectionControllerTest {
     }
 
     @Test
-    void shouldReturn200WhenUpdatingTable() throws Exception {
-        var response = authedPatch("/api/v1/connections/table").contentType(MediaType.APPLICATION_JSON)
+    void shouldReturn200WhenUpdatingUserSchema() throws Exception {
+        var response = authedPatch("/api/v1/connections/reconnect/user-schema").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateTableRequest("public", "profiles", "id"))).exchange();
 
         assertThat(response).hasStatus(200);
     }
 
     @Test
-    void shouldNullEmailColumnWhenUpdatingTable() throws Exception {
-        authedPatch("/api/v1/connections/table").contentType(MediaType.APPLICATION_JSON)
+    void shouldPersistUserSchemaWhenUpdatingUserSchema() throws Exception {
+        authedPatch("/api/v1/connections/reconnect/user-schema").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateTableRequest("public", "profiles", "id"))).exchange();
 
         Connection updated = connectionRepository.findByAccountId(account.getId()).orElseThrow();
@@ -122,7 +125,7 @@ class ConnectionControllerTest {
                                 new DetectedColumn("is_verified", "boolean", true, null, false)),
                         List.of()));
 
-        var response = authedPatch("/api/v1/connections/columns").contentType(MediaType.APPLICATION_JSON)
+        var response = authedPatch("/api/v1/connections/reconnect/columns").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateColumnsRequest(List.of("plan", "is_verified")))).exchange();
 
         assertThat(response).hasStatus(200);
@@ -140,7 +143,7 @@ class ConnectionControllerTest {
                 FilterableColumn.builder().connectionId(connection.getId()).columnName("old_column").columnType("text").displayName("old_column")
                         .source(FilterSource.PROFILE_TABLE).enabled(true).cardinalityWarning(false).build());
 
-        authedPatch("/api/v1/connections/columns").contentType(MediaType.APPLICATION_JSON)
+        authedPatch("/api/v1/connections/reconnect/columns").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateColumnsRequest(List.of("plan", "is_verified")))).exchange();
 
         assertThat(filterableColumnRepository.findByConnectionId(connection.getId())).extracting(FilterableColumn::getColumnName)
@@ -149,13 +152,160 @@ class ConnectionControllerTest {
 
     @Test
     void shouldReturn401WhenNotAuthenticated() throws Exception {
-        var response = mockMvc.patch().uri("/api/v1/connections/project").contentType(MediaType.APPLICATION_JSON)
+        var response = mockMvc.patch().uri("/api/v1/connections/reconnect/project").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateProjectRequest("new-ref"))).exchange();
 
         assertThat(response).hasStatus(401);
     }
 
+    // ── DELETE /reconnect/profile-columns ─────────────────────────────────
+
+    @Test
+    void shouldReturn204WhenDeletingProfileColumns()  {
+        filterableColumnRepository.save(
+                FilterableColumn.builder().connectionId(connection.getId()).columnName("plan").columnType("text").displayName("plan")
+                        .source(FilterSource.PROFILE_TABLE).enabled(true).cardinalityWarning(false).build());
+
+        var response = authedDelete("/api/v1/connections/reconnect/profile-columns").exchange();
+
+        assertThat(response).hasStatus(204);
+    }
+
+    @Test
+    void shouldRemoveProfileTableColumnsWhenDeletingProfileColumns()  {
+        filterableColumnRepository.save(
+                FilterableColumn.builder().connectionId(connection.getId()).columnName("plan").columnType("text").displayName("plan")
+                        .source(FilterSource.PROFILE_TABLE).enabled(true).cardinalityWarning(false).build());
+        filterableColumnRepository.save(
+                FilterableColumn.builder().connectionId(connection.getId()).columnName("email").columnType("text").displayName("email")
+                        .source(FilterSource.AUTH_METADATA).enabled(true).cardinalityWarning(false).build());
+
+        authedDelete("/api/v1/connections/reconnect/profile-columns").exchange();
+
+        assertThat(filterableColumnRepository.findByConnectionId(connection.getId()))
+                .extracting(FilterableColumn::getSource)
+                .doesNotContain(FilterSource.PROFILE_TABLE);
+    }
+
+    // ── GET /columns ───────────────────────────────────────────────────────
+
+    @Test
+    void shouldReturnColumnsForAccount()  {
+        filterableColumnRepository.save(
+                FilterableColumn.builder().connectionId(connection.getId()).columnName("plan").columnType("text").displayName("plan")
+                        .source(FilterSource.PROFILE_TABLE).enabled(true).cardinalityWarning(false).build());
+
+        var response = authedGet("/api/v1/connections/columns").exchange();
+
+        assertThat(response).hasStatus(200)
+                .bodyJson().extractingPath("$[0].columnName").asString().isEqualTo("plan");
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenNoColumns()  {
+        var response = authedGet("/api/v1/connections/columns").exchange();
+
+        assertThat(response).hasStatus(200)
+                .bodyJson().extractingPath("$").asList().isEmpty();
+    }
+
+    // ── Email provider endpoints ───────────────────────────────────────────
+
+    @Test
+    void shouldReturnEmailProviderInfo()  {
+        when(emailProviderService.getEmailProviderInfo(any()))
+                .thenReturn(new EmailProviderInfoResponse("sender@example.com", "Sender", "k3y1"));
+
+        var response = authedGet("/api/v1/connections/email-provider").exchange();
+
+        assertThat(response).hasStatus(200)
+                .bodyJson().extractingPath("$.fromAddress").asString().isEqualTo("sender@example.com");
+    }
+
+    @Test
+    void shouldReturnDomainsFromEmailProvider()  {
+        when(emailProviderService.listDomains(any()))
+                .thenReturn(new VerifyKeyResponse(List.of("example.com")));
+
+        var response = authedGet("/api/v1/connections/email-provider/domains").exchange();
+
+        assertThat(response).hasStatus(200)
+                .bodyJson().extractingPath("$.domains[0]").asString().isEqualTo("example.com");
+    }
+
+    @Test
+    void shouldReturn200WhenVerifyingKey()  {
+        when(emailProviderService.verifyKey(any()))
+                .thenReturn(new VerifyKeyResponse(List.of("example.com")));
+
+        var response = authedPost("/api/v1/connections/email-provider/verify")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"apiKey\":\"re_test_key\"}")
+                .exchange();
+
+        assertThat(response).hasStatus(200);
+    }
+
+    @Test
+    void shouldReturn400WhenVerifyingKeyWithBlankApiKey()  {
+        var response = authedPost("/api/v1/connections/email-provider/verify")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"apiKey\":\"\"}")
+                .exchange();
+
+        assertThat(response).hasStatus(400);
+    }
+
+    @Test
+    void shouldReturn200WhenReconfiguringEmailProvider()  {
+        var body = "{\"apiKey\":\"re_key\",\"fromName\":\"Sender\",\"fromAddress\":\"sender@example.com\"}";
+
+        var response = mockMvc.put().uri("/api/v1/connections/reconfigure/email-provider")
+                .cookie(new MockCookie("bm_session", TEST_API_KEY))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .exchange();
+
+        assertThat(response).hasStatus(200);
+    }
+
+    @Test
+    void shouldReturn200WhenUpdatingEmailProviderSender()  {
+        var body = "{\"fromName\":\"New Name\",\"fromAddress\":\"new@example.com\"}";
+
+        var response = authedPatch("/api/v1/connections/reconfigure/email-provider/sender")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .exchange();
+
+        assertThat(response).hasStatus(200);
+    }
+
+    @Test
+    void shouldReturn400WhenUpdatingEmailProviderSenderWithInvalidEmail()  {
+        var body = "{\"fromName\":\"Name\",\"fromAddress\":\"not-an-email\"}";
+
+        var response = authedPatch("/api/v1/connections/reconfigure/email-provider/sender")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .exchange();
+
+        assertThat(response).hasStatus(400);
+    }
+
     private MockMvcTester.MockMvcRequestBuilder authedPatch(String uri) {
         return mockMvc.patch().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+    }
+
+    private MockMvcTester.MockMvcRequestBuilder authedGet(String uri) {
+        return mockMvc.get().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+    }
+
+    private MockMvcTester.MockMvcRequestBuilder authedPost(String uri) {
+        return mockMvc.post().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+    }
+
+    private MockMvcTester.MockMvcRequestBuilder authedDelete(String uri) {
+        return mockMvc.delete().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
     }
 }

@@ -6,7 +6,6 @@ import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.common.exceptions.NoSupabaseProjectsException;
 import com.broadcastmail.api.common.exceptions.OAuthStateValidationException;
 import com.broadcastmail.api.config.EncryptionProperties;
-import com.broadcastmail.api.connection.ConnectionReconfigureService;
 import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
@@ -34,7 +33,6 @@ public class OAuthSupabaseService {
     private final AccountRepository accountRepository;
     private final AccountService accountService;
     private final OAuthSessionService oAuthSessionService;
-    private final ConnectionReconfigureService connectionReconfigureService;
 
     @Value("${supabase.oauth.client-id}")
     private String clientId;
@@ -91,7 +89,7 @@ public class OAuthSupabaseService {
 
         // If the state was associated with an accountId, it means this is a reconnect flow
         if (validationResult.accountId() != null) {
-            return handleReconfigure(validationResult.accountId(), rawAccessToken,
+            return handleReconfigure(validationResult.accountId(), ownerEmail, rawAccessToken,
                     encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
         }
 
@@ -124,14 +122,11 @@ public class OAuthSupabaseService {
 
     private OAuthCallbackResult handleReconfigure(
             UUID accountId,
+            String ownerEmail,
             String rawAccessToken,
             String encryptedAccessToken,
             String encryptedRefreshToken,
             Instant tokenExpiresAt) {
-
-        // Reset immediately — reconfigure is destructive from the moment OAuth completes.
-        // If the user abandons the flow mid-way, the old table/column settings are already gone.
-        connectionReconfigureService.resetForReconfigure(accountId);
 
         List<SupabaseProject> projects = supabaseManagementClient.listProjects(rawAccessToken);
         if (projects.isEmpty()) {
@@ -141,13 +136,14 @@ public class OAuthSupabaseService {
         if (projects.size() == 1) {
             String projectRef = projects.getFirst().ref();
             String sessionToken = oAuthSessionService.setupReconfigureSession(
-                    accountId, projectRef, rawAccessToken,
+                    accountId, ownerEmail, projectRef,
                     encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
             return new OAuthCallbackResult.ReconfigureSingleProject(sessionToken);
         } else {
             String partialToken = onboardingSessionStore.createPartial(
                     PartialOnboardingSession.forReconfigure(
                             accountId,
+                            ownerEmail,
                             encryptedAccessToken,
                             encryptedRefreshToken,
                             tokenExpiresAt,

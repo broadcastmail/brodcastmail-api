@@ -1,15 +1,20 @@
 package com.broadcastmail.api.connection;
 
+import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.api.common.exceptions.EmailAlreadyTakenException;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
+import com.broadcastmail.api.supabase.SupabaseManagementClient;
+import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.oauth.OAuthToken;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.token.OAuthTokenRepository;
+import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -21,7 +26,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -31,21 +35,9 @@ public class ConnectionReconfigureService {
     private final ConnectionRepository connectionRepository;
     private final FilterableColumnRepository filterableColumnRepository;
     private final OAuthTokenRepository oAuthTokenRepository;
+    private final AccountRepository accountRepository;
     private final EncryptionProperties encryptionProperties;
-
-    @Transactional
-    public void resetForReconfigure(UUID accountId) {
-        Connection connection = connectionRepository.findByAccountId(accountId)
-                .orElseThrow(ConnectionNotFoundException::new);
-
-        connection.setUserTableSchema(null);
-        connection.setUserTableName(null);
-        connection.setUserIdColumn(null);
-        connection.clearEmailTable();
-        connectionRepository.save(connection);
-
-        filterableColumnRepository.deleteByConnectionId(connection.getId());
-    }
+    private final SupabaseManagementClient supabaseManagementClient;
 
     @Transactional
     public void reconfigure(String sessionToken) {
@@ -59,9 +51,15 @@ public class ConnectionReconfigureService {
         Connection connection = connectionRepository.findByAccountId(session.getAccountId())
                 .orElseThrow(ConnectionNotFoundException::new);
 
+        String rawAccessToken = SecurityUtil.decrypt(session.getEncryptedAccessToken(), encryptionProperties.key());
+        String rolePassword = SecurityUtil.generatePassword();
+        supabaseManagementClient.executeSql(rawAccessToken, session.getProjectRef(),
+                SupabaseSql.CREATE_READER_ROLE.formatted(rolePassword));
+        String encryptedRolePassword = SecurityUtil.encrypt(rolePassword, encryptionProperties.key());
+
         connection.setProjectRef(session.getProjectRef());
         connection.setProjectUrl(session.getProjectUrl());
-        connection.setEncryptedCreds(session.getEncryptedRolePassword());
+        connection.setEncryptedCreds(encryptedRolePassword);
         connection.setUserTableSchema(session.getSchemaDetails().userSchema());
         connection.setUserTableName(session.getSchemaDetails().userTable());
         connection.setUserIdColumn(session.getSchemaDetails().userIdColumn());
@@ -81,6 +79,15 @@ public class ConnectionReconfigureService {
         token.setRefreshToken(session.getEncryptedRefreshToken());
         token.setExpiresAt(OffsetDateTime.ofInstant(session.getTokenExpiresAt(), ZoneId.systemDefault()));
         oAuthTokenRepository.save(token);
+
+        if (session.getOwnerEmail() != null) {
+            accountRepository.findByEmail(session.getOwnerEmail()).ifPresent(existing -> {
+                if (!existing.getId().equals(session.getAccountId())) {
+                    throw new EmailAlreadyTakenException();
+                }
+            });
+            accountRepository.updateEmail(session.getAccountId(), session.getOwnerEmail());
+        }
 
         onboardingSessionStore.invalidate(sessionToken);
     }

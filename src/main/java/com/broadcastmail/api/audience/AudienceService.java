@@ -69,14 +69,14 @@ public class AudienceService {
             String nextCursor = result.recipients().size() == limit
                     ? AudienceCursor.encode(result.recipients().getLast(), sortKey)
                     : null;
-            List<AudienceListResponse.AudienceRecipient> marked = markUnsubscribed(accountId, result.recipients());
+            List<AudienceListResponse.AudienceRecipient> marked = markSuppressed(accountId, result.recipients());
             return new AudienceListResponse(marked, nextCursor, nextCursor != null, result.total());
         } catch (SQLException e) {
             throw new RuntimeException("Audience list failed: " + e.getMessage(), e);
         }
     }
 
-    private List<AudienceListResponse.AudienceRecipient> markUnsubscribed(
+    private List<AudienceListResponse.AudienceRecipient> markSuppressed(
             UUID accountId, List<AudienceListResponse.AudienceRecipient> recipients) {
         if (recipients.isEmpty()) return recipients;
         List<String> emails = recipients.stream().map(AudienceListResponse.AudienceRecipient::email).toList();

@@ -7,6 +7,8 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.resend.Resend;
 import com.resend.core.exception.ResendException;
+import com.resend.services.domains.model.AbstractDomain;
+import com.resend.services.domains.model.ListDomainsResponse;
 import com.resend.services.emails.model.CreateEmailOptions;
 import com.resend.services.webhooks.model.CreateWebhookOptions;
 import com.resend.services.webhooks.model.CreateWebhookResponseSuccess;
@@ -14,6 +16,7 @@ import com.resend.services.webhooks.model.WebhookEvent;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -36,6 +39,19 @@ public class ResendClient {
         try {
             Resend resend = new Resend(apiKey);
             resend.domains().list();
+        } catch (ResendException _) {
+            throw new InvalidResendApiKeyException("Invalid or revoked Resend API key");
+        }
+    }
+
+    public List<String> listVerifiedDomains(String apiKey) {
+        try {
+            Resend resend = new Resend(apiKey);
+            ListDomainsResponse response = resend.domains().list();
+            return response.getData().stream()
+                    .filter(d -> "verified".equals(d.getStatus()))
+                    .map(AbstractDomain::getName)
+                    .toList();
         } catch (ResendException _) {
             throw new InvalidResendApiKeyException("Invalid or revoked Resend API key");
         }
