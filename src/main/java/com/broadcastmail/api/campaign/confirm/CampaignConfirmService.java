@@ -9,6 +9,7 @@ import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException;
 import com.broadcastmail.api.common.exceptions.ResendDailyLimitActiveException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
@@ -24,8 +25,10 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -40,6 +43,9 @@ public class CampaignConfirmService {
     private final CampaignFilterRepository campaignFilterRepository;
     private final PlanFacade planFacade;
     private final CampaignFilterValidator filterValidator;
+
+    private static final Set<CampaignStatus> UNSENT_STATUSES =
+            EnumSet.of(CampaignStatus.DRAFT, CampaignStatus.RESOLVING, CampaignStatus.SENDING);
 
     @Transactional
     public void confirmCampaign(UUID accountId, UUID campaignId) {
@@ -68,6 +74,17 @@ public class CampaignConfirmService {
         }
         if (campaign.getScheduledAt() != null) {
             planFacade.enforceFeature(account, PlanFeature.SCHEDULING);
+        }
+
+        if (campaign.getExcludedCampaignId() != null) {
+            Campaign referenced = campaignRepository
+                    .findByAccountIdAndId(accountId, campaign.getExcludedCampaignId())
+                    .orElseThrow(() -> new InvalidCampaignFilterException(List.of(
+                            "excludedCampaignId is unknown or belongs to a different account")));
+            if (UNSENT_STATUSES.contains(referenced.getStatus())) {
+                throw new InvalidCampaignFilterException(List.of(
+                        "excludedCampaignId refers to a campaign that has not been sent yet"));
+            }
         }
 
         campaign.setStatus(CampaignStatus.RESOLVING);
@@ -142,6 +159,7 @@ public class CampaignConfirmService {
                 .name(original.getName() + " (retry)")
                 .subject(original.getSubject())
                 .bodyHtml(original.getBodyHtml())
+                .filterRootLogic("AND")
                 .status(CampaignStatus.SENDING)
                 .recipientCount(Math.toIntExact(failedRecipients))
                 .build());

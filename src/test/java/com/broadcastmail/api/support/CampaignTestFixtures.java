@@ -56,6 +56,7 @@ public final class CampaignTestFixtures {
                 .name("Test Campaign")
                 .subject("Hello")
                 .bodyHtml("<p>Hi</p>")
+                .filterRootLogic("AND")
                 .status(CampaignStatus.DRAFT);
     }
 

@@ -8,6 +8,7 @@ import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.emailprovider.EmailProviderService;
 import com.broadcastmail.api.emailprovider.dto.EmailProviderInfoResponse;
 import com.broadcastmail.api.emailprovider.dto.VerifyKeyResponse;
+import com.broadcastmail.api.supabase.CustomerConnectionFactory;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
@@ -59,6 +60,8 @@ class ConnectionControllerTest {
     private SchemaIntrospectionService schemaIntrospectionService;
     @MockitoBean
     private EmailProviderService emailProviderService;
+    @MockitoBean
+    private CustomerConnectionFactory customerConnectionFactory;
 
     private Account account;
     private Connection connection;
@@ -207,6 +210,74 @@ class ConnectionControllerTest {
 
         assertThat(response).hasStatus(200)
                 .bodyJson().extractingPath("$").asList().isEmpty();
+    }
+
+    // ── GET /filters ──────────────────────────────────────────────────────
+
+    @Test
+    void shouldReturnFilterContextWithConnectionInfo() {
+        // When
+        var response = authedGet("/api/v1/connections/filters").exchange();
+
+        // Then
+        assertThat(response).hasStatus(200)
+                .bodyJson().extractingPath("$.userTable.name").asString().isEqualTo("profiles");
+        assertThat(response).bodyJson().extractingPath("$.userTable.schema").asString().isEqualTo("public");
+        assertThat(response).bodyJson().extractingPath("$.status").asString().isEqualTo("DETECTED");
+    }
+
+    @Test
+    void shouldSplitColumnsIntoProfileAndAuth() {
+        // Given
+        filterableColumnRepository.save(FilterableColumn.builder()
+                .connectionId(connection.getId()).columnName("plan").columnType("text")
+                .displayName("plan").source(FilterSource.PROFILE_TABLE).enabled(true).cardinalityWarning(false).build());
+        filterableColumnRepository.save(FilterableColumn.builder()
+                .connectionId(connection.getId()).columnName("created_at").columnType("timestamptz")
+                .displayName("created_at").source(FilterSource.AUTH_METADATA).enabled(true).cardinalityWarning(false).build());
+
+        // When
+        var response = authedGet("/api/v1/connections/filters").exchange();
+
+        // Then
+        assertThat(response).hasStatus(200)
+                .bodyJson().extractingPath("$.columns.profile[0].name").asString().isEqualTo("plan");
+        assertThat(response).bodyJson().extractingPath("$.columns.auth[0].name").asString().isEqualTo("created_at");
+    }
+
+    @Test
+    void shouldIncludeRecommendationMetadataForEachColumn() {
+        // Given
+        filterableColumnRepository.save(FilterableColumn.builder()
+                .connectionId(connection.getId()).columnName("plan").columnType("text")
+                .displayName("plan").source(FilterSource.PROFILE_TABLE).enabled(true).cardinalityWarning(false).build());
+
+        // When
+        var response = authedGet("/api/v1/connections/filters").exchange();
+
+        // Then — column carries recommendation fields; the logic itself is covered by ColumnRecommendationServiceTest
+        assertThat(response).bodyJson().extractingPath("$.columns.profile[0].recommended").asBoolean().isNotNull();
+        assertThat(response).bodyJson().extractingPath("$.columns.profile[0].allowedOperators").asList().isNotEmpty();
+    }
+
+    @Test
+    void shouldReturn401WhenNotAuthenticatedForFilters() {
+        // When
+        var response = mockMvc.get().uri("/api/v1/connections/filters").exchange();
+
+        // Then
+        assertThat(response).hasStatus(401);
+    }
+
+    @Test
+    void shouldReturnEmptyColumnsWhenNoneConfigured() {
+        // When
+        var response = authedGet("/api/v1/connections/filters").exchange();
+
+        // Then
+        assertThat(response).hasStatus(200)
+                .bodyJson().extractingPath("$.columns.profile").asList().isEmpty();
+        assertThat(response).bodyJson().extractingPath("$.columns.auth").asList().isEmpty();
     }
 
     // ── Email provider endpoints ───────────────────────────────────────────

@@ -6,10 +6,12 @@ import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
 import com.broadcastmail.common.campaign.filter.FilterQuery;
+import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.supabase.CustomerConnectionFactory;
 import com.broadcastmail.api.supabase.ConnectionQueryContext;
+import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import com.broadcastmail.common.suppressions.Suppression;
 import com.broadcastmail.common.suppressions.SuppressionsRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +21,9 @@ import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -33,23 +37,23 @@ public class RecipientPreviewService {
     private final CampaignFilterSerializer filterSerializer;
     private final CampaignFilterValidator filterValidator;
     private final SuppressionsRepository suppressionsRepository;
+    private final CampaignRecipientRepository recipientRepository;
 
     public Integer preview(UUID accountId, UUID campaignId) {
-        campaignService.getCampaign(accountId, campaignId);
+        Campaign campaign = campaignService.getCampaign(accountId, campaignId);
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
 
         List<CampaignFilter> filters = filterRepository.findByCampaignId(campaignId);
         filterValidator.validateSaved(accountId, filters);
-        FilterQuery filterQuery = filterSerializer.serialize(filters);
+        String rootLogic = campaign.getFilterRootLogic() != null ? campaign.getFilterRootLogic() : "AND";
+        FilterQuery filterQuery = filterSerializer.serialize(filters, rootLogic);
 
-        List<String> suppressed = suppressionsRepository.findByAccountId(accountId).stream()
-                .map(Suppression::getEmail)
-                .toList();
+        Set<String> allExcluded = buildExclusionSet(accountId, campaign);
         boolean hasFilters = !filterQuery.sql().isEmpty();
-        boolean hasSuppressed = !suppressed.isEmpty();
+        boolean hasExcluded = !allExcluded.isEmpty();
 
-        String sql = buildCountSql(connection, filterQuery, hasFilters, hasSuppressed);
+        String sql = buildCountSql(connection, filterQuery, hasFilters, hasExcluded);
 
         try (java.sql.Connection conn = connectionFactory.open(connection);
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -58,9 +62,9 @@ public class RecipientPreviewService {
             for (Object param : filterQuery.parameters()) {
                 stmt.setObject(paramIndex++, param);
             }
-            if (hasSuppressed) {
-                Array suppressedArray = conn.createArrayOf("text", suppressed.toArray());
-                stmt.setArray(paramIndex, suppressedArray);
+            if (hasExcluded) {
+                Array excludedArray = conn.createArrayOf("text", allExcluded.toArray());
+                stmt.setArray(paramIndex, excludedArray);
             }
 
             ResultSet rs = stmt.executeQuery();
@@ -77,14 +81,31 @@ public class RecipientPreviewService {
         }
     }
 
+    private Set<String> buildExclusionSet(UUID accountId, Campaign campaign) {
+        Set<String> excluded = new LinkedHashSet<>();
+
+        suppressionsRepository.findByAccountId(accountId).stream()
+                .map(Suppression::getEmail)
+                .forEach(excluded::add);
+
+        if (campaign.getExcludedIds() != null && !campaign.getExcludedIds().isEmpty()) {
+            excluded.addAll(recipientRepository.findDistinctEmailsByExternalUserIds(accountId, campaign.getExcludedIds()));
+        }
+        if (campaign.getExcludedCampaignId() != null) {
+            excluded.addAll(recipientRepository.findDistinctEmailsByCampaignId(campaign.getExcludedCampaignId()));
+        }
+
+        return excluded;
+    }
+
     private String buildCountSql(Connection connection, FilterQuery filterQuery,
-                                  boolean hasFilters, boolean hasSuppressed) {
+                                  boolean hasFilters, boolean hasExcluded) {
         ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
         if (!hasFilters) {
             String base = ctx.buildBaseCountQuery();
-            return hasSuppressed ? base + " WHERE " + ctx.emailColumnExpression() + " != ALL(?)" : base;
+            return hasExcluded ? base + " WHERE " + ctx.emailColumnExpression() + " != ALL(?)" : base;
         }
         String base = ctx.buildRecipientCountQuery() + " " + filterQuery.sql();
-        return hasSuppressed ? base + " AND " + ctx.emailColumnExpression() + " != ALL(?)" : base;
+        return hasExcluded ? base + " AND " + ctx.emailColumnExpression() + " != ALL(?)" : base;
     }
 }

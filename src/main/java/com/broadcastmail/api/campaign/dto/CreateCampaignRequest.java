@@ -14,5 +14,6 @@ public record CreateCampaignRequest(
         @NotBlank String subject,
         @NotBlank String bodyHtml,
         @Future @Nullable OffsetDateTime scheduledAt,
-        List<@Valid FilterRequest> filters
+        List<@Valid FilterRequest> filters,
+        String filterRootLogic
 ) {}

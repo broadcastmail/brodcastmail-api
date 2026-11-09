@@ -50,7 +50,7 @@ class CampaignFilterValidatorTest {
     }
 
     private FilterRequest filter(String column, FilterSource source, String jsonKey) {
-        return new FilterRequest(column, FilterOperator.EQ, "v", source, jsonKey);
+        return new FilterRequest(column, FilterOperator.EQ, "v", source, jsonKey, null, null, null);
     }
 
     @Test

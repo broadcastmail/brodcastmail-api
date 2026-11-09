@@ -34,9 +34,11 @@ public record CampaignResponse(
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         List<CampaignFilterResponse> filters,
+        String filterRootLogic,
         @JsonSerialize(using = LowerCaseEnumSerializer.class) AudienceMode audienceMode,
         List<String> includedIds,
-        List<String> excludedIds
+        List<String> excludedIds,
+        UUID excludedCampaignId
 ) {
     /** For campaigns whose filters aren't relevant to the caller (e.g. retry campaigns). */
     public static CampaignResponse from(Campaign campaign) {
@@ -69,9 +71,11 @@ public record CampaignResponse(
                         .sorted(Comparator.comparingInt(CampaignFilter::getFilterOrder))
                         .map(CampaignFilterResponse::from)
                         .toList(),
+                campaign.getFilterRootLogic(),
                 campaign.getAudienceMode(),
                 campaign.getIncludedIds(),
-                campaign.getExcludedIds()
+                campaign.getExcludedIds(),
+                campaign.getExcludedCampaignId()
         );
     }
 }

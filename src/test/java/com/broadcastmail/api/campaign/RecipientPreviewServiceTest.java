@@ -6,13 +6,17 @@ import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.supabase.ConnectionQueryContext;
 import com.broadcastmail.api.supabase.CustomerConnectionFactory;
 import com.broadcastmail.api.supabase.SupabaseSql;
+import com.broadcastmail.common.campaign.Campaign;
+import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
 import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
+import com.broadcastmail.common.suppressions.Suppression;
 import com.broadcastmail.common.suppressions.SuppressionsRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -32,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -57,6 +63,9 @@ class RecipientPreviewServiceTest {
     @Mock
     private SuppressionsRepository suppressionsRepository;
 
+    @Mock
+    private CampaignRecipientRepository recipientRepository;
+
     private RecipientPreviewService recipientPreviewService;
 
     @BeforeEach
@@ -68,7 +77,8 @@ class RecipientPreviewServiceTest {
                 filterRepository,
                 new CampaignFilterSerializer(),
                 filterValidator,
-                suppressionsRepository
+                suppressionsRepository,
+                recipientRepository
         );
     }
 
@@ -89,6 +99,12 @@ class RecipientPreviewServiceTest {
         return sqlConnection;
     }
 
+    private Campaign stubEmptyCampaign(UUID accountId, UUID campaignId) {
+        Campaign campaign = Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT).build();
+        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        return campaign;
+    }
+
     @Test
     void shouldRejectPreviewOfCampaignNotOwnedByAccount() {
         UUID accountId = UUID.randomUUID();
@@ -105,6 +121,7 @@ class RecipientPreviewServiceTest {
     void shouldRejectPreviewWhenSavedFiltersAreStale() {
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();
+        stubEmptyCampaign(accountId, campaignId);
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         List<com.broadcastmail.common.campaign.filter.CampaignFilter> filters =
                 List.of(com.broadcastmail.common.campaign.filter.CampaignFilter.builder().columnName("gone").build());
@@ -122,6 +139,7 @@ class RecipientPreviewServiceTest {
         // Given
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();
+        stubEmptyCampaign(accountId, campaignId);
         Connection connection = buildConnection(accountId);
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(connection));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
@@ -149,6 +167,7 @@ class RecipientPreviewServiceTest {
         // Given
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();
+        stubEmptyCampaign(accountId, campaignId);
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
 
@@ -172,6 +191,7 @@ class RecipientPreviewServiceTest {
         // Given
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();
+        stubEmptyCampaign(accountId, campaignId);
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.empty());
 
         // When / Then
@@ -184,6 +204,7 @@ class RecipientPreviewServiceTest {
         // Given
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();
+        stubEmptyCampaign(accountId, campaignId);
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
         when(connectionFactory.open(any())).thenThrow(new SQLException("connection refused"));
@@ -199,6 +220,7 @@ class RecipientPreviewServiceTest {
         // Given
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();
+        stubEmptyCampaign(accountId, campaignId);
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of(
                 CampaignFilter.builder()
@@ -235,6 +257,7 @@ class RecipientPreviewServiceTest {
         // Given
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();
+        stubEmptyCampaign(accountId, campaignId);
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
 
@@ -255,5 +278,131 @@ class RecipientPreviewServiceTest {
         // Then - no join needed (and none wanted: it would wrongly exclude auth
         // users without a profile row yet, since it's an INNER JOIN)
         assertThat(sqlCaptor.getValue()).isEqualTo(SupabaseSql.COUNT_RECIPIENTS);
+    }
+
+    @Test
+    void shouldApplySuppressionEmailsToExclusionArray() throws SQLException {
+        UUID accountId = UUID.randomUUID();
+        UUID campaignId = UUID.randomUUID();
+        stubEmptyCampaign(accountId, campaignId);
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
+        when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
+        Suppression suppression = mock(Suppression.class);
+        when(suppression.getEmail()).thenReturn("suppressed@example.com");
+        when(suppressionsRepository.findByAccountId(accountId)).thenReturn(List.of(suppression));
+
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getInt(1)).thenReturn(10);
+        java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
+        Array pgArray = mock(Array.class);
+        when(sqlConnection.createArrayOf(eq("text"), any())).thenReturn(pgArray);
+        when(sqlConnection.prepareStatement(anyString())).thenReturn(statement);
+        when(connectionFactory.open(any())).thenReturn(sqlConnection);
+
+        recipientPreviewService.preview(accountId, campaignId);
+
+        verify(sqlConnection).createArrayOf(eq("text"), any());
+        verify(statement).setArray(eq(1), pgArray);
+    }
+
+    @Test
+    void shouldApplyExcludedIdsAsEmailsToExclusionArray() throws SQLException {
+        UUID accountId = UUID.randomUUID();
+        UUID campaignId = UUID.randomUUID();
+        Campaign campaign = Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT)
+                .excludedIds(List.of("external-user-1")).build(); // no excludedCampaignId
+        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
+        when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
+        when(suppressionsRepository.findByAccountId(accountId)).thenReturn(List.of());
+        when(recipientRepository.findDistinctEmailsByExternalUserIds(accountId, List.of("external-user-1")))
+                .thenReturn(List.of("excluded@example.com"));
+
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getInt(1)).thenReturn(5);
+        java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
+        Array pgArray = mock(Array.class);
+        when(sqlConnection.createArrayOf(eq("text"), any())).thenReturn(pgArray);
+        when(sqlConnection.prepareStatement(anyString())).thenReturn(statement);
+        when(connectionFactory.open(any())).thenReturn(sqlConnection);
+
+        recipientPreviewService.preview(accountId, campaignId);
+
+        verify(recipientRepository).findDistinctEmailsByExternalUserIds(accountId, List.of("external-user-1"));
+        verify(statement).setArray(1, pgArray);
+    }
+
+    @Test
+    void shouldApplyExcludedCampaignIdsToExclusionArray() throws SQLException {
+        UUID accountId = UUID.randomUUID();
+        UUID campaignId = UUID.randomUUID();
+        UUID prevCampaignId = UUID.randomUUID();
+        Campaign campaign = Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT)
+                .excludedCampaignId(prevCampaignId).build();
+        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
+        when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
+        when(suppressionsRepository.findByAccountId(accountId)).thenReturn(List.of());
+        when(recipientRepository.findDistinctEmailsByCampaignId(prevCampaignId))
+                .thenReturn(List.of("past-recipient@example.com"));
+
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getInt(1)).thenReturn(8);
+        java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
+        Array pgArray = mock(Array.class);
+        when(sqlConnection.createArrayOf(eq("text"), any())).thenReturn(pgArray);
+        when(sqlConnection.prepareStatement(anyString())).thenReturn(statement);
+        when(connectionFactory.open(any())).thenReturn(sqlConnection);
+
+        recipientPreviewService.preview(accountId, campaignId);
+
+        verify(recipientRepository).findDistinctEmailsByCampaignId(prevCampaignId);
+        verify(statement).setArray(1, eq(pgArray));
+    }
+
+    @Test
+    void shouldDeduplicateEmailsAcrossAllExclusionSources() throws SQLException {
+        UUID accountId = UUID.randomUUID();
+        UUID campaignId = UUID.randomUUID();
+        UUID prevCampaignId = UUID.randomUUID();
+        Campaign campaign = Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT)
+                .excludedIds(List.of("external-user-1")).excludedCampaignId(prevCampaignId).build();
+        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
+        when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
+        Suppression suppression = mock(Suppression.class);
+        when(suppression.getEmail()).thenReturn("shared@example.com");
+        when(suppressionsRepository.findByAccountId(accountId)).thenReturn(List.of(suppression));
+        // same email from both excludedIds and excludedCampaignId
+        when(recipientRepository.findDistinctEmailsByExternalUserIds(accountId, List.of("external-user-1")))
+                .thenReturn(List.of("shared@example.com"));
+        when(recipientRepository.findDistinctEmailsByCampaignId(prevCampaignId))
+                .thenReturn(List.of("shared@example.com", "other@example.com"));
+
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getInt(1)).thenReturn(3);
+        java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
+        ArgumentCaptor<Object[]> arrayCaptor = ArgumentCaptor.forClass(Object[].class);
+        Array pgArray = mock(Array.class);
+        when(sqlConnection.createArrayOf(eq("text"), arrayCaptor.capture())).thenReturn(pgArray);
+        when(sqlConnection.prepareStatement(anyString())).thenReturn(statement);
+        when(connectionFactory.open(any())).thenReturn(sqlConnection);
+
+        recipientPreviewService.preview(accountId, campaignId);
+
+        // shared@example.com deduplicated — should appear only once
+        assertThat(arrayCaptor.getValue()).containsExactlyInAnyOrder("shared@example.com", "other@example.com");
     }
 }
