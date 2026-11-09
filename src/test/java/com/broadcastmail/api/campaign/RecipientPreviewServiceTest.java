@@ -305,7 +305,7 @@ class RecipientPreviewServiceTest {
         recipientPreviewService.preview(accountId, campaignId);
 
         verify(sqlConnection).createArrayOf(eq("text"), any());
-        verify(statement).setArray(eq(1), pgArray);
+        verify(statement).setArray(1, eq(pgArray));
     }
 
     @Test
@@ -335,7 +335,7 @@ class RecipientPreviewServiceTest {
         recipientPreviewService.preview(accountId, campaignId);
 
         verify(recipientRepository).findDistinctEmailsByExternalUserIds(accountId, List.of("external-user-1"));
-        verify(statement).setArray(1, pgArray);
+        verify(statement).setArray(1, eq(pgArray));
     }
 
     @Test
