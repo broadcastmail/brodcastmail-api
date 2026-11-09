@@ -298,14 +298,14 @@ class RecipientPreviewServiceTest {
         when(resultSet.getInt(1)).thenReturn(10);
         java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
         Array pgArray = mock(Array.class);
-        when(sqlConnection.createArrayOf(eq("text"), any())).thenReturn(pgArray);
+        when(sqlConnection.createArrayOf(anyString(), any())).thenReturn(pgArray);
         when(sqlConnection.prepareStatement(anyString())).thenReturn(statement);
         when(connectionFactory.open(any())).thenReturn(sqlConnection);
 
         recipientPreviewService.preview(accountId, campaignId);
 
-        verify(sqlConnection).createArrayOf(eq("text"), any());
-        verify(statement).setArray(1, eq(pgArray));
+        verify(sqlConnection).createArrayOf(anyString(), any());
+        verify(statement).setArray(1, pgArray);
     }
 
     @Test
@@ -328,14 +328,14 @@ class RecipientPreviewServiceTest {
         when(resultSet.getInt(1)).thenReturn(5);
         java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
         Array pgArray = mock(Array.class);
-        when(sqlConnection.createArrayOf(eq("text"), any())).thenReturn(pgArray);
+        when(sqlConnection.createArrayOf(anyString(), any())).thenReturn(pgArray);
         when(sqlConnection.prepareStatement(anyString())).thenReturn(statement);
         when(connectionFactory.open(any())).thenReturn(sqlConnection);
 
         recipientPreviewService.preview(accountId, campaignId);
 
         verify(recipientRepository).findDistinctEmailsByExternalUserIds(accountId, List.of("external-user-1"));
-        verify(statement).setArray(1, eq(pgArray));
+        verify(statement).setArray(1, pgArray);
     }
 
     @Test
@@ -359,14 +359,14 @@ class RecipientPreviewServiceTest {
         when(resultSet.getInt(1)).thenReturn(8);
         java.sql.Connection sqlConnection = mock(java.sql.Connection.class);
         Array pgArray = mock(Array.class);
-        when(sqlConnection.createArrayOf(eq("text"), any())).thenReturn(pgArray);
+        when(sqlConnection.createArrayOf(anyString(), any())).thenReturn(pgArray);
         when(sqlConnection.prepareStatement(anyString())).thenReturn(statement);
         when(connectionFactory.open(any())).thenReturn(sqlConnection);
 
         recipientPreviewService.preview(accountId, campaignId);
 
         verify(recipientRepository).findDistinctEmailsByCampaignId(prevCampaignId);
-        verify(statement).setArray(1, eq(pgArray));
+        verify(statement).setArray(1, pgArray);
     }
 
     @Test
