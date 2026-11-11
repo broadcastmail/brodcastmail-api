@@ -78,7 +78,7 @@ class CampaignControllerTest {
     @Test
     void shouldReturn201WithCampaignOnCreate() throws Exception {
         // Given
-        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, null);
+        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, null, null);
         String requestBody = objectMapper.writeValueAsString(request);
 
         // When
@@ -244,6 +244,27 @@ class CampaignControllerTest {
                 .extractingPath("$.error")
                 .asString()
                 .isEqualTo("Campaign is not in a retryable state");
+    }
+
+    @Test
+    void shouldReturnExcludedCampaignIdsInCampaignResponse() {
+        // Given
+        Campaign sentCampaign = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
+                        .status(CampaignStatus.SENT).build());
+        Campaign draft = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
+                        .excludedCampaignId(sentCampaign.getId()).build());
+
+        // When
+        var response = authedGet("/api/v1/campaigns/" + draft.getId())
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(200);
+        assertThat(response).bodyJson()
+                .extractingPath("$.excludedCampaignId").asString()
+                .isEqualTo(sentCampaign.getId().toString());
     }
 
     // Helpers

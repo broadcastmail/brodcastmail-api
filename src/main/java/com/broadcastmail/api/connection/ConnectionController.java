@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.broadcastmail.api.connection.dto.ConnectionRequests;
 import com.broadcastmail.api.connection.dto.FilterableColumnResponse;
+import com.broadcastmail.api.connection.dto.FilterContextResponse;
 import com.broadcastmail.api.connection.dto.ReconnectCompatibilityResponse;
 import java.util.List;
 import java.util.UUID;
@@ -47,6 +48,7 @@ public class ConnectionController {
     private final ConnectionUpdateService connectionUpdateService;
     private final CookieService cookieService;
     private final EmailProviderService emailProviderService;
+    private final FilterContextService filterContextService;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -108,20 +110,38 @@ public class ConnectionController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/reconnect/compatibility")
+    @GetMapping("/reconnect/columns")
+    public ResponseEntity<List<FilterableColumnResponse>> listColumnsForReconnect(
+            @AuthenticationPrincipal UUID accountId) {
+        return ResponseEntity.ok(connectionQueryService.listColumns(accountId));
+    }
+
+    @DeleteMapping("/reconnect/profile-columns")
+    public ResponseEntity<Void> deleteProfileColumns(
+            @AuthenticationPrincipal UUID accountId) {
+        connectionUpdateService.deleteProfileColumns(accountId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/reconfigure/compatibility")
     public ResponseEntity<ReconnectCompatibilityResponse> checkReconnectCompatibility(
             @AuthenticationPrincipal UUID accountId,
             @RequestParam String projectRef) {
         return ResponseEntity.ok(connectionQueryService.checkCompatibility(accountId, projectRef));
     }
 
-    @GetMapping("/reconnect/introspect")
+    @GetMapping("/reconfigure/introspect")
     public ResponseEntity<SchemaIntrospectionResult> detectSchemaForReconnect(
             @AuthenticationPrincipal UUID accountId,
             @RequestParam(required = false) String projectRef) {
         return ResponseEntity.ok(schemaService.detectForAccount(accountId, projectRef));
     }
 
+
+    @GetMapping("/filters")
+    public ResponseEntity<FilterContextResponse> getFilterContext(@AuthenticationPrincipal UUID accountId) {
+        return ResponseEntity.ok(filterContextService.build(accountId));
+    }
 
     @GetMapping("/columns")
     public ResponseEntity<List<FilterableColumnResponse>> listColumns(
@@ -135,13 +155,6 @@ public class ConnectionController {
         return ResponseEntity.ok(emailSourceService.detectForAccount(accountId));
     }
 
-
-    @DeleteMapping("/reconnect/profile-columns")
-    public ResponseEntity<Void> deleteProfileColumns(
-            @AuthenticationPrincipal UUID accountId) {
-        connectionUpdateService.deleteProfileColumns(accountId);
-        return ResponseEntity.noContent().build();
-    }
 
     // ── Email provider ─────────────────────────────────────────────────────
 

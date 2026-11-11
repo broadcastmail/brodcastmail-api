@@ -167,12 +167,16 @@ public final class SupabaseSql {
         if (!IDENTIFIER_PATTERN.matcher(filter.columnName()).matches()) {
             throw new IllegalArgumentException("Invalid column name: " + filter.columnName());
         }
+        if ("IS_ANY_OF".equals(filter.operator().name())) {
+            return "\"" + filter.columnName() + "\" = ANY(?)";
+        }
         String op = switch (filter.operator()) {
             case EQ -> "=";
             case NEQ -> "!=";
             case GT -> ">";
             case LT -> "<";
             case CONTAINS -> "ILIKE";
+            default -> throw new IllegalArgumentException("Unsupported operator: " + filter.operator());
         };
         return switch (filter.sourceOrDefault()) {
             case PROFILE_TABLE, AUTH_METADATA -> "\"" + filter.columnName() + "\" " + op + " ?";

@@ -40,8 +40,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -89,6 +91,7 @@ public class CampaignService {
         return filterRepository.findByCampaignId(campaignId);
     }
 
+
     public Page<Campaign> listCampaigns(UUID accountId, Pageable pageable) {
         return campaignRepository.findByAccountId(accountId, pageable);
     }
@@ -126,6 +129,15 @@ public class CampaignService {
 
         if (request.excludedIds() != null) {
             campaign.setExcludedIds(request.excludedIds());
+        }
+
+        if (request.excludedCampaignId() != null) {
+            validateExcludedCampaignId(accountId, campaignId, request.excludedCampaignId());
+            campaign.setExcludedCampaignId(request.excludedCampaignId());
+        }
+
+        if (request.filterRootLogic() != null) {
+            campaign.setFilterRootLogic(request.filterRootLogic());
         }
 
         if (request.filters() != null) {
@@ -198,6 +210,21 @@ public class CampaignService {
         String body = applyTemplateVariables(campaign.getBodyHtml(), request.variables());
         resendClient.sendTestEmail(accountId, apiKey, provider.getFromAddress(), account.getEmail(), campaign.getSubject(), body);
     }
+    private static final Set<CampaignStatus> UNSENT_STATUSES =
+            EnumSet.of(CampaignStatus.DRAFT, CampaignStatus.RESOLVING, CampaignStatus.SENDING);
+
+    private void validateExcludedCampaignId(UUID accountId, UUID currentCampaignId, UUID excludedId) {
+        if (excludedId.equals(currentCampaignId)) {
+            throw new InvalidCampaignFilterException(List.of("excludedCampaignId must not be the current campaign"));
+        }
+        Campaign referenced = campaignRepository.findByAccountIdAndId(accountId, excludedId)
+                .orElseThrow(() -> new InvalidCampaignFilterException(
+                        List.of("excludedCampaignId is unknown or belongs to a different account")));
+        if (UNSENT_STATUSES.contains(referenced.getStatus())) {
+            throw new InvalidCampaignFilterException(List.of("excludedCampaignId refers to a campaign that has not been sent yet"));
+        }
+    }
+
     private Campaign mapToEntity(UUID accountId, UUID connectionId, CreateCampaignRequest request) {
         return Campaign.builder()
                 .accountId(accountId)
@@ -207,6 +234,7 @@ public class CampaignService {
                 .status(CampaignStatus.DRAFT)
                 .connectionId(connectionId)
                 .scheduledAt(request.scheduledAt())
+                .filterRootLogic(request.filterRootLogic() != null ? request.filterRootLogic() : "AND")
                 .build();
     }
 
@@ -229,14 +257,19 @@ public class CampaignService {
     }
 
     private CampaignFilter mapToFilter(UUID campaignId, int order, FilterRequest request) {
+        String filterValue = request.filterValues() != null && !request.filterValues().isEmpty()
+                ? String.join(",", request.filterValues())
+                : request.filterValue();
         return CampaignFilter.builder()
                 .campaignId(campaignId)
                 .columnName(request.columnName())
                 .operator(request.operator())
-                .filterValue(request.filterValue())
+                .filterValue(filterValue)
                 .filterOrder(order)
                 .source(request.sourceOrDefault())
                 .jsonKey(request.jsonKey())
+                .groupIndex(request.groupIndex())
+                .groupLogic(request.groupLogic())
                 .build();
     }
 }
