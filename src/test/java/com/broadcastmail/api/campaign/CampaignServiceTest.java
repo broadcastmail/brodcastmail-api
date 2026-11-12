@@ -350,6 +350,7 @@ class CampaignServiceTest {
                 .excludedCampaignId(draftCampaignId).build();
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, draftCampaignId)).thenReturn(Optional.of(draft));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(Account.builder().id(ACCOUNT_ID).plan(Plan.STARTER).build()));
 
         assertThatThrownBy(() -> campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request))
                 .isInstanceOf(com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException.class)
@@ -364,6 +365,7 @@ class CampaignServiceTest {
                 .scheduledAt(Optional.empty()).audienceMode(Optional.empty())
                 .excludedCampaignId(CAMPAIGN_ID).build();
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(Account.builder().id(ACCOUNT_ID).plan(Plan.STARTER).build()));
 
         assertThatThrownBy(() -> campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request))
                 .isInstanceOf(com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException.class)
