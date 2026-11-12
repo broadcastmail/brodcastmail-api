@@ -6,9 +6,10 @@ import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
-import com.broadcastmail.api.supabase.CustomerConnectionFactory;
+import com.broadcastmail.api.supabase.TenantFilterSqlBuilder;
 import com.broadcastmail.api.supabase.ConnectionQueryContext;
 import com.broadcastmail.api.supabase.SupabaseSql;
+import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -19,6 +20,7 @@ import org.hibernate.query.SortDirection;
 import org.springframework.stereotype.Service;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,26 +31,25 @@ public class AudienceService {
 
     private final ConnectionRepository connectionRepository;
     private final FilterableColumnRepository filterableColumnRepository;
-    private final CustomerConnectionFactory connectionFactory;
+    private final TenantAudienceGateway tenantAudienceGateway;
     private final CampaignFilterValidator filterValidator;
     private final SuppressionsRepository suppressionsRepository;
 
     public AudienceListResponse list(
-            UUID accountId,
+            Account account,
             Optional<String> cursor,
             int limit,
             List<FilterRequest> filters,
+            String filterRootLogic,
             String sortKey,
             SortDirection sortDirection) {
 
         if (!SupabaseSql.IDENTIFIER_PATTERN.matcher(sortKey).matches()) {
             throw new IllegalArgumentException("Invalid sort key: " + sortKey);
         }
-        if (!filters.isEmpty()) {
-            filterValidator.validateRequests(accountId, filters);
-        }
+        filterValidator.validateRequests(account, filters);
 
-        Connection connection = connectionRepository.findByAccountId(accountId)
+        Connection connection = connectionRepository.findByAccountId(account.getId())
                 .orElseThrow(ConnectionNotFoundException::new);
 
         FilterSource sortSource = filterableColumnRepository
@@ -58,18 +59,19 @@ public class AudienceService {
         ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
         SupabaseSql.SortSpec sort = ctx.buildSortSpec(sortSource, sortKey, sortDirection);
 
-        String baseWhere = SupabaseSql.buildWhereClause(filters);
-        List<Object> countParams = SupabaseSql.buildFilterParams(filters);
-        AudienceCursor.PageQuery page = AudienceCursor.buildPageQuery(cursor, baseWhere, countParams, sort, ctx.idRef());
+        TenantFilterSqlBuilder.FilterClause where = TenantFilterSqlBuilder.buildWhereClause(filters, filterRootLogic);
+        String baseWhere = where.sql();
+        List<Object> filterParams = new ArrayList<>(where.params());
+        AudienceCursor.PageQuery page = AudienceCursor.buildPageQuery(cursor, baseWhere, filterParams, sort, ctx.idRef());
 
         String sql = ctx.buildAudienceQuery(baseWhere, page.whereClause(), sort);
 
-        try (java.sql.Connection conn = connectionFactory.open(connection)) {
-            SupabaseSql.AudienceQueryResult result = SupabaseSql.queryAudience(conn, sql, countParams, page.pageParams(), limit);
+        try {
+            TenantAudienceGateway.AudienceQueryResult result = tenantAudienceGateway.queryAudience(connection, sql, filterParams, page.pageParams(), limit);
             String nextCursor = result.recipients().size() == limit
                     ? AudienceCursor.encode(result.recipients().getLast(), sortKey)
                     : null;
-            List<AudienceListResponse.AudienceRecipient> marked = markSuppressed(accountId, result.recipients());
+            List<AudienceListResponse.AudienceRecipient> marked = markSuppressed(account.getId(), result.recipients());
             return new AudienceListResponse(marked, nextCursor, nextCursor != null, result.total());
         } catch (SQLException e) {
             throw new RuntimeException("Audience list failed: " + e.getMessage(), e);

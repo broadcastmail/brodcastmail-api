@@ -1,9 +1,11 @@
 package com.broadcastmail.api.campaign.filter;
 
+import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException;
+import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
@@ -26,6 +28,15 @@ public class CampaignFilterValidator {
 
     private final ConnectionRepository connectionRepository;
     private final FilterableColumnRepository filterableColumnRepository;
+    private final PlanFacade planFacade;
+
+    public void validateRequests(Account account, List<FilterRequest> requests) {
+        if (requests == null || requests.isEmpty()) return;
+        planFacade.enforceFilterShape(account, requests);
+        validate(account.getId(), requests.stream()
+                .map(r -> new Candidate(r.columnName(), r.sourceOrDefault(), r.jsonKey()))
+                .toList());
+    }
 
     public void validateRequests(UUID accountId, List<FilterRequest> requests) {
         if (requests == null || requests.isEmpty()) return;

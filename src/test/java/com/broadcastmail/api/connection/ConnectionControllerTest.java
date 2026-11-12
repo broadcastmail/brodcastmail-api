@@ -8,7 +8,7 @@ import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.emailprovider.EmailProviderService;
 import com.broadcastmail.api.emailprovider.dto.EmailProviderInfoResponse;
 import com.broadcastmail.api.emailprovider.dto.VerifyKeyResponse;
-import com.broadcastmail.api.supabase.CustomerConnectionFactory;
+import com.broadcastmail.api.supabase.TenantConnectionGateway;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
@@ -61,7 +61,7 @@ class ConnectionControllerTest {
     @MockitoBean
     private EmailProviderService emailProviderService;
     @MockitoBean
-    private CustomerConnectionFactory customerConnectionFactory;
+    private TenantConnectionGateway tenantConnectionGateway;
 
     private Account account;
     private Connection connection;

@@ -2,7 +2,7 @@ package com.broadcastmail.api.connection;
 
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.connection.dto.FilterContextResponse;
-import com.broadcastmail.api.supabase.CustomerConnectionFactory;
+import com.broadcastmail.api.supabase.TenantConnectionGateway;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -11,9 +11,6 @@ import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.*;
 
 @Service
@@ -34,7 +31,7 @@ public class FilterContextService {
 
     private final ConnectionRepository connectionRepository;
     private final FilterableColumnRepository filterableColumnRepository;
-    private final CustomerConnectionFactory connectionFactory;
+    private final TenantConnectionGateway connectionGateway;
 
     public FilterContextResponse build(UUID accountId) {
         Connection connection = connectionRepository.findByAccountId(accountId)
@@ -85,35 +82,15 @@ public class FilterContextService {
                 enumValues
         );
     }
-    //NOSONAR java:S2077 column names come from our own schema introspection, not user input
-    @SuppressWarnings("java:S2077")
     private Map<String, List<String>> fetchEnumValues(Connection connection, List<FilterableColumn> cols) {
-        List<FilterableColumn> targets = cols.stream()
+        List<String> targets = cols.stream()
                 .filter(c -> c.getCardinality() != null
                         && c.getCardinality() <= ENUM_CARDINALITY_THRESHOLD
                         && !Boolean.TRUE.equals(c.getCardinalityWarning()))
+                .map(FilterableColumn::getColumnName)
                 .toList();
-        if (targets.isEmpty()) return Map.of();
-
-
-        Map<String, List<String>> result = new LinkedHashMap<>();
-        try (java.sql.Connection conn = connectionFactory.open(connection)) {
-            for (FilterableColumn col : targets) {
-                String sql = String.format(
-                        "SELECT DISTINCT \"%s\" FROM \"%s\".\"%s\" WHERE \"%s\" IS NOT NULL ORDER BY \"%s\" LIMIT %d",
-                        col.getColumnName(), connection.getUserTableSchema(), connection.getUserTableName(),
-                        col.getColumnName(), col.getColumnName(), ENUM_VALUES_LIMIT);
-                try (PreparedStatement stmt = conn.prepareStatement(sql);
-                     ResultSet rs = stmt.executeQuery()) {
-                    List<String> values = new ArrayList<>();
-                    while (rs.next()) values.add(rs.getString(1));
-                    if (!values.isEmpty()) result.put(col.getColumnName(), values);
-                }
-            }
-        } catch (SQLException _) {
-            return result;
-        }
-        return result;
+        return connectionGateway.fetchDistinctColumnValues(
+                connection, targets, connection.getUserTableSchema(), connection.getUserTableName(), ENUM_VALUES_LIMIT);
     }
 
     private static FilterContextResponse.RecipientSourceInfo recipientSource(Connection connection) {

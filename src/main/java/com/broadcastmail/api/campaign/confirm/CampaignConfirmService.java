@@ -69,7 +69,6 @@ public class CampaignConfirmService {
             throw new AudienceNotConfiguredException();
         }
         if (!filters.isEmpty()) {
-            planFacade.enforceFeature(account, PlanFeature.FILTERS);
             filterValidator.validateSaved(accountId, filters);
         }
         if (campaign.getScheduledAt() != null) {
@@ -77,6 +76,7 @@ public class CampaignConfirmService {
         }
 
         if (campaign.getExcludedCampaignId() != null) {
+            planFacade.enforceFeature(account, PlanFeature.EXCLUSIONS);
             Campaign referenced = campaignRepository
                     .findByAccountIdAndId(accountId, campaign.getExcludedCampaignId())
                     .orElseThrow(() -> new InvalidCampaignFilterException(List.of(

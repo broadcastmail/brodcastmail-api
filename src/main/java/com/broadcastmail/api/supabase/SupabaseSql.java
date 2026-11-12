@@ -1,15 +1,9 @@
 package com.broadcastmail.api.supabase;
 
-import com.broadcastmail.api.audience.dto.AudienceListResponse;
-import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
-import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
-import com.broadcastmail.common.campaign.filter.FilterOperator;
 import org.hibernate.query.SortDirection;
 
-import java.sql.*;
-import java.util.*;
+import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public final class SupabaseSql {
 
@@ -115,80 +109,12 @@ public final class SupabaseSql {
     // auth.users always exists, unlike auth.user_emails (a view CREATE_READER_ROLE creates) —
     // usable to preview a project's user count before it's been selected/set up.
     public static final String COUNT_AUTH_USERS = "SELECT COUNT(*) FROM auth.users";
+
     public static String buildJdbcUrl(String projectRef) {
         return "jdbc:postgresql://db." + projectRef + ".supabase.co:6543/postgres?prepareThreshold=0";
     }
+
     public static String buildProjectUrl(String projectRef) {
         return "https://" + projectRef + ".supabase.co";
-    }
-    public record AudienceQueryResult(long total, List<AudienceListResponse.AudienceRecipient> recipients) {}
-
-    public static AudienceQueryResult queryAudience(java.sql.Connection conn, String sql,
-                                                    List<Object> countParams, List<Object> pageParams,
-                                                    int limit) throws SQLException {
-        List<Object> params = new ArrayList<>(countParams);
-        params.addAll(pageParams);
-        params.add(limit);
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            for (int i = 0; i < params.size(); i++) stmt.setObject(i + 1, params.get(i));
-            ResultSet rs = stmt.executeQuery();
-            ResultSetMetaData meta = rs.getMetaData();
-            int colCount = meta.getColumnCount();
-            List<AudienceListResponse.AudienceRecipient> recipients = new ArrayList<>();
-            long total = 0;
-            while (rs.next()) {
-                if (recipients.isEmpty()) total = rs.getLong("__total");
-                UUID id = UUID.fromString(rs.getString("__id"));
-                String email = rs.getString("__email");
-                Map<String, Object> attributes = new LinkedHashMap<>();
-                for (int i = 1; i <= colCount; i++) {
-                    String label = meta.getColumnLabel(i);
-                    if (label.equals("__id") || label.equals("__email") || label.equals("__total")) continue;
-                    attributes.put(label, rs.getObject(i));
-                }
-                recipients.add(new AudienceListResponse.AudienceRecipient(id, email, attributes, false));
-            }
-            return new AudienceQueryResult(total, recipients);
-        }
-    }
-
-    public static String buildWhereClause(List<FilterRequest> filters) {
-        if (filters.isEmpty()) return "";
-        return "WHERE " + filters.stream().map(SupabaseSql::buildFilterFragment).collect(Collectors.joining(" AND "));
-    }
-
-    public static List<Object> buildFilterParams(List<FilterRequest> filters) {
-        return filters.stream()
-                .map(f -> f.operator() == FilterOperator.CONTAINS ? "%" + f.filterValue() + "%" : f.filterValue())
-                .collect(Collectors.toList());
-    }
-
-    private static String buildFilterFragment(FilterRequest filter) {
-        if (!IDENTIFIER_PATTERN.matcher(filter.columnName()).matches()) {
-            throw new IllegalArgumentException("Invalid column name: " + filter.columnName());
-        }
-        if ("IS_ANY_OF".equals(filter.operator().name())) {
-            return "\"" + filter.columnName() + "\" = ANY(?)";
-        }
-        String op = switch (filter.operator()) {
-            case EQ -> "=";
-            case NEQ -> "!=";
-            case GT -> ">";
-            case LT -> "<";
-            case CONTAINS -> "ILIKE";
-            default -> throw new IllegalArgumentException("Unsupported operator: " + filter.operator());
-        };
-        return switch (filter.sourceOrDefault()) {
-            case PROFILE_TABLE, AUTH_METADATA -> "\"" + filter.columnName() + "\" " + op + " ?";
-            case AUTH_METADATA_JSON -> {
-                if (!CampaignFilterSerializer.JSON_METADATA_COLUMNS.contains(filter.columnName())) {
-                    throw new IllegalArgumentException("Invalid metadata column: " + filter.columnName());
-                }
-                if (filter.jsonKey() == null || !IDENTIFIER_PATTERN.matcher(filter.jsonKey()).matches()) {
-                    throw new IllegalArgumentException("Invalid metadata key: " + filter.jsonKey());
-                }
-                yield "\"" + filter.columnName() + "\"->>'" + filter.jsonKey() + "' " + op + " ?";
-            }
-        };
     }
 }
