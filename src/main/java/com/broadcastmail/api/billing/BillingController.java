@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -25,9 +26,10 @@ public class BillingController {
 
     @PostMapping("/checkout")
     public ResponseEntity<Map<String, String>> createCheckoutSession(
-            @AuthenticationPrincipal UUID accountId) throws StripeException {
+            @AuthenticationPrincipal UUID accountId,
+            @RequestParam(defaultValue = "false") boolean yearly) throws StripeException {
 
-        String url = billingService.createCheckoutSession(accountId);
+        String url = billingService.createCheckoutSession(accountId, yearly);
         return ResponseEntity.ok(Map.of("url", url));
     }
 
