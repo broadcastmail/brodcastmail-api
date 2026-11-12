@@ -1,8 +1,12 @@
 package com.broadcastmail.api.campaign;
 
 
+import com.broadcastmail.api.account.plan.PlanRequired;
 import com.broadcastmail.api.campaign.confirm.CampaignConfirmService;
 import com.broadcastmail.api.campaign.dto.*;
+import com.broadcastmail.api.campaign.history.projection.RecipientHistoryResponse;
+import com.broadcastmail.api.campaign.history.RecipientHistoryService;
+import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
@@ -35,6 +39,7 @@ public class CampaignController {
     private final CampaignService campaignService;
     private final RecipientPreviewService recipientPreviewService;
     private final CampaignConfirmService campaignConfirmService;
+    private final RecipientHistoryService recipientHistoryService;
     private final TaskExecutor sseTaskExecutor;
     private final CampaignRepository campaignRepository;
 
@@ -125,6 +130,15 @@ public class CampaignController {
     public ResponseEntity<CampaignResponse> retryFailed(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
         Campaign retry = campaignConfirmService.retryPartiallyFailed(accountId, id);
         return ResponseEntity.accepted().body(CampaignResponse.from(retry));
+    }
+
+    @GetMapping("/recipient-history")
+    @PlanRequired(PlanFeature.EXCLUSIONS)
+    public ResponseEntity<Page<RecipientHistoryResponse>> listRecipientHistory(
+            @AuthenticationPrincipal UUID accountId,
+            @RequestParam(required = false) UUID excludeCampaignId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(recipientHistoryService.listHistory(accountId, excludeCampaignId, pageable));
     }
 
     @GetMapping("/{id}/status/stream")

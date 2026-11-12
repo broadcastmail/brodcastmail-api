@@ -15,6 +15,7 @@ import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.account.plan.PlanFacade;
+import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
@@ -68,7 +69,8 @@ public class CampaignService {
         UUID connectionId = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new)
                 .getId();
-        filterValidator.validateRequests(accountId, request.filters());
+        Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
+        filterValidator.validateRequests(account, request.filters());
         Campaign campaign = mapToEntity(accountId, connectionId, request);
         Campaign saved = campaignRepository.save(campaign);
         List<CampaignFilter> filters = new ArrayList<>();
@@ -104,11 +106,15 @@ public class CampaignService {
             throw new CampaignNotEditableException();
         }
 
+        Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
 
         request.name().ifPresent(campaign::setName);
         request.subject().ifPresent(campaign::setSubject);
         request.bodyHtml().ifPresent(html -> campaign.setBodyHtml(sanitize(html)));
-        request.scheduledAt().ifPresent(campaign::setScheduledAt);
+        request.scheduledAt().ifPresent(scheduledAt -> {
+            planFacade.enforceFeature(account, PlanFeature.SCHEDULING);
+            campaign.setScheduledAt(scheduledAt);
+        });
 
         request.audienceMode().ifPresent(raw -> {
             try {
@@ -122,7 +128,6 @@ public class CampaignService {
             if (request.includedIds().size() > 5000) {
                 throw new InvalidCampaignFilterException(List.of("includedIds exceeds the 5,000 limit"));
             }
-            Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
             planFacade.enforceRecipientLimit(account, request.includedIds().size());
             campaign.setIncludedIds(request.includedIds());
         }
@@ -132,6 +137,7 @@ public class CampaignService {
         }
 
         if (request.excludedCampaignId() != null) {
+            planFacade.enforceFeature(account, PlanFeature.EXCLUSIONS);
             validateExcludedCampaignId(accountId, campaignId, request.excludedCampaignId());
             campaign.setExcludedCampaignId(request.excludedCampaignId());
         }
@@ -141,7 +147,7 @@ public class CampaignService {
         }
 
         if (request.filters() != null) {
-            filterValidator.validateRequests(accountId, request.filters());
+            filterValidator.validateRequests(account, request.filters());
             filterRepository.deleteAll(filterRepository.findByCampaignId(campaignId));
             filterRepository.flush();
             List<CampaignFilter> filters = new ArrayList<>();

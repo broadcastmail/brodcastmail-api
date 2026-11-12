@@ -5,7 +5,6 @@ import com.broadcastmail.api.audience.dto.AudienceListResponse;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
-import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import jakarta.validation.constraints.Max;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +23,6 @@ import java.util.UUID;
 public class AudienceController {
 
     private final AudienceService audienceService;
-    private final PlanFacade planFacade;
     private final AccountRepository accountRepository;
 
     @PostMapping("/list")
@@ -34,14 +32,12 @@ public class AudienceController {
             @RequestParam(defaultValue = "50") @Max(100) int limit,
             @RequestParam(defaultValue = "created_at") String sortKey,
             @RequestParam(defaultValue = "DESCENDING") SortDirection sortDirection,
+            @RequestParam(defaultValue = "AND") String filterRootLogic,
             @RequestBody List<FilterRequest> filters) {
 
-        if (filters.size() > 1) {
-            Account account = accountRepository.findById(accountId)
-                    .orElseThrow(AccountNotFoundException::new);
-            planFacade.enforceFeature(account, PlanFeature.FILTERS);
-        }
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(AccountNotFoundException::new);
 
-        return ResponseEntity.ok(audienceService.list(accountId, cursor, limit, filters, sortKey, sortDirection));
+        return ResponseEntity.ok(audienceService.list(account, cursor, limit, filters, filterRootLogic, sortKey, sortDirection));
     }
 }

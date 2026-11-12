@@ -44,7 +44,7 @@ class PlanFacadeTest {
     private Account proAccount() {
         return Account.builder()
                 .id(UUID.randomUUID())
-                .plan(Plan.PRO)
+                .plan(Plan.STARTER)
                 .stripeSubscriptionStatus("active")
                 .build();
     }
@@ -53,7 +53,7 @@ class PlanFacadeTest {
     void shouldThrowWhenFeatureNotAvailableOnFreePlan() {
         Account account = freeAccount();
 
-        assertThatThrownBy(() -> planFacade.enforceFeature(account, PlanFeature.FILTERS))
+        assertThatThrownBy(() -> planFacade.enforceFeature(account, PlanFeature.SCHEDULING))
                 .isInstanceOf(PlanFeatureException.class);
     }
 
@@ -63,7 +63,7 @@ class PlanFacadeTest {
         when(billingService.isSubscriptionActive(account)).thenReturn(true);
 
         assertThatNoException().isThrownBy(() ->
-                planFacade.enforceFeature(account, PlanFeature.FILTERS));
+                planFacade.enforceFeature(account, PlanFeature.SCHEDULING));
     }
 
     @Test
@@ -71,7 +71,7 @@ class PlanFacadeTest {
         Account account = proAccount();
         when(billingService.isSubscriptionActive(account)).thenReturn(false);
 
-        assertThatThrownBy(() -> planFacade.enforceFeature(account, PlanFeature.FILTERS))
+        assertThatThrownBy(() -> planFacade.enforceFeature(account, PlanFeature.SCHEDULING))
                 .isInstanceOf(PlanFeatureException.class);
     }
 

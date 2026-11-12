@@ -9,7 +9,7 @@ import com.broadcastmail.common.campaign.filter.FilterQuery;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
-import com.broadcastmail.api.supabase.CustomerConnectionFactory;
+import com.broadcastmail.api.audience.TenantAudienceGateway;
 import com.broadcastmail.api.supabase.ConnectionQueryContext;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import com.broadcastmail.common.suppressions.Suppression;
@@ -17,9 +17,6 @@ import com.broadcastmail.common.suppressions.SuppressionsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.sql.Array;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -32,7 +29,7 @@ public class RecipientPreviewService {
 
     private final CampaignService campaignService;
     private final ConnectionRepository connectionRepository;
-    private final CustomerConnectionFactory connectionFactory;
+    private final TenantAudienceGateway tenantAudienceGateway;
     private final CampaignFilterRepository filterRepository;
     private final CampaignFilterSerializer filterSerializer;
     private final CampaignFilterValidator filterValidator;
@@ -55,27 +52,11 @@ public class RecipientPreviewService {
 
         String sql = buildCountSql(connection, filterQuery, hasFilters, hasExcluded);
 
-        try (java.sql.Connection conn = connectionFactory.open(connection);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            int paramIndex = 1;
-            for (Object param : filterQuery.parameters()) {
-                stmt.setObject(paramIndex++, param);
-            }
-            if (hasExcluded) {
-                Array excludedArray = conn.createArrayOf("text", allExcluded.toArray());
-                stmt.setArray(paramIndex, excludedArray);
-            }
-
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                int count = rs.getInt(1);
-                connection.setEstimatedUserCount(count);
-                connectionRepository.save(connection);
-                return count;
-            }
-            return 0;
-
+        try {
+            int count = tenantAudienceGateway.countRecipients(connection, sql, filterQuery.parameters(), allExcluded);
+            connection.setEstimatedUserCount(count);
+            connectionRepository.save(connection);
+            return count;
         } catch (SQLException e) {
             throw new RuntimeException("Recipient preview failed: " + e.getMessage(), e);
         }
