@@ -31,7 +31,8 @@ supabase:
 stripe:
   secret-key: ${STRIPE_SECRET_KEY}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET}
-  pro-price-id: ${STRIPE_PRO_PRICE_ID}
+  monthly-price-id: ${STRIPE_MONTHLY_PRICE_ID}
+  yearly-price-id: ${STRIPE_YEARLY_PRICE_ID}
 
 
 

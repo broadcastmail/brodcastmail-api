@@ -24,8 +24,10 @@ public class BillingService {
     private final StripeProperties stripeProperties;
     private final AppProperties appProperties;
 
-    public String createCheckoutSession(UUID accountId) throws StripeException {
+    public String createCheckoutSession(UUID accountId, boolean yearly) throws StripeException {
         Stripe.apiKey = stripeProperties.secretKey();
+
+        String priceId = yearly ? stripeProperties.yearlyPriceId() : stripeProperties.monthlyPriceId();
 
         SessionCreateParams params =
                 SessionCreateParams.builder()
@@ -33,9 +35,9 @@ public class BillingService {
                         .setSuccessUrl(appProperties.frontend().url() + "/dashboard?upgraded=true")
                         .setCancelUrl(appProperties.frontend().url() + "/dashboard")
                         .putMetadata("accountId", accountId.toString())
-                        .putMetadata("plan", "pro")
+                        .putMetadata("plan", "starter")
                         .addLineItem(SessionCreateParams.LineItem.builder()
-                                .setPrice(stripeProperties.proPriceId())
+                                .setPrice(priceId)
                                 .setQuantity(1L)
                                 .build())
                         .build();
