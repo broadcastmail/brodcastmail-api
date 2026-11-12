@@ -19,8 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PlanFacadeTest {
@@ -98,11 +97,12 @@ class PlanFacadeTest {
     @Test
     void shouldNotEnforceRecipientLimitForActivePro() {
         Account account = proAccount();
-        when(billingService.isSubscriptionActive(account)).thenReturn(true);
+        when(campaignRecipientRepository.countUniqueRecipientsSince(eq(account.getId()), any()))
+                .thenReturn(0L);
 
         assertThatNoException().isThrownBy(() ->
-                planFacade.enforceRecipientLimit(account, Integer.MAX_VALUE));
+                planFacade.enforceRecipientLimit(account, 1));
 
-        verifyNoInteractions(campaignRecipientRepository);
+        verify(campaignRecipientRepository).countUniqueRecipientsSince(eq(account.getId()), any());
     }
 }

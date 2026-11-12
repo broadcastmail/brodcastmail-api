@@ -10,6 +10,7 @@ import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.resend.ResendClient;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.account.plan.Plan;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.campaign.filter.FilterOperator;
@@ -86,6 +87,11 @@ class CampaignServiceTest {
     private static final String ENCRYPTION_KEY = "12345678901234567890123456789012";
     private static final String TEST_API_KEY = "re_test_abc123";
 
+    private void stubAccount() {
+        when(accountRepository.findById(ACCOUNT_ID))
+                .thenReturn(Optional.of(Account.builder().id(ACCOUNT_ID).plan(Plan.STARTER).build()));
+    }
+
     private Campaign.CampaignBuilder campaign(CampaignStatus status) {
         return Campaign.builder()
                 .id(CAMPAIGN_ID)
@@ -99,6 +105,7 @@ class CampaignServiceTest {
         CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, null, null);
         when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(connection));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAccount();
 
         // When
         Campaign result = campaignService.createCampaign(ACCOUNT_ID, request);
@@ -121,6 +128,7 @@ class CampaignServiceTest {
             c.setId(UUID.randomUUID());
             return c;
         });
+        stubAccount();
 
         // When
         campaignService.createCampaign(ACCOUNT_ID, request);
@@ -193,7 +201,7 @@ class CampaignServiceTest {
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
                 .thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
-
+        stubAccount();
 
         // When
         Campaign result = campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
@@ -213,6 +221,7 @@ class CampaignServiceTest {
                 null, Optional.empty(), null, null, null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAccount();
 
         campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
 
@@ -230,6 +239,7 @@ class CampaignServiceTest {
                 null, Optional.empty(), null, null, null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAccount();
 
         campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
 
