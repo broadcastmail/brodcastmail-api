@@ -1,5 +1,6 @@
 package com.broadcastmail.api.oauth;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
@@ -29,7 +30,7 @@ import static org.mockito.Mockito.when;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestContainersConfiguration.class)
-class OAuthSupabaseControllerTest {
+class OAuthSupabaseControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;

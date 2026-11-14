@@ -1,5 +1,6 @@
 package com.broadcastmail.api.config;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestContainersConfiguration.class)
-class CorsConfigTest {
+class CorsConfigTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;

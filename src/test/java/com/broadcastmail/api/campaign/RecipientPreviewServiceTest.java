@@ -40,7 +40,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RecipientPreviewServiceTest {
@@ -72,6 +77,9 @@ class RecipientPreviewServiceTest {
     void setUp() {
         recipientPreviewService = new RecipientPreviewService(campaignService, connectionRepository, tenantAudienceGateway, filterRepository,
                 new CampaignFilterSerializer(), filterValidator, suppressionsRepository, recipientRepository, accountRepository);
+    }
+
+    private void givenAccount() {
         Account account = mock(Account.class);
         when(account.getPlan()).thenReturn(Plan.FREE);
         when(accountRepository.findById(any())).thenReturn(Optional.of(account));
@@ -123,6 +131,7 @@ class RecipientPreviewServiceTest {
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(connection));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
         when(tenantAudienceGateway.countRecipients(any(), anyString(), any(), any())).thenReturn(42);
+        givenAccount();
 
         RecipientPreviewResponse response = recipientPreviewService.preview(accountId, campaignId);
 
@@ -165,6 +174,7 @@ class RecipientPreviewServiceTest {
                         .source(FilterSource.PROFILE_TABLE).build()));
         String expectedSql = ConnectionQueryContext.from(connection).buildRecipientCountQuery() + " WHERE \"plan\" = ?";
         when(tenantAudienceGateway.countRecipients(any(), anyString(), any(), any())).thenReturn(7);
+        givenAccount();
 
         recipientPreviewService.preview(accountId, campaignId);
 
@@ -179,6 +189,7 @@ class RecipientPreviewServiceTest {
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
         when(tenantAudienceGateway.countRecipients(any(), anyString(), any(), any())).thenReturn(100);
+        givenAccount();
 
         recipientPreviewService.preview(accountId, campaignId);
 
@@ -196,6 +207,7 @@ class RecipientPreviewServiceTest {
         when(suppression.getEmail()).thenReturn("suppressed@example.com");
         when(suppressionsRepository.findByAccountId(accountId)).thenReturn(List.of(suppression));
         when(tenantAudienceGateway.countRecipients(any(), anyString(), any(), any())).thenReturn(10);
+        givenAccount();
 
         recipientPreviewService.preview(accountId, campaignId);
 
@@ -215,6 +227,7 @@ class RecipientPreviewServiceTest {
         when(recipientRepository.findDistinctEmailsByExternalUserIds(accountId, List.of("external-user-1"))).thenReturn(
                 List.of("excluded@example.com"));
         when(tenantAudienceGateway.countRecipients(any(), anyString(), any(), any())).thenReturn(5);
+        givenAccount();
 
         recipientPreviewService.preview(accountId, campaignId);
 
@@ -235,6 +248,7 @@ class RecipientPreviewServiceTest {
         when(suppressionsRepository.findByAccountId(accountId)).thenReturn(List.of());
         when(recipientRepository.findDistinctEmailsByCampaignId(prevCampaignId)).thenReturn(List.of("past-recipient@example.com"));
         when(tenantAudienceGateway.countRecipients(any(), anyString(), any(), any())).thenReturn(8);
+        givenAccount();
 
         recipientPreviewService.preview(accountId, campaignId);
 
@@ -260,6 +274,7 @@ class RecipientPreviewServiceTest {
                 List.of("shared@example.com"));
         when(recipientRepository.findDistinctEmailsByCampaignId(prevCampaignId)).thenReturn(List.of("shared@example.com", "other@example.com"));
         when(tenantAudienceGateway.countRecipients(any(), anyString(), any(), any())).thenReturn(3);
+        givenAccount();
 
         recipientPreviewService.preview(accountId, campaignId);
 

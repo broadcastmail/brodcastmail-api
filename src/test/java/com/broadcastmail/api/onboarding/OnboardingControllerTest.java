@@ -1,5 +1,6 @@
 package com.broadcastmail.api.onboarding;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.emailprovider.EmailProviderService;
@@ -27,7 +28,7 @@ import static org.mockito.Mockito.*;
 @AutoConfigureMockMvc
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
-class OnboardingControllerTest {
+class OnboardingControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;

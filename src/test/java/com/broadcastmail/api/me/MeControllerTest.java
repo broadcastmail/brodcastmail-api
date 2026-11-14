@@ -1,5 +1,6 @@
 package com.broadcastmail.api.me;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.support.CampaignTestFixtures;
@@ -22,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureMockMvc
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
-class MeControllerTest {
+class MeControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
