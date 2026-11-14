@@ -15,6 +15,15 @@ spring:
       fail-on-unknown-properties: false
 
 app:
+  datasource:
+    direct:
+      url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}
+      username: ${PGUSER}
+      password: ${PGPASSWORD}
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        maximum-pool-size: 2
+        pool-name: direct-pool
   encryption:
     key: 01234567890123456789012345678901
   frontend:

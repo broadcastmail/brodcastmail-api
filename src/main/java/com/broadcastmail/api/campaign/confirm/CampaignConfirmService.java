@@ -1,6 +1,7 @@
 package com.broadcastmail.api.campaign.confirm;
 
 import com.broadcastmail.api.account.plan.PlanFacade;
+import com.broadcastmail.api.campaign.sse.CampaignStatusNotifier;
 import com.broadcastmail.api.campaign.CampaignService;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
@@ -43,6 +44,7 @@ public class CampaignConfirmService {
     private final CampaignFilterRepository campaignFilterRepository;
     private final PlanFacade planFacade;
     private final CampaignFilterValidator filterValidator;
+    private final CampaignStatusNotifier statusNotifier;
 
     private static final Set<CampaignStatus> UNSENT_STATUSES =
             EnumSet.of(CampaignStatus.DRAFT, CampaignStatus.RESOLVING, CampaignStatus.SENDING);
@@ -75,6 +77,8 @@ public class CampaignConfirmService {
             planFacade.enforceFeature(account, PlanFeature.SCHEDULING);
         }
 
+        planFacade.enforceRecipientLimit(account, campaign.getRecipientCount());
+
         if (campaign.getExcludedCampaignId() != null) {
             planFacade.enforceFeature(account, PlanFeature.EXCLUSIONS);
             Campaign referenced = campaignRepository
@@ -89,6 +93,7 @@ public class CampaignConfirmService {
 
         campaign.setStatus(CampaignStatus.RESOLVING);
         campaignRepository.save(campaign);
+        statusNotifier.notify(campaignId, accountId);
     }
 
 
