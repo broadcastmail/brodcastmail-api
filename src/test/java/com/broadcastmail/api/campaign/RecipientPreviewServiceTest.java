@@ -1,10 +1,14 @@
 package com.broadcastmail.api.campaign;
 
 import com.broadcastmail.api.audience.TenantAudienceGateway;
+import com.broadcastmail.api.campaign.dto.RecipientPreviewResponse;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.supabase.ConnectionQueryContext;
 import com.broadcastmail.api.supabase.SupabaseSql;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.account.plan.Plan;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
@@ -59,13 +63,18 @@ class RecipientPreviewServiceTest {
     private SuppressionsRepository suppressionsRepository;
     @Mock
     private CampaignRecipientRepository recipientRepository;
+    @Mock
+    private AccountRepository accountRepository;
 
     private RecipientPreviewService recipientPreviewService;
 
     @BeforeEach
     void setUp() {
         recipientPreviewService = new RecipientPreviewService(campaignService, connectionRepository, tenantAudienceGateway, filterRepository,
-                new CampaignFilterSerializer(), filterValidator, suppressionsRepository, recipientRepository);
+                new CampaignFilterSerializer(), filterValidator, suppressionsRepository, recipientRepository, accountRepository);
+        Account account = mock(Account.class);
+        when(account.getPlan()).thenReturn(Plan.FREE);
+        when(accountRepository.findById(any())).thenReturn(Optional.of(account));
     }
 
     private Connection buildConnection(UUID accountId) {
@@ -115,9 +124,9 @@ class RecipientPreviewServiceTest {
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
         when(tenantAudienceGateway.countRecipients(any(), anyString(), any(), any())).thenReturn(42);
 
-        Integer count = recipientPreviewService.preview(accountId, campaignId);
+        RecipientPreviewResponse response = recipientPreviewService.preview(accountId, campaignId);
 
-        assertThat(count).isEqualTo(42);
+        assertThat(response.recipientCount()).isEqualTo(42);
         verify(connectionRepository).save(connection);
     }
 
