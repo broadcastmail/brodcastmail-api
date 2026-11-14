@@ -17,9 +17,9 @@ spring:
 app:
   datasource:
     direct:
-      url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}
-      username: ${PGUSER}
-      password: ${PGPASSWORD}
+      url: ${spring.datasource.url}
+      username: ${spring.datasource.username}
+      password: ${spring.datasource.password}
       driver-class-name: org.postgresql.Driver
       hikari:
         maximum-pool-size: 2
