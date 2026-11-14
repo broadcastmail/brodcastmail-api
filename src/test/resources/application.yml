@@ -17,9 +17,6 @@ spring:
 app:
   datasource:
     direct:
-      url: ${spring.datasource.url}
-      username: ${spring.datasource.username}
-      password: ${spring.datasource.password}
       driver-class-name: org.postgresql.Driver
       hikari:
         maximum-pool-size: 2
