@@ -1,5 +1,6 @@
 package com.broadcastmail.api.connection;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.connection.dto.ConnectionRequests;
@@ -43,7 +44,7 @@ import static org.mockito.Mockito.when;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
-class ConnectionControllerTest {
+class ConnectionControllerTest extends IntegrationTest {
 
 
     @Autowired

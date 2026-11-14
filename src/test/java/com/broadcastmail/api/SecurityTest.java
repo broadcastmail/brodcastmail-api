@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestContainersConfiguration.class)
-class SecurityTest {
+class SecurityTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
