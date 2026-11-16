@@ -38,4 +38,5 @@ build/
 .env.production
 application-secrets.yml
 .supabase/
+settings.local.json
 

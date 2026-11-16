@@ -3,7 +3,6 @@ package com.broadcastmail.api.billing;
 import com.broadcastmail.api.billing.dto.SubscriptionResponse;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
-import com.broadcastmail.common.account.plan.Plan;
 import com.stripe.exception.StripeException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -25,23 +25,16 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class BillingController {
 
-    private static final String ACCOUNT_NOT_FOUND = "Account not found";
-
     private final BillingService billingService;
     private final AccountRepository accountRepository;
+    private static final String ACCOUNT_NOT_FOUND = "Account not found";
 
     @PostMapping("/checkout")
     public ResponseEntity<Map<String, String>> createCheckoutSession(
-            @AuthenticationPrincipal UUID accountId) throws StripeException {
+            @AuthenticationPrincipal UUID accountId,
+            @RequestParam(defaultValue = "false") boolean yearly) throws StripeException {
 
-        Account account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ACCOUNT_NOT_FOUND));
-
-        if (account.getPlan() == Plan.PRO) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Already on Pro plan");
-        }
-
-        String url = billingService.createCheckoutSession(accountId);
+        String url = billingService.createCheckoutSession(accountId, yearly);
         return ResponseEntity.ok(Map.of("url", url));
     }
 

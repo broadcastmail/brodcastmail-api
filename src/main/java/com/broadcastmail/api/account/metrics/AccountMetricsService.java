@@ -42,9 +42,13 @@ public class AccountMetricsService {
         long recipientsUsed = campaignRecipientRepository
                 .countUniqueRecipientsSince(accountId, since);
 
+        int filterConditionsLimit = accountRepository.findById(accountId)
+                .map(a -> a.getPlan().strategy().filterConditionLimit())
+                .orElse(1);
+
         int recipientsLimit = accountRepository.findById(accountId)
                 .map(a -> a.getPlan().strategy().recipientLimit())
-                .orElse(500);
+                .orElse(0);
 
         return new AccountMetricsResponse(
                 audience,
@@ -52,7 +56,8 @@ public class AccountMetricsService {
                 stats.getDelivered(),
                 deliveryRate,
                 recipientsUsed,
-                recipientsLimit
+                recipientsLimit,
+                filterConditionsLimit
         );
     }
 }

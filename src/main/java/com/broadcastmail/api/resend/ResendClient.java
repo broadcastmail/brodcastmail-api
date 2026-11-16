@@ -1,15 +1,30 @@
 package com.broadcastmail.api.resend;
 
+import com.broadcastmail.api.common.exceptions.EmailSendException;
 import com.broadcastmail.api.common.exceptions.InvalidResendApiKeyException;
+import com.broadcastmail.api.common.exceptions.ResendRateLimitException;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.resend.Resend;
 import com.resend.core.exception.ResendException;
+import com.resend.services.domains.model.AbstractDomain;
+import com.resend.services.domains.model.ListDomainsResponse;
+import com.resend.services.emails.model.CreateEmailOptions;
 import com.resend.services.webhooks.model.CreateWebhookOptions;
 import com.resend.services.webhooks.model.CreateWebhookResponseSuccess;
 import com.resend.services.webhooks.model.WebhookEvent;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
+
 @Component
 public class ResendClient {
+
+    private final Cache<UUID, Boolean> testEmailRateLimit = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofMinutes(1))
+            .build();
 
     public void validateApiKey(String apiKey) {
         if (apiKey == null || apiKey.isBlank()) {
@@ -24,6 +39,19 @@ public class ResendClient {
         try {
             Resend resend = new Resend(apiKey);
             resend.domains().list();
+        } catch (ResendException _) {
+            throw new InvalidResendApiKeyException("Invalid or revoked Resend API key");
+        }
+    }
+
+    public List<String> listVerifiedDomains(String apiKey) {
+        try {
+            Resend resend = new Resend(apiKey);
+            ListDomainsResponse response = resend.domains().list();
+            return response.getData().stream()
+                    .filter(d -> "verified".equals(d.getStatus()))
+                    .map(AbstractDomain::getName)
+                    .toList();
         } catch (ResendException _) {
             throw new InvalidResendApiKeyException("Invalid or revoked Resend API key");
         }
@@ -50,6 +78,27 @@ public class ResendClient {
         catch (ResendException _)
         {
             throw new InvalidResendApiKeyException("Error occurred while registering webhook");
+        }
+    }
+
+
+    // Not in worker bc it can be resolved quickly in here
+    public void sendTestEmail(UUID accountId, String apiKey, String from, String to, String subject, String html) {
+        if (testEmailRateLimit.getIfPresent(accountId) != null) {
+            throw new ResendRateLimitException("Test email can only be sent once per minute");
+        }
+        testEmailRateLimit.put(accountId, true);
+        try {
+            Resend resend = new Resend(apiKey);
+            CreateEmailOptions params = CreateEmailOptions.builder()
+                    .from(from)
+                    .to(to)
+                    .subject(subject)
+                    .html(html)
+                    .build();
+            resend.emails().send(params);
+        } catch (ResendException e) {
+            throw new EmailSendException("Failed to send test email: " + e.getMessage());
         }
     }
 

@@ -1,5 +1,6 @@
 package com.broadcastmail.api.account;
 
+import com.broadcastmail.api.billing.BillingService;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.common.account.Account;
@@ -27,6 +28,9 @@ class AccountServiceTest {
     @Mock
     private AccountRepository accountRepository;
 
+    @Mock
+    private BillingService billingService;
+
     @Captor
     private ArgumentCaptor<Account> accountCaptor;
 
@@ -34,7 +38,7 @@ class AccountServiceTest {
 
     @BeforeEach
     void setUp() {
-        accountService = new AccountService(accountRepository);
+        accountService = new AccountService(accountRepository, billingService);
     }
 
     private Account buildAccount(UUID id) {

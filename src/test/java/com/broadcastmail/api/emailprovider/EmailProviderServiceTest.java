@@ -5,6 +5,7 @@ import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.resend.ResendClient;
+import com.broadcastmail.common.emailprovider.EmailProviderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +30,9 @@ class EmailProviderServiceTest {
     @Mock
     private ResendClient resendClient;
 
+    @Mock
+    private EmailProviderRepository emailProviderRepository;
+
     @Captor
     private ArgumentCaptor<OnboardingSession> sessionCaptor;
 
@@ -39,8 +43,8 @@ class EmailProviderServiceTest {
         emailProviderService = new EmailProviderService(
                 onboardingSessionStore,
                 resendClient,
-                new EncryptionProperties("12345678901234567890123456789012")
-
+                new EncryptionProperties("12345678901234567890123456789012"),
+                emailProviderRepository
         );
     }
 

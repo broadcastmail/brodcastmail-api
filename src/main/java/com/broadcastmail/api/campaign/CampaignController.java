@@ -1,8 +1,13 @@
 package com.broadcastmail.api.campaign;
 
 
+import com.broadcastmail.api.account.plan.PlanRequired;
 import com.broadcastmail.api.campaign.confirm.CampaignConfirmService;
 import com.broadcastmail.api.campaign.dto.*;
+import com.broadcastmail.api.campaign.history.projection.RecipientHistoryResponse;
+import com.broadcastmail.api.campaign.history.RecipientHistoryService;
+import com.broadcastmail.api.campaign.sse.CampaignSseRegistry;
+import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
@@ -10,7 +15,6 @@ import com.broadcastmail.common.campaign.CampaignStatus;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -21,7 +25,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,7 +41,8 @@ public class CampaignController {
     private final CampaignService campaignService;
     private final RecipientPreviewService recipientPreviewService;
     private final CampaignConfirmService campaignConfirmService;
-    private final TaskExecutor sseTaskExecutor;
+    private final RecipientHistoryService recipientHistoryService;
+    private final CampaignSseRegistry sseRegistry;
     private final CampaignRepository campaignRepository;
 
 
@@ -77,10 +81,37 @@ public class CampaignController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{id}/recipients")
+    public ResponseEntity<Page<RecipientResponse>> getRecipients(
+            @AuthenticationPrincipal UUID accountId,
+            @PathVariable UUID id,
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(campaignService.getCampaignRecipients(accountId, id, status, pageable));
+    }
+
     @GetMapping("/{id}/preview")
     public ResponseEntity<RecipientPreviewResponse> previewRecipients(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
-        int count = recipientPreviewService.preview(accountId, id);
-        return ResponseEntity.ok(new RecipientPreviewResponse(count));
+        return ResponseEntity.ok(recipientPreviewService.preview(accountId, id));
+    }
+
+    @PostMapping("/{id}/test/send")
+    public ResponseEntity<Void> sendTestEmail(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id,
+                                              @RequestBody @Valid TestEmailRequest request) {
+        campaignService.sendTestEmail(accountId, id, request);
+        return ResponseEntity.accepted().build();
+    }
+
+    @DeleteMapping("/{id}/schedule")
+    public ResponseEntity<Void> unscheduleCampaign(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
+        campaignService.unscheduleCampaign(accountId, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/acknowledge-rate-limit")
+    public ResponseEntity<Void> acknowledgeRateLimit(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
+        campaignService.acknowledgeRateLimit(accountId, id);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/confirm")
@@ -102,72 +133,52 @@ public class CampaignController {
         return ResponseEntity.accepted().body(CampaignResponse.from(retry));
     }
 
+    @GetMapping("/recipient-history")
+    @PlanRequired(PlanFeature.EXCLUSIONS)
+    public ResponseEntity<Page<RecipientHistoryResponse>> listRecipientHistory(
+            @AuthenticationPrincipal UUID accountId,
+            @RequestParam(required = false) UUID excludeCampaignId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(recipientHistoryService.listHistory(accountId, excludeCampaignId, pageable));
+    }
+
     @GetMapping("/{id}/status/stream")
     public SseEmitter streamStatus(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id) {
-        SseEmitter emitter = new SseEmitter(300_000L); // 5 minutes timeout
-        sseTaskExecutor.execute(() -> {
-            try {
-                while (true) {
-                    Campaign campaign = campaignRepository.findByAccountIdAndId(accountId,id).orElseThrow(() -> new CampaignNotFoundException(id));
-                    emitter.send(SseEmitter.event().name("status").data(CampaignStatusEvent.from(campaign)));
-                    if (isTerminal(campaign.getStatus())) {
-                        emitter.complete();
-                        return;
-                    }
-                    Thread.sleep(2000); // Poll every second
-                }
-            } catch (IOException _) {
-                log.debug("SSE connection closed for campaign {}", id);
-            } catch (InterruptedException _) {
-                // thread interrupted — exit cleanly
-                Thread.currentThread().interrupt();
-                emitter.complete();
-            } catch (Exception e) {
-                log.error("SSE error for campaign {}", id, e);
-                emitter.completeWithError(e);
-            }
-        });
+        Campaign campaign = campaignRepository.findByAccountIdAndId(accountId, id)
+                .orElseThrow(() -> new CampaignNotFoundException(id));
+        SseEmitter emitter = new SseEmitter(300_000L);
+        try {
+            emitter.send(SseEmitter.event().name("status").data(CampaignStatusEvent.from(campaign)));
+        } catch (Exception e) {
+            emitter.completeWithError(e);
+            return emitter;
+        }
+        if (isTerminal(campaign.getStatus())) {
+            emitter.complete();
+            return emitter;
+        }
+        sseRegistry.registerCampaign(id, emitter);
         return emitter;
     }
 
     @GetMapping("/status/stream")
-    public SseEmitter streamAllStatus(
-            @AuthenticationPrincipal UUID accountId) {
-
+    public SseEmitter streamAllStatus(@AuthenticationPrincipal UUID accountId) {
         SseEmitter emitter = new SseEmitter(300_000L);
-        emitter.onTimeout(emitter::complete);
-
-        sseTaskExecutor.execute(() -> {
-            try {
-                while (true) {
-                    List<Campaign> activeCampaigns = campaignRepository
-                            .findByAccountIdAndStatusIn(accountId,
-                                    List.of(CampaignStatus.RESOLVING, CampaignStatus.SENDING));
-
-                    if (activeCampaigns.isEmpty()) {
-                        emitter.complete();
-                        return;
-                    }
-
-                    for (Campaign campaign : activeCampaigns) {
-                        emitter.send(SseEmitter.event()
-                                .name("status")
-                                .data(CampaignStatusEvent.from(campaign)));
-                    }
-
-                    Thread.sleep(2000);
-                }
-            } catch (IOException _) {
-                log.debug("Dashboard SSE connection closed for account {}", accountId);
-            } catch (InterruptedException _) {
-                Thread.currentThread().interrupt();
-                emitter.complete();
-            } catch (Exception e) {
-                log.error("Dashboard SSE error for account {}", accountId, e);
-                emitter.completeWithError(e);
+        List<Campaign> active = campaignRepository.findByAccountIdAndStatusIn(
+                accountId, List.of(CampaignStatus.RESOLVING, CampaignStatus.SENDING));
+        try {
+            for (Campaign c : active) {
+                emitter.send(SseEmitter.event().name("status").data(CampaignStatusEvent.from(c)));
             }
-        });
-
+        } catch (Exception e) {
+            emitter.completeWithError(e);
+            return emitter;
+        }
+        if (active.isEmpty()) {
+            emitter.complete();
+            return emitter;
+        }
+        sseRegistry.registerAccount(accountId, emitter);
         return emitter;
     }
 

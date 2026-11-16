@@ -1,5 +1,6 @@
 package com.broadcastmail.api.oauth;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
@@ -7,6 +8,7 @@ import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +30,7 @@ import static org.mockito.Mockito.when;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestContainersConfiguration.class)
-class OAuthSupabaseControllerTest {
+class OAuthSupabaseControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
@@ -38,6 +40,9 @@ class OAuthSupabaseControllerTest {
 
     @Autowired
     private AccountRepository accountRepository;
+
+    @Autowired
+    private ConnectionRepository connectionRepository;
 
     @MockitoBean
     private SupabaseManagementClient supabaseManagementClient;
@@ -272,6 +277,7 @@ class OAuthSupabaseControllerTest {
         Account account = accountRepository.save(CampaignTestFixtures.account()
                 .email("returning-user@example.com")
                 .build());
+        connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
         String state = oAuthStateStore.generateAndStore(account.getId());
 
         when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))
@@ -301,6 +307,7 @@ class OAuthSupabaseControllerTest {
         Account account = accountRepository.save(CampaignTestFixtures.account()
                 .email("returning-user@example.com")
                 .build());
+        connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
         String state = oAuthStateStore.generateAndStore(account.getId());
 
         when(supabaseManagementClient.exchangeCodeForTokens("valid-code"))

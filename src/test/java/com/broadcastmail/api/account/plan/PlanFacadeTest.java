@@ -19,8 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PlanFacadeTest {
@@ -44,7 +43,7 @@ class PlanFacadeTest {
     private Account proAccount() {
         return Account.builder()
                 .id(UUID.randomUUID())
-                .plan(Plan.PRO)
+                .plan(Plan.STARTER)
                 .stripeSubscriptionStatus("active")
                 .build();
     }
@@ -53,7 +52,7 @@ class PlanFacadeTest {
     void shouldThrowWhenFeatureNotAvailableOnFreePlan() {
         Account account = freeAccount();
 
-        assertThatThrownBy(() -> planFacade.enforceFeature(account, PlanFeature.FILTERS))
+        assertThatThrownBy(() -> planFacade.enforceFeature(account, PlanFeature.SCHEDULING))
                 .isInstanceOf(PlanFeatureException.class);
     }
 
@@ -63,7 +62,7 @@ class PlanFacadeTest {
         when(billingService.isSubscriptionActive(account)).thenReturn(true);
 
         assertThatNoException().isThrownBy(() ->
-                planFacade.enforceFeature(account, PlanFeature.FILTERS));
+                planFacade.enforceFeature(account, PlanFeature.SCHEDULING));
     }
 
     @Test
@@ -71,7 +70,7 @@ class PlanFacadeTest {
         Account account = proAccount();
         when(billingService.isSubscriptionActive(account)).thenReturn(false);
 
-        assertThatThrownBy(() -> planFacade.enforceFeature(account, PlanFeature.FILTERS))
+        assertThatThrownBy(() -> planFacade.enforceFeature(account, PlanFeature.SCHEDULING))
                 .isInstanceOf(PlanFeatureException.class);
     }
 
@@ -98,11 +97,12 @@ class PlanFacadeTest {
     @Test
     void shouldNotEnforceRecipientLimitForActivePro() {
         Account account = proAccount();
-        when(billingService.isSubscriptionActive(account)).thenReturn(true);
+        when(campaignRecipientRepository.countUniqueRecipientsSince(eq(account.getId()), any()))
+                .thenReturn(0L);
 
         assertThatNoException().isThrownBy(() ->
-                planFacade.enforceRecipientLimit(account, Integer.MAX_VALUE));
+                planFacade.enforceRecipientLimit(account, 1));
 
-        verifyNoInteractions(campaignRecipientRepository);
+        verify(campaignRecipientRepository).countUniqueRecipientsSince(eq(account.getId()), any());
     }
 }

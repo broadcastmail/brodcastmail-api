@@ -1,8 +1,8 @@
 package com.broadcastmail.api.connection;
 
-import com.broadcastmail.api.filterablecolumn.FilterableColumn;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
-import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
+import com.broadcastmail.common.filterablecolumn.FilterableColumn;
+import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
@@ -24,6 +24,7 @@ public class ConnectionService {
     private final FilterableColumnRepository filterableColumnRepository;
 
     public void createConnection(UUID accountId, OnboardingSession session) {
+        OnboardingSession.EmailTableDetails emailTable = session.getEmailTableDetails();
         Connection connection = Connection.builder()
                 .accountId(accountId)
                 .projectRef(session.getProjectRef())
@@ -31,8 +32,11 @@ public class ConnectionService {
                 .encryptedCreds(session.getEncryptedRolePassword())
                 .userTableSchema(session.getSchemaDetails().userSchema())
                 .userTableName(session.getSchemaDetails().userTable())
-                .emailColumn("email")
                 .userIdColumn(session.getSchemaDetails().userIdColumn())
+                .emailTableSchema(emailTable.emailTableSchema())
+                .emailTableName(emailTable.emailTableName())
+                .emailTableIdColumn(emailTable.emailTableIdColumn())
+                .emailColumn(emailTable.emailColumn())
                 .build();
         connectionRepository.save(connection);
 

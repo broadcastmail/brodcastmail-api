@@ -2,12 +2,12 @@ package com.broadcastmail.api.campaign.dto;
 
 
 import com.broadcastmail.api.common.LowerCaseEnumSerializer;
+import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
-import com.broadcastmail.common.campaign.AudienceMode;
+
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import jakarta.validation.constraints.NotNull;
 
 import java.time.OffsetDateTime;
 import java.util.Comparator;
@@ -15,27 +15,31 @@ import java.util.List;
 import java.util.UUID;
 
 public record CampaignResponse(
-        @NotNull UUID id,
-        @NotNull UUID connectionId,
+        UUID id,
+        UUID connectionId,
         UUID retryOfCampaignId,
-        @NotNull String name,
-        @NotNull String subject,
-        @NotNull String bodyHtml,
-        @NotNull CampaignStatus status,
+        String name,
+        String subject,
+        String bodyHtml,
+        CampaignStatus status,
         Integer recipientCount,
-        @NotNull Integer sentCount,
-        @NotNull Integer deliveredCount,
-        @NotNull Integer openedCount,
-        @NotNull Integer bouncedCount,
-        @NotNull Integer failedCount,
+        Integer sentCount,
+        Integer deliveredCount,
+        Integer openedCount,
+        Integer bouncedCount,
+        Integer failedCount,
+        String failureReason,
+        boolean rateLimitAcknowledged,
         OffsetDateTime scheduledAt,
         OffsetDateTime sentAt,
-        @NotNull OffsetDateTime createdAt,
-        @NotNull OffsetDateTime updatedAt,
-        @NotNull List<CampaignFilterResponse> filters,
-        @NotNull @JsonSerialize(using = LowerCaseEnumSerializer.class) AudienceMode audienceMode,
+        OffsetDateTime createdAt,
+        OffsetDateTime updatedAt,
+        List<CampaignFilterResponse> filters,
+        String filterRootLogic,
+        @JsonSerialize(using = LowerCaseEnumSerializer.class) AudienceMode audienceMode,
         List<String> includedIds,
-        List<String> excludedIds
+        List<String> excludedIds,
+        UUID excludedCampaignId
 ) {
     /** For campaigns whose filters aren't relevant to the caller (e.g. retry campaigns). */
     public static CampaignResponse from(Campaign campaign) {
@@ -58,6 +62,8 @@ public record CampaignResponse(
                 campaign.getOpenedCount(),
                 campaign.getBouncedCount(),
                 campaign.getFailedCount(),
+                campaign.getFailureReason(),
+                campaign.isRateLimitAcknowledged(),
                 campaign.getScheduledAt(),
                 campaign.getSentAt(),
                 campaign.getCreatedAt(),
@@ -66,9 +72,11 @@ public record CampaignResponse(
                         .sorted(Comparator.comparingInt(CampaignFilter::getFilterOrder))
                         .map(CampaignFilterResponse::from)
                         .toList(),
+                campaign.getFilterRootLogic(),
                 campaign.getAudienceMode(),
                 campaign.getIncludedIds(),
-                campaign.getExcludedIds()
+                campaign.getExcludedIds(),
+                campaign.getExcludedCampaignId()
         );
     }
 }

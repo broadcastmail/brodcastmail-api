@@ -1,5 +1,6 @@
 package com.broadcastmail.api.billing;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.support.CampaignTestFixtures;
@@ -21,13 +22,14 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
-class BillingControllerTest {
+class BillingControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
@@ -53,7 +55,7 @@ class BillingControllerTest {
     @Test
     void shouldReturnCheckoutUrlOnSuccess() throws StripeException {
         // Given
-        when(billingService.createCheckoutSession(any(UUID.class)))
+        when(billingService.createCheckoutSession(any(UUID.class), anyBoolean()))
                 .thenReturn("https://checkout.stripe.com/pay/test123");
 
         // When

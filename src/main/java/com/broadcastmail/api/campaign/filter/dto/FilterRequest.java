@@ -4,6 +4,7 @@ import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 /**
  * columnName means different things depending on source: the profile-table or
@@ -19,10 +20,12 @@ public record FilterRequest(
         String columnName,
         @NotNull
         FilterOperator operator,
-        @NotBlank
         String filterValue,
         FilterSource source,
-        String jsonKey
+        String jsonKey,
+        Integer groupIndex,
+        String groupLogic,
+        List<String> filterValues
 ) {
     public FilterSource sourceOrDefault() {
         return source != null ? source : FilterSource.PROFILE_TABLE;

@@ -1,7 +1,7 @@
 # Onboarding Architecture
 
 ## Overview
-Two-step onboarding flow that runs once per account creation. 
+Multi-step onboarding flow that runs once per account creation. 
 Supabase Oauth is responsible for authentication and proves
 ownership of the Supabase project. BroadcastMail API then
 creates a read-only role (via the Management API) that introspects
@@ -19,21 +19,22 @@ onboarding_session` httpOnly cookie (`SameSite=Lax`, `Max-Age=1800`). The cookie
 
 Partial sessions (multiple-project flow) live in `OAuthSessionStore` as a separate partial entry, promoted to a full session after project selection.
 
-On completion — `OAuthSessionStore` entry deleted, `bm_session` httpOnly cookie set with the raw API key, redirect to `/`.
+On completion — `OAuthSessionStore` entry deleted, `bm_session` httpOnly cookie set with the raw API key, redirect to `/dashboard`.
 
 
 ## Step machine
-CONNECT_SUPABASE → CONFIRM_SCHEMA → CONNECT_RESEND → CONFIRM_ACCOUNT
+CONNECT_SUPABASE → CONFIRM_SCHEMA → CONFIRM_EMAIL_TABLE → CONNECT_RESEND → CONFIRM_ACCOUNT
 Resolved by `GET /api/v1/onboarding/status` on every frontend page load:
 
 | Step | Condition |
 |---|---|
 | `CONNECT_SUPABASE` | No cookie, or invalid/expired session |
 | `CONFIRM_SCHEMA` | Session exists, schema not yet confirmed |
-| `CONNECT_RESEND` | Schema confirmed, no Resend details |
-| `CONFIRM_ACCOUNT` | Schema confirmed + Resend details present |
+| `CONFIRM_EMAIL_TABLE` | Schema confirmed, email table not yet confirmed |
+| `CONNECT_RESEND` | Schema confirmed + email table confirmed, no Resend details |
+| `CONFIRM_ACCOUNT` | Schema confirmed + email table confirmed + Resend details present |
 
-Frontend routes to the correct page based on the returned step. Backend enforces step preconditions via `requireSchemaConfirmed()` and `requireResendDetails()` on `OnboardingSession`.
+Frontend routes to the correct page based on the returned step. Backend enforces step preconditions via `requireSchemaConfirmed()`, `requireEmailTableConfirmed()`, and `requireResendDetails()` on `OnboardingSession`.
 ---
 ## Call chain
 ### OAuth entry
@@ -78,7 +79,7 @@ POST /api/v1/oauth/supabase/select-project
 
 ### Schema step
 
-POST /api/v1/onboarding/schema/detect
+GET /api/v1/onboarding/schema
 → OnboardingController.detectSchema()
 → OnboardingSessionStore.get()
 → SchemaIntrospectionService.detect()
@@ -104,10 +105,30 @@ POST /api/v1/onboarding/schema/test ← fallback path only
 → DriverManager.getConnection() ← reader role JDBC
 → SELECT COUNT(*) FROM auth.user_emails
 
+### Email source step
+
+GET /api/v1/onboarding/email-source
+→ OnboardingController.detectEmailSource()
+→ OnboardingSession.requireEmailTableSource() ← enforces schema confirmed
+→ EmailSourceService.detect(sessionToken)
+→ SupabaseIntrospectionData from session
+→ EmailSourceResult: DETECTED / MULTIPLE_CANDIDATES / NOT_DETECTED
+→ OnboardingSessionStore.updateSession() ← stores emailTableDetails or emailSourceCandidates
+
+POST /api/v1/onboarding/email-source/confirm
+→ OnboardingController.confirmEmailTable()
+→ EmailSourceService.confirm(sessionToken, request)
+→ OnboardingSession.requireEmailTableSource()
+[request body present — manual selection]
+→ OnboardingSessionStore.updateSession() ← stores resolved EmailTableDetails, emailTableConfirmed = true
+[request body null — accept auto-detected result]
+→ OnboardingSessionStore.updateSession() ← emailTableConfirmed = true, keeps existing emailTableDetails
+
 ### Resend step
 
-POST /api/v1/onboarding/resend/validate
-→ OnboardingController.validateResend()
+POST /api/v1/onboarding/email-provider
+→ OnboardingController.addEmailProvider()
+→ EmailProviderService.addEmailProvider()
 → ResendClient.sendTestEmail()
 → OnboardingSessionStore.update() ← stores encryptedResendApiKey + fromAddress
 
@@ -117,6 +138,7 @@ POST /api/v1/onboarding/resend/validate
 POST /api/v1/onboarding/complete
 → OnboardingController.complete()
 → OnboardingService.completeOnboarding()
+→ OnboardingSession.requireSchemaConfirmed().requireEmailTableConfirmed().requireResendDetails()
 → AccountCreationService.createFromOnboarding()
 → Account saved
 → OAuthToken saved
@@ -126,7 +148,12 @@ POST /api/v1/onboarding/complete
 → ConnectionService.createConnection(accountId, session)
 → CookieService.createSessionCookie(rawApiKey)
 → CookieService.clearOnboardingCookie()
-→ redirect /
+→ redirect /dashboard
+
+DELETE /api/v1/onboarding/session
+→ OnboardingController.abandonSession()
+→ OnboardingSessionStore.invalidate(sessionToken) ← no-op if already gone
+→ CookieService.clearOnboardingCookie()
 
 ## External dependencies
 

@@ -3,6 +3,8 @@ package com.broadcastmail.api.onboarding;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
+import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
+import com.broadcastmail.api.onboarding.dto.EmailSourceOption;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.With;
@@ -28,6 +30,10 @@ public class OnboardingSession {
     private Instant tokenExpiresAt;
     private Instant expiresAt;
     private SchemaDetails schemaDetails;
+    private EmailTableDetails emailTableDetails;
+    private boolean emailTableConfirmed;
+    private SupabaseIntrospectionData introspectionData;
+    private List<EmailSourceOption> emailSourceCandidates;
     private List<String> confirmedColumnNames;
     private List<DetectedColumn> detectedColumns;
     private List<DetectedColumn> authColumns;
@@ -55,6 +61,18 @@ public class OnboardingSession {
         return this;
     }
 
+    public OnboardingSession requireEmailTableSource() {
+        requireSchemaConfirmed();
+        return this;
+    }
+
+    public OnboardingSession requireEmailTableConfirmed() {
+        if (!emailTableConfirmed) {
+            throw new InvalidOnboardingSessionException();
+        }
+        return this;
+    }
+
     public boolean isReconfigure() {
         return accountId != null;
     }
@@ -64,6 +82,13 @@ public class OnboardingSession {
             String userSchema,
             String userIdColumn,
             boolean confirmed
+    ) {}
+
+    public record EmailTableDetails(
+            String emailTableSchema,
+            String emailTableName,
+            String emailTableIdColumn,
+            String emailColumn
     ) {}
 
     public record ResendDetails(

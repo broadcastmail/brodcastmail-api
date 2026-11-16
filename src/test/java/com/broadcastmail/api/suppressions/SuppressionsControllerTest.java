@@ -1,8 +1,8 @@
-package com.broadcastmail.api.unsubscribe;
+package com.broadcastmail.api.suppressions;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.config.AppProperties;
-import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestContainersConfiguration.class)
-class UnsubscribeControllerTest {
+class SuppressionsControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
@@ -35,7 +35,7 @@ class UnsubscribeControllerTest {
     private AppProperties appProperties;
 
     @MockitoBean
-    private CampaignRecipientRepository campaignRecipientRepository;
+    private SuppressionService suppressionService;
 
     @Test
     void shouldRedirectToFrontendAndMarkRecipientUnsubscribedWhenTokenIsValid() {
@@ -52,8 +52,8 @@ class UnsubscribeControllerTest {
         // Then
         assertThat(response).hasStatus(302);
         assertThat(response.getResponse().getHeader("Location"))
-                .isEqualTo(appProperties.frontend().url() + "/unsubscribed");
-        verify(campaignRecipientRepository).markUnsubscribed(recipientId);
+                .isEqualTo(appProperties.frontend().url() + "/unsubscribed?confirmed=1");
+        verify(suppressionService).unsubscribe(recipientId);
     }
 
     @Test
@@ -71,7 +71,7 @@ class UnsubscribeControllerTest {
                 .extractingPath("$.error")
                 .asString()
                 .isEqualTo("Invalid unsubscribe token");
-        verifyNoInteractions(campaignRecipientRepository);
+        verifyNoInteractions(suppressionService);
     }
 
     @Test
@@ -93,7 +93,7 @@ class UnsubscribeControllerTest {
 
         // Then
         assertThat(response).hasStatus(401);
-        verifyNoInteractions(campaignRecipientRepository);
+        verifyNoInteractions(suppressionService);
     }
 
     @Test
@@ -114,7 +114,7 @@ class UnsubscribeControllerTest {
 
         // Then
         assertThat(response).hasStatus(401);
-        verifyNoInteractions(campaignRecipientRepository);
+        verifyNoInteractions(suppressionService);
     }
 
     private String validTokenFor(UUID recipientId) {

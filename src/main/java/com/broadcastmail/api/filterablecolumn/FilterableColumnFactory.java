@@ -2,6 +2,7 @@ package com.broadcastmail.api.filterablecolumn;
 
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.common.campaign.filter.FilterSource;
+import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 
 import java.util.LinkedHashMap;
 import java.util.List;

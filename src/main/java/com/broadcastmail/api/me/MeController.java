@@ -6,6 +6,7 @@ import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.me.dto.MeResponse;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "me")
@@ -35,10 +38,15 @@ public class MeController {
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElse(null);
 
+        List<PlanFeature> features = Arrays.stream(PlanFeature.values())
+                .filter(f -> account.getPlan().strategy().has(f))
+                .toList();
+
         return ResponseEntity.ok(new MeResponse(
                 account.getEmail(),
                 account.getPlan().name(),
-                connection != null ? connection.getProjectRef() : null
+                connection != null ? connection.getProjectRef() : null,
+                features
         ));
     }
 

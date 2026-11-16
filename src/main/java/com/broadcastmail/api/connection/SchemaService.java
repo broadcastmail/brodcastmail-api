@@ -2,10 +2,12 @@ package com.broadcastmail.api.connection;
 
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
+import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
-import com.broadcastmail.api.filterablecolumn.FilterableColumn;
+import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
-import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
+import com.broadcastmail.common.filterablecolumn.FilterableColumn;
+import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.supabase.SupabaseSql;
@@ -16,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
 
@@ -24,31 +27,34 @@ import java.util.function.UnaryOperator;
 public class SchemaService {
 
     private final OAuthSessionStore onboardingSessionStore;
+    private final SupabaseIntrospectionService supabaseIntrospectionService;
     private final SchemaIntrospectionService schemaIntrospectionService;
     private final ConnectionRepository connectionRepository;
     private final FilterableColumnRepository filterableColumnRepository;
 
     public SchemaIntrospectionResult detect(String sessionToken) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken);
-        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(session.getJdbcUrl(), session.getEncryptedRolePassword());
+        SupabaseIntrospectionData data = supabaseIntrospectionService.introspect(
+                session.getJdbcUrl(), session.getEncryptedRolePassword());
+        SchemaIntrospectionResult result = schemaIntrospectionService.process(data);
         OnboardingSession updated = switch (result) {
             case SchemaIntrospectionResult.Detected detected ->
-                    applyDetected(session, detected).withSchemaCandidates(null);
-            case SchemaIntrospectionResult.MultipleCandidates(List<SchemaIntrospectionResult.Detected> candidates) ->
+                    applyDetected(session, detected)
+                            .withSchemaCandidates(null)
+                            .withIntrospectionData(data);
+            case SchemaIntrospectionResult.MultipleCandidates(var candidates) ->
                     session.withSchemaDetails(null).withDetectedColumns(null).withAuthColumns(null)
-                            .withSchemaCandidates(candidates);
+                            .withSchemaCandidates(candidates)
+                            .withIntrospectionData(data);
             case SchemaIntrospectionResult.NotDetected _ ->
-                    session.withSchemaDetails(null).withDetectedColumns(null).withAuthColumns(null).withSchemaCandidates(null);
+                    session.withSchemaDetails(null).withDetectedColumns(null).withAuthColumns(null)
+                            .withSchemaCandidates(null)
+                            .withIntrospectionData(null);
         };
         onboardingSessionStore.updateSession(sessionToken, updated);
         return result;
     }
 
-    /**
-     * Picks one of the tables offered by a prior {@code detect()} that returned
-     * {@code MultipleCandidates}. Re-uses that already-introspected data instead
-     * of hitting the database again.
-     */
     public SchemaIntrospectionResult.Detected selectTable(String sessionToken, String schema, String tableName) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken);
         if (session.getSchemaCandidates() == null) {
@@ -59,9 +65,23 @@ public class SchemaService {
                 .findFirst()
                 .orElseThrow(InvalidOnboardingSessionException::new);
 
-        OnboardingSession updated = applyDetected(session, chosen).withSchemaCandidates(null);
-        onboardingSessionStore.updateSession(sessionToken, updated);
+        onboardingSessionStore.updateSession(sessionToken, applyDetected(session, chosen).withSchemaCandidates(null));
         return chosen;
+    }
+
+    public void skipProfileTable(String sessionToken) {
+        OnboardingSession session = onboardingSessionStore.get(sessionToken);
+        List<DetectedColumn> authColumns = Optional.ofNullable(session.getAuthColumns())
+                .or(() -> Optional.ofNullable(session.getSchemaCandidates())
+                        .filter(c -> !c.isEmpty())
+                        .map(c -> c.getFirst().authColumns()))
+                .orElse(List.of());
+        OnboardingSession updated = session
+                .withSchemaDetails(new OnboardingSession.SchemaDetails(null, null, null, true))
+                .withDetectedColumns(List.of())
+                .withAuthColumns(authColumns)
+                .withSchemaCandidates(null);
+        onboardingSessionStore.updateSession(sessionToken, updated);
     }
 
     private boolean matchesTable(SchemaIntrospectionResult.Detected candidate, String schema, String tableName) {
@@ -97,14 +117,13 @@ public class SchemaService {
         return switch (result) {
             case SchemaIntrospectionResult.Detected d -> applyPersisted.apply(d);
             case SchemaIntrospectionResult.MultipleCandidates(List<SchemaIntrospectionResult.Detected> candidates) ->
-                    new SchemaIntrospectionResult.MultipleCandidates(
-                            candidates.stream().map(applyPersisted).toList());
+                    new SchemaIntrospectionResult.MultipleCandidates(candidates.stream().map(applyPersisted).toList());
             case SchemaIntrospectionResult.NotDetected n -> n;
         };
     }
 
 
-    public void confirm(String sessionToken, List<String> columnNames) {
+    public void selectColumns(String sessionToken, List<String> columnNames) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken).requireSchemaDetected();
         OnboardingSession updated = session.withSchemaDetails(
                         new OnboardingSession.SchemaDetails(
@@ -115,4 +134,5 @@ public class SchemaService {
                 .withConfirmedColumnNames(columnNames);
         onboardingSessionStore.updateSession(sessionToken, updated);
     }
+
 }

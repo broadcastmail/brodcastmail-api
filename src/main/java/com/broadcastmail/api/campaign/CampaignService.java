@@ -2,26 +2,34 @@ package com.broadcastmail.api.campaign;
 
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.api.campaign.dto.RecipientResponse;
+import com.broadcastmail.api.campaign.dto.TestEmailRequest;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
+import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.config.EncryptionProperties;
+import com.broadcastmail.api.resend.ResendClient;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.account.plan.PlanFacade;
+import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException;
-import com.broadcastmail.common.account.AccountRepository;
-import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import com.broadcastmail.common.campaign.recipient.RecipientStatus;
 import com.broadcastmail.common.connection.ConnectionRepository;
+import com.broadcastmail.common.emailprovider.EmailProvider;
+import com.broadcastmail.common.emailprovider.EmailProviderRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
@@ -30,9 +38,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -42,7 +57,10 @@ public class CampaignService {
     private final CampaignFilterValidator filterValidator;
     private final ConnectionRepository connectionRepository;
     private final CampaignRecipientRepository recipientRepository;
+    private final EmailProviderRepository emailProviderRepository;
     private final AccountRepository accountRepository;
+    private final ResendClient resendClient;
+    private final EncryptionProperties encryptionProperties;
     private final PlanFacade planFacade;
 
 
@@ -51,7 +69,8 @@ public class CampaignService {
         UUID connectionId = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new)
                 .getId();
-        filterValidator.validateRequests(accountId, request.filters());
+        Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
+        filterValidator.validateRequests(account, request.filters());
         Campaign campaign = mapToEntity(accountId, connectionId, request);
         Campaign saved = campaignRepository.save(campaign);
         List<CampaignFilter> filters = new ArrayList<>();
@@ -74,6 +93,7 @@ public class CampaignService {
         return filterRepository.findByCampaignId(campaignId);
     }
 
+
     public Page<Campaign> listCampaigns(UUID accountId, Pageable pageable) {
         return campaignRepository.findByAccountId(accountId, pageable);
     }
@@ -86,11 +106,15 @@ public class CampaignService {
             throw new CampaignNotEditableException();
         }
 
+        Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
 
         request.name().ifPresent(campaign::setName);
         request.subject().ifPresent(campaign::setSubject);
         request.bodyHtml().ifPresent(html -> campaign.setBodyHtml(sanitize(html)));
-        request.scheduledAt().ifPresent(campaign::setScheduledAt);
+        request.scheduledAt().ifPresent(scheduledAt -> {
+            planFacade.enforceFeature(account, PlanFeature.SCHEDULING);
+            campaign.setScheduledAt(scheduledAt);
+        });
 
         request.audienceMode().ifPresent(raw -> {
             try {
@@ -104,6 +128,7 @@ public class CampaignService {
             if (request.includedIds().size() > 5000) {
                 throw new InvalidCampaignFilterException(List.of("includedIds exceeds the 5,000 limit"));
             }
+            planFacade.enforceRecipientLimit(account, request.includedIds().size());
             campaign.setIncludedIds(request.includedIds());
         }
 
@@ -111,13 +136,18 @@ public class CampaignService {
             campaign.setExcludedIds(request.excludedIds());
         }
 
-        if (request.filters() != null && !request.filters().isEmpty()) {
-            var account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
-            planFacade.enforceFeature(account, PlanFeature.FILTERS);
+        if (request.excludedCampaignId() != null) {
+            planFacade.enforceFeature(account, PlanFeature.EXCLUSIONS);
+            validateExcludedCampaignId(accountId, campaignId, request.excludedCampaignId());
+            campaign.setExcludedCampaignId(request.excludedCampaignId());
+        }
+
+        if (request.filterRootLogic() != null) {
+            campaign.setFilterRootLogic(request.filterRootLogic());
         }
 
         if (request.filters() != null) {
-            filterValidator.validateRequests(accountId, request.filters());
+            filterValidator.validateRequests(account, request.filters());
             filterRepository.deleteAll(filterRepository.findByCampaignId(campaignId));
             filterRepository.flush();
             List<CampaignFilter> filters = new ArrayList<>();
@@ -128,6 +158,12 @@ public class CampaignService {
         }
 
         return campaignRepository.save(campaign);
+    }
+
+    public void acknowledgeRateLimit(UUID accountId, UUID campaignId) {
+        Campaign campaign = getCampaign(accountId, campaignId);
+        campaign.setRateLimitAcknowledged(true);
+        campaignRepository.save(campaign);
     }
 
     public void deleteCampaign(UUID accountId, UUID campaignId) {
@@ -153,6 +189,48 @@ public class CampaignService {
                 .map(RecipientResponse::from);
     }
 
+    public void unscheduleCampaign(UUID accountId, UUID campaignId) {
+        Campaign campaign = getCampaign(accountId, campaignId);
+        if (campaign.getStatus() != CampaignStatus.RESOLVING || campaign.getScheduledAt() == null
+                || !campaign.getScheduledAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
+            throw new CampaignNotEditableException();
+        }
+        campaign.setStatus(CampaignStatus.DRAFT);
+        campaign.setScheduledAt(null);
+        campaignRepository.save(campaign);
+    }
+
+    public void sendTestEmail(UUID accountId, UUID campaignId, @Valid TestEmailRequest request) {
+        Campaign campaign = getCampaign(accountId, campaignId);
+        if (campaign.getStatus() != CampaignStatus.DRAFT) {
+            throw new CampaignNotEditableException();
+        }
+        EmailProvider provider = emailProviderRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new IllegalStateException("No email provider configured for account"));
+
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(AccountNotFoundException::new);
+
+        String apiKey = SecurityUtil.decrypt(provider.getEncryptedApiKey(), encryptionProperties.key());
+
+        String body = applyTemplateVariables(campaign.getBodyHtml(), request.variables());
+        resendClient.sendTestEmail(accountId, apiKey, provider.getFromAddress(), account.getEmail(), campaign.getSubject(), body);
+    }
+    private static final Set<CampaignStatus> UNSENT_STATUSES =
+            EnumSet.of(CampaignStatus.DRAFT, CampaignStatus.RESOLVING, CampaignStatus.SENDING);
+
+    private void validateExcludedCampaignId(UUID accountId, UUID currentCampaignId, UUID excludedId) {
+        if (excludedId.equals(currentCampaignId)) {
+            throw new InvalidCampaignFilterException(List.of("excludedCampaignId must not be the current campaign"));
+        }
+        Campaign referenced = campaignRepository.findByAccountIdAndId(accountId, excludedId)
+                .orElseThrow(() -> new InvalidCampaignFilterException(
+                        List.of("excludedCampaignId is unknown or belongs to a different account")));
+        if (UNSENT_STATUSES.contains(referenced.getStatus())) {
+            throw new InvalidCampaignFilterException(List.of("excludedCampaignId refers to a campaign that has not been sent yet"));
+        }
+    }
+
     private Campaign mapToEntity(UUID accountId, UUID connectionId, CreateCampaignRequest request) {
         return Campaign.builder()
                 .accountId(accountId)
@@ -162,7 +240,22 @@ public class CampaignService {
                 .status(CampaignStatus.DRAFT)
                 .connectionId(connectionId)
                 .scheduledAt(request.scheduledAt())
+                .filterRootLogic(request.filterRootLogic() != null ? request.filterRootLogic() : "AND")
                 .build();
+    }
+
+    private static final Pattern TEMPLATE_VAR_PATTERN = Pattern.compile("\\{\\{([a-zA-Z_]\\w*)\\}\\}");
+
+    private String applyTemplateVariables(String html, Map<String, String> variables) {
+        if (variables == null || variables.isEmpty() || !html.contains("{{")) return html;
+        StringBuffer sb = new StringBuffer();
+        Matcher m = TEMPLATE_VAR_PATTERN.matcher(html);
+        while (m.find()) {
+            String val = variables.getOrDefault(m.group(1), m.group(0));
+            m.appendReplacement(sb, Matcher.quoteReplacement(val));
+        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     private String sanitize(String html) {
@@ -170,14 +263,19 @@ public class CampaignService {
     }
 
     private CampaignFilter mapToFilter(UUID campaignId, int order, FilterRequest request) {
+        String filterValue = request.filterValues() != null && !request.filterValues().isEmpty()
+                ? String.join(",", request.filterValues())
+                : request.filterValue();
         return CampaignFilter.builder()
                 .campaignId(campaignId)
                 .columnName(request.columnName())
                 .operator(request.operator())
-                .filterValue(request.filterValue())
+                .filterValue(filterValue)
                 .filterOrder(order)
                 .source(request.sourceOrDefault())
                 .jsonKey(request.jsonKey())
+                .groupIndex(request.groupIndex())
+                .groupLogic(request.groupLogic())
                 .build();
     }
 }

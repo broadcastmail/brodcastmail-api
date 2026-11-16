@@ -1,5 +1,6 @@
 package com.broadcastmail.api.auth;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureMockMvc
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
-class AuthControllerTest {
+class AuthControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;

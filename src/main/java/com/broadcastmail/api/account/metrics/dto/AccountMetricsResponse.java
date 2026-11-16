@@ -6,5 +6,6 @@ public record AccountMetricsResponse(
         int totalDeliveredThisMonth, // Number of emails delivered this month
         double deliveryRate, // Percentage of emails delivered
         long recipientsUsedThisPeriod, // Number of recipients used this period
-        int recipientsLimit // Limit of recipients for the account
+        int recipientsLimit, // Limit of recipients for the account
+        int filterConditionsLimit // Max filter conditions allowed on the plan
 ) {}

@@ -89,7 +89,7 @@ public class OAuthSupabaseService {
 
         // If the state was associated with an accountId, it means this is a reconnect flow
         if (validationResult.accountId() != null) {
-            return handleReconfigure(validationResult.accountId(), rawAccessToken,
+            return handleReconfigure(validationResult.accountId(), ownerEmail, rawAccessToken,
                     encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
         }
 
@@ -122,6 +122,7 @@ public class OAuthSupabaseService {
 
     private OAuthCallbackResult handleReconfigure(
             UUID accountId,
+            String ownerEmail,
             String rawAccessToken,
             String encryptedAccessToken,
             String encryptedRefreshToken,
@@ -135,13 +136,14 @@ public class OAuthSupabaseService {
         if (projects.size() == 1) {
             String projectRef = projects.getFirst().ref();
             String sessionToken = oAuthSessionService.setupReconfigureSession(
-                    accountId, projectRef, rawAccessToken,
+                    accountId, ownerEmail, projectRef,
                     encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
             return new OAuthCallbackResult.ReconfigureSingleProject(sessionToken);
         } else {
             String partialToken = onboardingSessionStore.createPartial(
                     PartialOnboardingSession.forReconfigure(
                             accountId,
+                            ownerEmail,
                             encryptedAccessToken,
                             encryptedRefreshToken,
                             tokenExpiresAt,

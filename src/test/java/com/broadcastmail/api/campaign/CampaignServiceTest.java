@@ -1,22 +1,30 @@
 package com.broadcastmail.api.campaign;
 
-import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
+import com.broadcastmail.api.campaign.dto.TestEmailRequest;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
+import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
-import com.broadcastmail.api.support.CampaignTestFixtures;
+import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.config.EncryptionProperties;
+import com.broadcastmail.api.resend.ResendClient;
+import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.account.plan.Plan;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
+import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
+import com.broadcastmail.common.emailprovider.EmailProvider;
+import com.broadcastmail.common.emailprovider.EmailProviderRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -30,12 +38,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CampaignServiceTest {
@@ -49,21 +61,36 @@ class CampaignServiceTest {
     private CampaignFilterRepository campaignFilterRepository;
     @Mock
     private CampaignFilterValidator filterValidator;
-
+    @Mock
+    private ConnectionRepository connectionRepository;
+    @Mock
+    private CampaignRecipientRepository recipientRepository;
+    @Mock
+    private EmailProviderRepository emailProviderRepository;
+    @Mock
+    private AccountRepository accountRepository;
+    @Mock
+    private ResendClient resendClient;
+    @Mock
+    private EncryptionProperties encryptionProperties;
+    @Mock
+    private PlanFacade planFacade;
 
     @Captor
     private ArgumentCaptor<List<CampaignFilter>> filterCaptor;
 
     @Mock
-    private AccountRepository accountRepository;
-    @Mock
-    private PlanFacade planFacade;
-    @Mock
-    private ConnectionRepository connectionRepository;
-    @Mock
     private Connection connection;
     @InjectMocks
     private CampaignService campaignService;
+
+    private static final String ENCRYPTION_KEY = "12345678901234567890123456789012";
+    private static final String TEST_API_KEY = "re_test_abc123";
+
+    private void stubAccount() {
+        when(accountRepository.findById(ACCOUNT_ID))
+                .thenReturn(Optional.of(Account.builder().id(ACCOUNT_ID).plan(Plan.STARTER).build()));
+    }
 
     private Campaign.CampaignBuilder campaign(CampaignStatus status) {
         return Campaign.builder()
@@ -75,9 +102,10 @@ class CampaignServiceTest {
     @Test
     void shouldCreateCampaignInDraftStatus() {
         // Given
-        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, connection.getId(), null);
+        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, null, null);
         when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(connection));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAccount();
 
         // When
         Campaign result = campaignService.createCampaign(ACCOUNT_ID, request);
@@ -90,16 +118,17 @@ class CampaignServiceTest {
     @Test
     void shouldCreateCampaignWithFiltersAttached() {
         // Given
-        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, connection.getId(), List.of(
-                new FilterRequest("plan", FilterOperator.EQ, "free", null, null),
-                new FilterRequest("created_at", FilterOperator.GT, "2024-01-01", null, null)
-        ));
+        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, List.of(
+                new FilterRequest("plan", FilterOperator.EQ, "free", null, null, null, null, null),
+                new FilterRequest("created_at", FilterOperator.GT, "2024-01-01", null, null, null, null, null)
+        ), null);
         when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(connection));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> {
             Campaign c = inv.getArgument(0);
             c.setId(UUID.randomUUID());
             return c;
         });
+        stubAccount();
 
         // When
         campaignService.createCampaign(ACCOUNT_ID, request);
@@ -162,17 +191,17 @@ class CampaignServiceTest {
     void shouldApplyPatchToDraftCampaign()
     {
         Campaign existing = campaign(CampaignStatus.DRAFT).name("Old Name").build();
-        UpdateCampaignRequest request = new UpdateCampaignRequest(
-                Optional.of("New Name"),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                null, null, null);
+        UpdateCampaignRequest request = UpdateCampaignRequest.builder()
+                .name(Optional.of("New Name"))
+                .subject(Optional.empty())
+                .bodyHtml(Optional.empty())
+                .scheduledAt(Optional.empty())
+                .audienceMode(Optional.empty())
+                .build();
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
                 .thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
-
+        stubAccount();
 
         // When
         Campaign result = campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
@@ -186,13 +215,13 @@ class CampaignServiceTest {
     {
         Campaign existing = campaign(CampaignStatus.DRAFT).build();
         UpdateCampaignRequest request = new UpdateCampaignRequest(
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
                 java.util.List.of(new com.broadcastmail.api.campaign.filter.dto.FilterRequest(
-                        "plan", com.broadcastmail.common.campaign.filter.FilterOperator.EQ, "pro", null, null)),
-                null, null);
+                        "plan", com.broadcastmail.common.campaign.filter.FilterOperator.EQ, "pro", null, null, null, null, null)),
+                null, Optional.empty(), null, null, null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.account().build()));
+        stubAccount();
 
         campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
 
@@ -206,9 +235,11 @@ class CampaignServiceTest {
     {
         Campaign existing = campaign(CampaignStatus.DRAFT).build();
         UpdateCampaignRequest request = new UpdateCampaignRequest(
-                Optional.of("X"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), null, null, null);
+                Optional.of("X"), Optional.empty(), Optional.empty(), Optional.empty(), null,
+                null, Optional.empty(), null, null, null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAccount();
 
         campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
 
@@ -221,7 +252,8 @@ class CampaignServiceTest {
         // Given
         Campaign sending = campaign(CampaignStatus.SENDING).build();
         UpdateCampaignRequest request = new UpdateCampaignRequest(
-                Optional.of("New Name"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), null, null, null);
+                Optional.of("New Name"), Optional.empty(), Optional.empty(), Optional.empty(), null,
+                null, Optional.empty(), null, null, null);
         when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
                 .thenReturn(Optional.of(sending));
 
@@ -255,5 +287,101 @@ class CampaignServiceTest {
         assertThatThrownBy(() -> campaignService.deleteCampaign(ACCOUNT_ID, CAMPAIGN_ID))
                 .isInstanceOf(CampaignNotEditableException.class);
         verify(campaignRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void shouldSendTestEmailToAccountOwnerEmail() {
+        // Given
+        givenTestEmailSetup("<p>Hi {{name}}</p>", "Hello");
+
+        // When
+        campaignService.sendTestEmail(ACCOUNT_ID, CAMPAIGN_ID, new TestEmailRequest(Map.of("name", "John")));
+
+        // Then
+        verify(resendClient).sendTestEmail(ACCOUNT_ID, TEST_API_KEY, "sender@example.com", "user@example.com", "Hello", "<p>Hi John</p>");
+    }
+
+    @Test
+    void shouldRejectTestEmailOnNonDraftCampaign() {
+        // Given
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
+                .thenReturn(Optional.of(campaign(CampaignStatus.SENDING).build()));
+
+        // When / Then
+        TestEmailRequest testRequest = new TestEmailRequest(Map.of());
+        assertThatThrownBy(() -> campaignService.sendTestEmail(ACCOUNT_ID, CAMPAIGN_ID, testRequest))
+                .isInstanceOf(CampaignNotEditableException.class);
+        verifyNoInteractions(resendClient);
+    }
+
+@Test
+    void shouldRejectUnscheduleWhenScheduledAtAlreadyPassed() {
+        // Given
+        Campaign scheduled = campaign(CampaignStatus.RESOLVING)
+                .scheduledAt(OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(1))
+                .build();
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(scheduled));
+
+        // When / Then
+        assertThatThrownBy(() -> campaignService.unscheduleCampaign(ACCOUNT_ID, CAMPAIGN_ID))
+                .isInstanceOf(CampaignNotEditableException.class);
+    }
+
+    @Test
+    void shouldRejectUnscheduleWhenNoScheduledAt() {
+        // Given
+        Campaign resolving = campaign(CampaignStatus.RESOLVING).build();
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(resolving));
+
+        // When / Then
+        assertThatThrownBy(() -> campaignService.unscheduleCampaign(ACCOUNT_ID, CAMPAIGN_ID))
+                .isInstanceOf(CampaignNotEditableException.class);
+    }
+
+    @Test
+    void shouldRejectUnsentCampaignInExcludedCampaignId() {
+        UUID draftCampaignId = UUID.randomUUID();
+        Campaign existing = campaign(CampaignStatus.DRAFT).build();
+        Campaign draft = Campaign.builder().id(draftCampaignId).accountId(ACCOUNT_ID)
+                .status(CampaignStatus.DRAFT).filterRootLogic("AND").build();
+        UpdateCampaignRequest request = UpdateCampaignRequest.builder()
+                .name(Optional.empty()).subject(Optional.empty()).bodyHtml(Optional.empty())
+                .scheduledAt(Optional.empty()).audienceMode(Optional.empty())
+                .excludedCampaignId(draftCampaignId).build();
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, draftCampaignId)).thenReturn(Optional.of(draft));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(Account.builder().id(ACCOUNT_ID).plan(Plan.STARTER).build()));
+
+        assertThatThrownBy(() -> campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request))
+                .isInstanceOf(com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException.class)
+                .hasMessageContaining("not been sent yet");
+    }
+
+    @Test
+    void shouldRejectCurrentCampaignIdInExcludedCampaignId() {
+        Campaign existing = campaign(CampaignStatus.DRAFT).build();
+        UpdateCampaignRequest request = UpdateCampaignRequest.builder()
+                .name(Optional.empty()).subject(Optional.empty()).bodyHtml(Optional.empty())
+                .scheduledAt(Optional.empty()).audienceMode(Optional.empty())
+                .excludedCampaignId(CAMPAIGN_ID).build();
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(Account.builder().id(ACCOUNT_ID).plan(Plan.STARTER).build()));
+
+        assertThatThrownBy(() -> campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request))
+                .isInstanceOf(com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException.class)
+                .hasMessageContaining("must not be the current campaign");
+    }
+
+    private void givenTestEmailSetup(String bodyHtml, String subject) {
+        EmailProvider provider = mock(EmailProvider.class);
+        Account account = mock(Account.class);
+        when(provider.getEncryptedApiKey()).thenReturn(SecurityUtil.encrypt(TEST_API_KEY, ENCRYPTION_KEY));
+        when(provider.getFromAddress()).thenReturn("sender@example.com");
+        when(account.getEmail()).thenReturn("user@example.com");
+        when(encryptionProperties.key()).thenReturn(ENCRYPTION_KEY);
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID))
+                .thenReturn(Optional.of(campaign(CampaignStatus.DRAFT).subject(subject).bodyHtml(bodyHtml).build()));
+        when(emailProviderRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(provider));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(account));
     }
 }

@@ -13,4 +13,8 @@ public class ConnectionRequests {
             @NotBlank String userTableName,
             @NotBlank String userIdColumn) {}
     public record UpdateColumnsRequest(@NotEmpty List<String> columnNames) {}
+    public record UpdateEmailTableRequest(
+            String emailTableSchema,
+            String emailTableName,
+            String emailColumn) {}
 }

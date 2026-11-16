@@ -1,4 +1,4 @@
-package com.broadcastmail.api.unsubscribe;
+package com.broadcastmail.api.suppressions;
 
 import com.broadcastmail.api.common.exceptions.InvalidUnsubscribeTokenException;
 import com.broadcastmail.api.config.AppProperties;

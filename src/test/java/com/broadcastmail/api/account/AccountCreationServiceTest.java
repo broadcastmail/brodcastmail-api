@@ -7,7 +7,7 @@ import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
-import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
+import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.oauth.OAuthToken;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.resend.ResendClient;

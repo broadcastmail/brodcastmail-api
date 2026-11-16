@@ -1,7 +1,10 @@
 package com.broadcastmail.api.onboarding;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
+import com.broadcastmail.api.emailprovider.EmailProviderService;
+import com.broadcastmail.api.emailprovider.dto.VerifyKeyResponse;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +28,7 @@ import static org.mockito.Mockito.*;
 @AutoConfigureMockMvc
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
-class OnboardingControllerTest {
+class OnboardingControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
@@ -35,6 +38,9 @@ class OnboardingControllerTest {
 
     @MockitoBean
     private OnboardingService onboardingService;
+
+    @MockitoBean
+    private EmailProviderService emailProviderService;
 
     @Test
     void shouldReturnConnectSupabaseWhenNoCookiePresent() {
@@ -155,18 +161,56 @@ class OnboardingControllerTest {
     }
 
     @Test
-    void shouldReturn401WhenConfirmingSchemaWithNoSession() {
+    void shouldReturn401WhenSelectingColumnsWithNoSession() {
         // Given — no cookie
 
         // When
         var response = mockMvc.post()
-                .uri("/api/v1/onboarding/schema/confirm")
+                .uri("/api/v1/onboarding/schema/select-columns")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"columnNames\":[\"plan\",\"full_name\"]}")
                 .exchange();
 
         // Then
         assertThat(response).hasStatus(401);
+    }
+
+    @Test
+    void shouldReturnDomainsWhenVerifyingResendKey() {
+        // Given
+        String sessionToken = createSession();
+        when(emailProviderService.verifyKeyAndStore(sessionToken, "re_test"))
+                .thenReturn(new VerifyKeyResponse(List.of("example.com")));
+
+        // When
+        var response = mockMvc.post()
+                .uri("/api/v1/onboarding/email/provider/verify-key")
+                .cookie(new MockCookie("onboarding_session", sessionToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"apiKey\":\"re_test\"}")
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(200)
+                .bodyJson().extractingPath("$.domains[0]").asString().isEqualTo("example.com");
+    }
+
+    @Test
+    void shouldReturnDomainsFromSessionWhenListingResendDomains() {
+        // Given
+        String sessionToken = createSession();
+        when(emailProviderService.listDomainsFromSession(sessionToken))
+                .thenReturn(new VerifyKeyResponse(List.of("example.com")));
+
+        // When
+        var response = mockMvc.get()
+                .uri("/api/v1/onboarding/email/provider/domains")
+                .cookie(new MockCookie("onboarding_session", sessionToken))
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(200)
+                .bodyJson().extractingPath("$.domains[0]").asString().isEqualTo("example.com");
     }
 
     @Test
@@ -243,6 +287,7 @@ class OnboardingControllerTest {
         return onboardingSessionStore.create(baseSession()
                 .schemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", true))
                 .confirmedColumnNames(List.of("plan", "full_name"))
+                .emailTableConfirmed(true)
                 .build());
     }
 

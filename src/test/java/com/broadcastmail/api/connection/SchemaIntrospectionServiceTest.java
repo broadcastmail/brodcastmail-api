@@ -24,7 +24,8 @@
  *      - INSERT 3 test users into auth.users with profiles linked via FK
  */
 package com.broadcastmail.api.connection;
-
+import com.broadcastmail.api.IntegrationTest;
+import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
@@ -35,12 +36,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
+@Import(TestContainersConfiguration.class)
 @Tag("local")
-class SchemaIntrospectionServiceTest {
+class SchemaIntrospectionServiceTest extends IntegrationTest {
 
     @Autowired
     private SchemaIntrospectionService schemaIntrospectionService;

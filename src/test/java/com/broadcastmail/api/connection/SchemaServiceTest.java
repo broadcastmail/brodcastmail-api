@@ -3,7 +3,8 @@ package com.broadcastmail.api.connection;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
-import com.broadcastmail.api.filterablecolumn.FilterableColumnRepository;
+import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
+import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.common.connection.Connection;
@@ -18,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +34,9 @@ class SchemaServiceTest {
 
     @Mock
     private OAuthSessionStore onboardingSessionStore;
+
+    @Mock
+    private SupabaseIntrospectionService supabaseIntrospectionService;
 
     @Mock
     private SchemaIntrospectionService schemaIntrospectionService;
@@ -89,8 +94,10 @@ class SchemaServiceTest {
     @Test
     void shouldStoreDetectedTableAfterIntrospection() {
         // Given
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
-        when(schemaIntrospectionService.introspect(anyString(), anyString())).thenReturn(detectedResult());
+        when(supabaseIntrospectionService.introspect(anyString(), anyString())).thenReturn(data);
+        when(schemaIntrospectionService.process(data)).thenReturn(detectedResult());
 
         // When
         schemaService.detect("token");
@@ -110,7 +117,7 @@ class SchemaServiceTest {
         when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
 
         // When
-        schemaService.confirm("token", List.of("plan", "full_name"));
+        schemaService.selectColumns("token", List.of("plan", "full_name"));
 
         // Then
         verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
@@ -123,9 +130,10 @@ class SchemaServiceTest {
         // Given
         OnboardingSession sessionWithSchema = baseSession()
                 .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", false));
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
         when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
-        when(schemaIntrospectionService.introspect(anyString(), anyString()))
-                .thenReturn(new SchemaIntrospectionResult.NotDetected());
+        when(supabaseIntrospectionService.introspect(anyString(), anyString())).thenReturn(data);
+        when(schemaIntrospectionService.process(data)).thenReturn(new SchemaIntrospectionResult.NotDetected());
 
         // When
         SchemaIntrospectionResult result = schemaService.detect("token");
@@ -147,16 +155,18 @@ class SchemaServiceTest {
         List<String> columns = List.of("plan");
 
         // Then
-        assertThatThrownBy(() -> schemaService.confirm("token", columns))
+        assertThatThrownBy(() -> schemaService.selectColumns("token", columns))
                 .isInstanceOf(InvalidOnboardingSessionException.class);
     }
 
     @Test
     void shouldStoreCandidatesWhenMultipleTablesDetected() {
         // Given
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
-        when(schemaIntrospectionService.introspect(anyString(), anyString()))
-                .thenReturn(new SchemaIntrospectionResult.MultipleCandidates(List.of(detectedResult(), secondCandidateResult())));
+        when(supabaseIntrospectionService.introspect(anyString(), anyString())).thenReturn(data);
+        when(schemaIntrospectionService.process(data)).thenReturn(
+                new SchemaIntrospectionResult.MultipleCandidates(List.of(detectedResult(), secondCandidateResult())));
 
         // When
         SchemaIntrospectionResult result = schemaService.detect("token");
@@ -224,7 +234,7 @@ class SchemaServiceTest {
                                 new com.broadcastmail.api.connection.dto.DetectedColumn("country", "text", true, 3, false)),
                         List.of()));
         when(filterableColumnRepository.findByConnectionId(connectionId)).thenReturn(List.of(
-                com.broadcastmail.api.filterablecolumn.FilterableColumn.builder()
+                com.broadcastmail.common.filterablecolumn.FilterableColumn.builder()
                         .connectionId(connectionId).columnName("plan").columnType("text").displayName("plan")
                         .source(com.broadcastmail.common.campaign.filter.FilterSource.PROFILE_TABLE)
                         .enabled(true).cardinalityWarning(false).build()));
