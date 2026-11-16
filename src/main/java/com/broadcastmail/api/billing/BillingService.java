@@ -32,8 +32,8 @@ public class BillingService {
         SessionCreateParams params =
                 SessionCreateParams.builder()
                         .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                        .setSuccessUrl(appProperties.frontend().url() + "/dashboard?upgraded=true")
-                        .setCancelUrl(appProperties.frontend().url() + "/dashboard")
+                        .setSuccessUrl(appProperties.frontend().url() + "/billing/success")
+                        .setCancelUrl(appProperties.frontend().url() + "/billing/cancel")
                         .putMetadata("accountId", accountId.toString())
                         .putMetadata("plan", "starter")
                         .addLineItem(SessionCreateParams.LineItem.builder()
@@ -46,11 +46,9 @@ public class BillingService {
     }
 
     public String createPortalSession(String stripeCustomerId) throws StripeException {
-        Stripe.apiKey = stripeProperties.secretKey();
-
         SessionCreateParams params = SessionCreateParams.builder()
                 .setCustomer(stripeCustomerId)
-                .setReturnUrl(appProperties.frontend().url() + "/dashboard")
+                .setReturnUrl(appProperties.frontend().url() + "/billing?from=portal")
                 .build();
 
         return Session.create(params).getUrl();

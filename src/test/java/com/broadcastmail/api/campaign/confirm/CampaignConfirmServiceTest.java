@@ -258,6 +258,7 @@ class CampaignConfirmServiceTest {
         Campaign campaign = campaign(CampaignStatus.PARTIALLY_FAILED);
         givenRetryableCampaign(campaign);
         givenFailedRecipients(3);
+        givenAccount();
         when(retryCampaignRepository.hasRetryCampaign(CAMPAIGN_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> campaignConfirmService.retryPartiallyFailed(ACCOUNT_ID, CAMPAIGN_ID))
@@ -303,7 +304,13 @@ class CampaignConfirmServiceTest {
                 .thenReturn(Optional.of(campaign));
     }
 
+    private void givenAccount() {
+        when(accountRepository.findById(ACCOUNT_ID))
+                .thenReturn(Optional.of(CampaignTestFixtures.account().build()));
+    }
+
     private void givenSavedRetryCampaign() {
+        givenAccount();
         when(campaignRepository.saveAndFlush(any(Campaign.class))).thenAnswer(invocation -> {
             Campaign saved = invocation.getArgument(0);
             saved.setId(RETRY_CAMPAIGN_ID);

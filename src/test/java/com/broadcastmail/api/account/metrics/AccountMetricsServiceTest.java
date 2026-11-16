@@ -30,6 +30,8 @@ class AccountMetricsServiceTest {
     private CampaignRepository campaignRepository;
     @Mock
     private CampaignRecipientRepository campaignRecipientRepository;
+    @Mock
+    private AccountRepository accountRepository;
 
     private AccountMetricsService accountMetricsService;
 
