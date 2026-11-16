@@ -1,5 +1,6 @@
 package com.broadcastmail.api.campaign;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
@@ -37,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
-class CampaignControllerTest {
+class CampaignControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;

@@ -1,5 +1,6 @@
 package com.broadcastmail.api.account.metrics;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.support.CampaignTestFixtures;
@@ -32,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureMockMvc
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
-class AccountMetricsControllerTest {
+class AccountMetricsControllerTest extends IntegrationTest {
 
     @Autowired private MockMvcTester mockMvc;
     @Autowired private AccountRepository accountRepository;

@@ -1,5 +1,6 @@
 package com.broadcastmail.api.campaign;
 
+import com.broadcastmail.api.campaign.dto.RecipientPreviewResponse;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
@@ -11,6 +12,7 @@ import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.audience.TenantAudienceGateway;
 import com.broadcastmail.api.supabase.ConnectionQueryContext;
+import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import com.broadcastmail.common.suppressions.Suppression;
 import com.broadcastmail.common.suppressions.SuppressionsRepository;
@@ -18,6 +20,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,8 +39,9 @@ public class RecipientPreviewService {
     private final CampaignFilterValidator filterValidator;
     private final SuppressionsRepository suppressionsRepository;
     private final CampaignRecipientRepository recipientRepository;
+    private final AccountRepository accountRepository;
 
-    public Integer preview(UUID accountId, UUID campaignId) {
+    public RecipientPreviewResponse preview(UUID accountId, UUID campaignId) {
         Campaign campaign = campaignService.getCampaign(accountId, campaignId);
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
@@ -56,7 +61,14 @@ public class RecipientPreviewService {
             int count = tenantAudienceGateway.countRecipients(connection, sql, filterQuery.parameters(), allExcluded);
             connection.setEstimatedUserCount(count);
             connectionRepository.save(connection);
-            return count;
+
+            OffsetDateTime since = OffsetDateTime.now(ZoneId.systemDefault()).minusDays(30);
+            long usedThisPeriod = recipientRepository.countUniqueRecipientsSince(accountId, since);
+            int limit = accountRepository.findById(accountId)
+                    .map(a -> a.getPlan().strategy().recipientLimit())
+                    .orElse(0);
+
+            return new RecipientPreviewResponse(count, usedThisPeriod, limit);
         } catch (SQLException e) {
             throw new RuntimeException("Recipient preview failed: " + e.getMessage(), e);
         }

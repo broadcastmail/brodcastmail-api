@@ -1,5 +1,6 @@
 package com.broadcastmail.api.campaign;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.support.CampaignTestFixtures;
@@ -32,7 +33,7 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({TestContainersConfiguration.class, TestSecurityConfig.class})
-class CampaignStatusStreamTest {
+class CampaignStatusStreamTest extends IntegrationTest {
 
     @Value("${local.server.port}") private int port;
     @Autowired private AccountRepository accountRepository;

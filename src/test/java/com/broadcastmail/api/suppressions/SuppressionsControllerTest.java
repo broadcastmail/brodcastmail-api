@@ -1,5 +1,6 @@
 package com.broadcastmail.api.suppressions;
 
+import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.config.AppProperties;
 import io.jsonwebtoken.Jwts;
@@ -25,7 +26,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestContainersConfiguration.class)
-class SuppressionsControllerTest {
+class SuppressionsControllerTest extends IntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
