@@ -3,7 +3,6 @@ package com.broadcastmail.api.billing;
 import com.broadcastmail.api.billing.dto.SubscriptionResponse;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
-import com.broadcastmail.common.account.plan.Plan;
 import com.stripe.exception.StripeException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +27,7 @@ public class BillingController {
 
     private final BillingService billingService;
     private final AccountRepository accountRepository;
+    private static final String ACCOUNT_NOT_FOUND = "Account not found";
 
     @PostMapping("/checkout")
     public ResponseEntity<Map<String, String>> createCheckoutSession(
@@ -57,7 +57,7 @@ public class BillingController {
             @AuthenticationPrincipal UUID accountId) throws StripeException {
 
         Account account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ACCOUNT_NOT_FOUND));
 
         if (account.getStripeCustomerId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No Stripe customer found — upgrade first");

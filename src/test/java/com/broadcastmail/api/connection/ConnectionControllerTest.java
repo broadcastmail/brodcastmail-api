@@ -210,7 +210,7 @@ class ConnectionControllerTest extends IntegrationTest {
         var response = authedGet("/api/v1/connections/columns").exchange();
 
         assertThat(response).hasStatus(200)
-                .bodyJson().extractingPath("$").asList().isEmpty();
+                .bodyJson().extractingPath("$").asArray().isEmpty();
     }
 
     // ── GET /filters ──────────────────────────────────────────────────────
@@ -258,7 +258,7 @@ class ConnectionControllerTest extends IntegrationTest {
 
         // Then — column carries recommendation fields; the logic itself is covered by ColumnRecommendationServiceTest
         assertThat(response).bodyJson().extractingPath("$.columns.profile[0].recommended").asBoolean().isNotNull();
-        assertThat(response).bodyJson().extractingPath("$.columns.profile[0].allowedOperators").asList().isNotEmpty();
+        assertThat(response).bodyJson().extractingPath("$.columns.profile[0].allowedOperators").asArray().isNotEmpty();
     }
 
     @Test
@@ -277,8 +277,8 @@ class ConnectionControllerTest extends IntegrationTest {
 
         // Then
         assertThat(response).hasStatus(200)
-                .bodyJson().extractingPath("$.columns.profile").asList().isEmpty();
-        assertThat(response).bodyJson().extractingPath("$.columns.auth").asList().isEmpty();
+                .bodyJson().extractingPath("$.columns.profile").asArray().isEmpty();
+        assertThat(response).bodyJson().extractingPath("$.columns.auth").asArray().isEmpty();
     }
 
     // ── Email provider endpoints ───────────────────────────────────────────
