@@ -1,9 +1,8 @@
 name: CI
-#Azure handles CD
 
 on:
   push:
-    branches: [main, dev]
+    branches: [dev]
     tags: ['v*']
   pull_request:
     branches: [main, dev]
@@ -12,9 +11,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -23,41 +22,48 @@ jobs:
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
       - name: Build and test
-        run: ./mvnw clean verify -U -Dgroups='!local'
+        run: ./mvnw clean verify -Dgroups='!local'
         env:
-          ENCRYPTION_KEY: 12345678901234567890123456789012
+          ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
           GITHUB_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
 
-  push-image:
+  deploy-dev:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    permissions:
-      contents: read
-      packages: write
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push' && github.repository == 'YOUR_ORG/broadcastmail-api'
     steps:
-      - uses: actions/checkout@v7
-      - name: Log in to ghcr.io
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Compute image tag
-        id: tag
+      - name: Enable maintenance mode
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/heads/dev ]]; then
-            echo "tag=dev" >> $GITHUB_OUTPUT
-          else
-            echo "tag=latest" >> $GITHUB_OUTPUT
-          fi
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/broadcastmail-api:${{ steps.tag.outputs.tag }}
-          build-args: |
-            GITHUB_TOKEN=${{ secrets.PACKAGES_TOKEN }}
+          curl -X PATCH "https://api.vercel.com/v1/edge-config/${{ secrets.EDGE_CONFIG_ID }}/items" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"items": [{"operation": "update", "key": "isInMaintenanceMode", "value": true}]}'
+
+      - name: Deploy to Railway
+        run: |
+          npm install -g @railway/cli
+          railway redeploy --service api
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Disable maintenance mode
+        if: always()
+        run: |
+          curl -X PATCH "https://api.vercel.com/v1/edge-config/${{ secrets.EDGE_CONFIG_ID }}/items" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"items": [{"operation": "update", "key": "isInMaintenanceMode", "value": false}]}'
+
+  deploy-prod:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'YOUR_ORG/broadcastmail-api'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Railway
+        run: |
+          npm install -g @railway/cli
+          railway redeploy --service api
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
