@@ -30,11 +30,13 @@ jobs:
   deploy-dev:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev' && github.event_name == 'push' && github.repository == 'YOUR_ORG/broadcastmail-api'
+    if: startsWith(github.ref, 'refs/tags/v') && github.repository_owner == 'broadcastmail'
     steps:
+      - uses: actions/checkout@v4
+
       - name: Enable maintenance mode
         run: |
-          curl -X PATCH "https://api.vercel.com/v1/edge-config/${{ secrets.EDGE_CONFIG_ID }}/items" \
+          curl -X PATCH "https://api.vercel.com/v1/global-config/${{ secrets.EDGE_CONFIG_ID }}/items" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"items": [{"operation": "update", "key": "isInMaintenanceMode", "value": true}]}'
@@ -49,7 +51,7 @@ jobs:
       - name: Disable maintenance mode
         if: always()
         run: |
-          curl -X PATCH "https://api.vercel.com/v1/edge-config/${{ secrets.EDGE_CONFIG_ID }}/items" \
+          curl -X PATCH "https://api.vercel.com/v1/global-config/${{ secrets.EDGE_CONFIG_ID }}/items" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"items": [{"operation": "update", "key": "isInMaintenanceMode", "value": false}]}'
@@ -61,9 +63,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Enable maintenance mode
+        run: |
+          curl -X PATCH "https://api.vercel.com/v1/global-config/${{ secrets.EDGE_CONFIG_ID }}/items" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"items": [{"operation": "update", "key": "isInMaintenanceMode", "value": false}]}'
+
       - name: Deploy to Railway
         run: |
           npm install -g @railway/cli
           railway redeploy --service api
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Disable maintenance mode
+        if: always()
+        run: |
+          curl -X PATCH "https://api.vercel.com/v1/global-config/${{ secrets.EDGE_CONFIG_ID }}/items" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"items": [{"operation": "update", "key": "isInMaintenanceMode", "value": false}]}'
