@@ -2,6 +2,7 @@ package com.broadcastmail.api.campaign.dto;
 
 
 import com.broadcastmail.api.common.LowerCaseEnumSerializer;
+import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
 
