@@ -22,4 +22,11 @@ public class OriginValidator {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Origin not allowed: " + origin);
         }
     }
+
+    public String validateAndReturn(jakarta.servlet.http.HttpServletRequest request) {
+        String origin = request.getHeader("Origin");
+        if (origin == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing Origin header");
+        validate(origin);
+        return origin;
+    }
 }

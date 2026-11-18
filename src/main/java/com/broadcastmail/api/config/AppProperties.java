@@ -9,5 +9,5 @@ public record AppProperties(
         String unsubscribeSecret,
         Frontend frontend
 ) {
-    public record Frontend(String url, List<String> allowedOrigins, String oauthCallbackPath) {}
+    public record Frontend(List<String> allowedOrigins, String oauthCallbackPath, String unsubscribeRedirectUrl) {}
 }

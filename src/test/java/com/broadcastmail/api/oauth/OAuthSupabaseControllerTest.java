@@ -51,6 +51,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     private static final String STATE = "abc123:new_user";
     private static final String VERIFIER = "test-code-verifier";
+    private static final String ORIGIN = "http://localhost:3000";
 
     private MockMvcTester.MockMvcRequestBuilder callbackRequest(String code) {
         return mockMvc.get()
@@ -58,7 +59,8 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                 .param("code", code)
                 .param("state", STATE)
                 .cookie(new Cookie("oauth_state", STATE),
-                        new Cookie("oauth_code_verifier", VERIFIER));
+                        new Cookie("oauth_code_verifier", VERIFIER),
+                        new Cookie("oauth_redirect_origin", ORIGIN));
     }
 
     @Test
@@ -200,7 +202,8 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                 .param("state", reconfigureState)
                 .cookie(new Cookie("oauth_state", reconfigureState),
                         new Cookie("oauth_code_verifier", VERIFIER),
-                        new Cookie("bm_session", TEST_API_KEY))
+                        new Cookie("bm_session", TEST_API_KEY),
+                        new Cookie("oauth_redirect_origin", ORIGIN))
                 .exchange();
 
         assertThat(result).hasStatus(302);
@@ -230,7 +233,8 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                 .param("state", reconfigureState)
                 .cookie(new Cookie("oauth_state", reconfigureState),
                         new Cookie("oauth_code_verifier", VERIFIER),
-                        new Cookie("bm_session", TEST_API_KEY))
+                        new Cookie("bm_session", TEST_API_KEY),
+                        new Cookie("oauth_redirect_origin", ORIGIN))
                 .exchange();
 
         assertThat(result).hasStatus(302);

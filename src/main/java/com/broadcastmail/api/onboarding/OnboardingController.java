@@ -2,7 +2,7 @@ package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.auth.CookieService;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
-import com.broadcastmail.api.config.AppProperties;
+import com.broadcastmail.api.config.OriginValidator;
 import com.broadcastmail.api.connection.EmailSourceService;
 import com.broadcastmail.api.connection.SchemaService;
 import com.broadcastmail.api.connection.dto.EmailSourceResult;
@@ -18,6 +18,7 @@ import com.broadcastmail.api.onboarding.dto.RecapData;
 import com.broadcastmail.api.onboarding.dto.SelectColumnsRequest;
 import com.broadcastmail.api.onboarding.dto.SelectTableRequest;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -39,23 +40,25 @@ public class OnboardingController {
     private final SchemaService schemaService;
     private final EmailSourceService emailSourceService;
     private final CookieService cookieService;
-    private final AppProperties appProperties;
+    private final OriginValidator originValidator;
 
 
     @PostMapping("/complete")
     public ResponseEntity<Void> complete(
             @CookieValue(name = "onboarding_session", required = false) String sessionToken,
+            HttpServletRequest request,
             HttpServletResponse response) {
         if (sessionToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+        String origin = originValidator.validateAndReturn(request);
         String rawApiKey = onboardingService.completeOnboarding(sessionToken);
         response.addHeader(HttpHeaders.SET_COOKIE,
                 cookieService.createSessionCookie(rawApiKey).toString());
         response.addHeader(HttpHeaders.SET_COOKIE,
                 cookieService.clearOnboardingCookie().toString());
         return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, appProperties.frontend().url() + "/dashboard")
+                .header(HttpHeaders.LOCATION, origin + "/dashboard")
                 .build();
     }
 
