@@ -19,7 +19,7 @@ class CookieServiceTest {
     void setUp() {
         AppProperties appProperties = new AppProperties(
                 "test-secret",
-                new AppProperties.Frontend("http://localhost:3000", List.of("http://localhost:3000"), "/api/v1/oauth/supabase/callback")
+                new AppProperties.Frontend(List.of("http://localhost:3000"), "/api/v1/oauth/supabase/callback", "http://localhost:3000")
         );
         cookieService = new CookieService(appProperties);
     }
