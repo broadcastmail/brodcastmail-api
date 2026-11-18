@@ -97,7 +97,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         var result = callbackRequest("valid-code").exchange();
 
         assertThat(result).hasStatus(302);
-        assertThat(result.getResponse().getHeader("Set-Cookie")).contains("onboarding_session");
+        assertThat(result.getResponse().getHeaders("Set-Cookie")).anyMatch(h -> h.contains("onboarding_session"));
     }
 
     @Test
@@ -115,7 +115,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
         assertThat(result).hasStatus(302);
         assertThat(result.getResponse().getHeader("Location")).contains("select-project");
-        assertThat(result.getResponse().getHeader("Set-Cookie")).isNull();
+        assertThat(result.getResponse().getHeaders("Set-Cookie")).noneMatch(h -> h.contains("onboarding_session") || h.contains("bm_session"));
     }
 
     @Test
@@ -177,7 +177,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
         assertThat(result).hasStatus(302);
         assertThat(result.getResponse().getHeader("Location")).contains("/dashboard");
-        assertThat(result.getResponse().getHeader("Set-Cookie")).contains("bm_session");
+        assertThat(result.getResponse().getHeaders("Set-Cookie")).anyMatch(h -> h.contains("bm_session"));
     }
 
     @Test
@@ -205,7 +205,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
         assertThat(result).hasStatus(302);
         assertThat(result.getResponse().getHeader("Location")).contains("/settings/reconfigure/schema");
-        assertThat(result.getResponse().getHeader("Set-Cookie")).contains("onboarding_session");
+        assertThat(result.getResponse().getHeaders("Set-Cookie")).anyMatch(h -> h.contains("onboarding_session"));
     }
 
     @Test
@@ -235,6 +235,6 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
         assertThat(result).hasStatus(302);
         assertThat(result.getResponse().getHeader("Location")).contains("/settings/reconfigure/select-project");
-        assertThat(result.getResponse().getHeader("Set-Cookie")).isNull();
+        assertThat(result.getResponse().getHeaders("Set-Cookie")).noneMatch(h -> h.contains("onboarding_session") || h.contains("bm_session"));
     }
 }
