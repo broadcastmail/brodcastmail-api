@@ -55,7 +55,7 @@ class BillingControllerTest extends IntegrationTest {
     @Test
     void shouldReturnCheckoutUrlOnSuccess() throws StripeException {
         // Given
-        when(billingService.createCheckoutSession(any(UUID.class), anyBoolean()))
+        when(billingService.createCheckoutSession(any(UUID.class), anyBoolean(), any()))
                 .thenReturn("https://checkout.stripe.com/pay/test123");
 
         // When
@@ -88,7 +88,7 @@ class BillingControllerTest extends IntegrationTest {
         // Given
         account.setStripeCustomerId("cus_test123");
         accountRepository.save(account);
-        when(billingService.createPortalSession(any()))
+        when(billingService.createPortalSession(any(), any()))
                 .thenReturn("https://billing.stripe.com/session/test123");
 
         // When
