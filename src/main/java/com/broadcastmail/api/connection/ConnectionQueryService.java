@@ -82,7 +82,7 @@ public class ConnectionQueryService {
         String rawAccessToken = resolveAccessToken(token);
 
         return supabaseManagementClient.listProjects(rawAccessToken).stream()
-                .map(p -> new ProjectOption(p.ref(), p.name(), p.status(), null))
+                .map(p -> new ProjectOption(p.ref(), p.name(), p.status()))
                 .toList();
     }
 

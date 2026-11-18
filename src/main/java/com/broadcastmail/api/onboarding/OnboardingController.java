@@ -2,6 +2,7 @@ package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.auth.CookieService;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
+import com.broadcastmail.api.config.AppProperties;
 import com.broadcastmail.api.connection.EmailSourceService;
 import com.broadcastmail.api.connection.SchemaService;
 import com.broadcastmail.api.connection.dto.EmailSourceResult;
@@ -20,7 +21,6 @@ import com.broadcastmail.api.onboarding.dto.SelectTableRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,8 +39,7 @@ public class OnboardingController {
     private final SchemaService schemaService;
     private final EmailSourceService emailSourceService;
     private final CookieService cookieService;
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
+    private final AppProperties appProperties;
 
 
     @PostMapping("/complete")
@@ -56,7 +55,7 @@ public class OnboardingController {
         response.addHeader(HttpHeaders.SET_COOKIE,
                 cookieService.clearOnboardingCookie().toString());
         return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, frontendUrl + "/dashboard")
+                .header(HttpHeaders.LOCATION, appProperties.frontend().url() + "/dashboard")
                 .build();
     }
 
