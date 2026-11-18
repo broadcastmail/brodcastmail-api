@@ -1,6 +1,7 @@
 package com.broadcastmail.api.connection;
 
 import com.broadcastmail.api.auth.CookieService;
+import com.broadcastmail.api.config.AppProperties;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.oauth.dto.ProjectOption;
 import com.broadcastmail.api.connection.dto.EmailSourceResult;
@@ -13,7 +14,6 @@ import com.broadcastmail.api.emailprovider.dto.VerifyKeyResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,9 +49,7 @@ public class ConnectionController {
     private final CookieService cookieService;
     private final EmailProviderService emailProviderService;
     private final FilterContextService filterContextService;
-
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
+    private final AppProperties appProperties;
 
     // ── Reconfigure (full OAuth re-setup) ──────────────────────────────────
     @PostMapping("/reconfigure")
@@ -62,10 +60,11 @@ public class ConnectionController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         connectionReconfigureService.reconfigure(sessionToken);
+        String origin = appProperties.frontend().url();
         response.addHeader(HttpHeaders.SET_COOKIE,
                 cookieService.clearOnboardingCookie().toString());
         return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, frontendUrl + "/settings")
+                .header(HttpHeaders.LOCATION, origin + "/settings")
                 .build();
     }
 

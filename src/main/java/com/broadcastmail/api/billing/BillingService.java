@@ -3,6 +3,7 @@ package com.broadcastmail.api.billing;
 import com.broadcastmail.api.billing.dto.SubscriptionResponse;
 import com.broadcastmail.api.config.AppProperties;
 import com.broadcastmail.api.config.StripeProperties;
+import jakarta.annotation.Nullable;
 import com.broadcastmail.common.account.Account;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
@@ -29,15 +30,15 @@ public class BillingService {
     private final StripeProperties stripeProperties;
     private final AppProperties appProperties;
 
-    public String createCheckoutSession(UUID accountId, boolean yearly) throws StripeException {
-
+    public String createCheckoutSession(UUID accountId, boolean yearly, @Nullable String redirectOrigin) throws StripeException {
+        String base = redirectOrigin != null ? redirectOrigin : appProperties.frontend().url();
         String priceId = yearly ? stripeProperties.yearlyPriceId() : stripeProperties.monthlyPriceId();
 
         SessionCreateParams params =
                 SessionCreateParams.builder()
                         .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                        .setSuccessUrl(appProperties.frontend().url() + "/billing/success")
-                        .setCancelUrl(appProperties.frontend().url() + "/billing/cancel")
+                        .setSuccessUrl(base + "/billing/success")
+                        .setCancelUrl(base + "/billing/cancel")
                         .putMetadata("accountId", accountId.toString())
                         .putMetadata("plan", "starter")
                         .addLineItem(SessionCreateParams.LineItem.builder()
@@ -49,10 +50,11 @@ public class BillingService {
         return Session.create(params).getUrl();
     }
 
-    public String createPortalSession(String stripeCustomerId) throws StripeException {
+    public String createPortalSession(String stripeCustomerId, @Nullable String redirectOrigin) throws StripeException {
+        String base = redirectOrigin != null ? redirectOrigin : appProperties.frontend().url();
         SessionCreateParams params = SessionCreateParams.builder()
                 .setCustomer(stripeCustomerId)
-                .setReturnUrl(appProperties.frontend().url() + "/billing?from=portal")
+                .setReturnUrl(base + "/billing?from=portal")
                 .build();
 
         return Session.create(params).getUrl();

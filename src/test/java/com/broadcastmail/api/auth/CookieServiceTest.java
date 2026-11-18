@@ -1,11 +1,13 @@
 package com.broadcastmail.api.auth;
 
+import com.broadcastmail.api.config.AppProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseCookie;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -15,7 +17,11 @@ class CookieServiceTest {
 
     @BeforeEach
     void setUp() {
-        cookieService = new CookieService();
+        AppProperties appProperties = new AppProperties(
+                "test-secret",
+                new AppProperties.Frontend("http://localhost:3000", List.of("http://localhost:3000"), "/api/v1/oauth/supabase/callback")
+        );
+        cookieService = new CookieService(appProperties);
     }
 
     private void activeProfile(String profile) {
