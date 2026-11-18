@@ -1,7 +1,7 @@
 package com.broadcastmail.api.connection;
 
 import com.broadcastmail.api.auth.CookieService;
-import com.broadcastmail.api.config.AppProperties;
+import com.broadcastmail.api.config.OriginValidator;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.oauth.dto.ProjectOption;
 import com.broadcastmail.api.connection.dto.EmailSourceResult;
@@ -11,6 +11,7 @@ import com.broadcastmail.api.emailprovider.dto.ReconfigureProviderRequest;
 import com.broadcastmail.api.emailprovider.dto.UpdateSenderRequest;
 import com.broadcastmail.api.emailprovider.dto.VerifyKeyRequest;
 import com.broadcastmail.api.emailprovider.dto.VerifyKeyResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -49,18 +50,19 @@ public class ConnectionController {
     private final CookieService cookieService;
     private final EmailProviderService emailProviderService;
     private final FilterContextService filterContextService;
-    private final AppProperties appProperties;
+    private final OriginValidator originValidator;
 
     // ── Reconfigure (full OAuth re-setup) ──────────────────────────────────
     @PostMapping("/reconfigure")
     public ResponseEntity<Void> reconfigure(
             @CookieValue(name = "onboarding_session", required = false) String sessionToken,
+            HttpServletRequest request,
             HttpServletResponse response) {
         if (sessionToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         connectionReconfigureService.reconfigure(sessionToken);
-        String origin = appProperties.frontend().url();
+        String origin = originValidator.validateAndReturn(request);
         response.addHeader(HttpHeaders.SET_COOKIE,
                 cookieService.clearOnboardingCookie().toString());
         return ResponseEntity.status(HttpStatus.FOUND)

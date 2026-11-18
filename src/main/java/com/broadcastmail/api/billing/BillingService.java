@@ -1,9 +1,7 @@
 package com.broadcastmail.api.billing;
 
 import com.broadcastmail.api.billing.dto.SubscriptionResponse;
-import com.broadcastmail.api.config.AppProperties;
 import com.broadcastmail.api.config.StripeProperties;
-import jakarta.annotation.Nullable;
 import com.broadcastmail.common.account.Account;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
@@ -28,10 +26,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class BillingService {
     private final StripeProperties stripeProperties;
-    private final AppProperties appProperties;
 
-    public String createCheckoutSession(UUID accountId, boolean yearly, @Nullable String redirectOrigin) throws StripeException {
-        String base = redirectOrigin != null ? redirectOrigin : appProperties.frontend().url();
+    public String createCheckoutSession(UUID accountId, boolean yearly, String redirectOrigin) throws StripeException {
+        String base = redirectOrigin;
         String priceId = yearly ? stripeProperties.yearlyPriceId() : stripeProperties.monthlyPriceId();
 
         SessionCreateParams params =
@@ -50,8 +47,8 @@ public class BillingService {
         return Session.create(params).getUrl();
     }
 
-    public String createPortalSession(String stripeCustomerId, @Nullable String redirectOrigin) throws StripeException {
-        String base = redirectOrigin != null ? redirectOrigin : appProperties.frontend().url();
+    public String createPortalSession(String stripeCustomerId, String redirectOrigin) throws StripeException {
+        String base = redirectOrigin;
         SessionCreateParams params = SessionCreateParams.builder()
                 .setCustomer(stripeCustomerId)
                 .setReturnUrl(base + "/billing?from=portal")

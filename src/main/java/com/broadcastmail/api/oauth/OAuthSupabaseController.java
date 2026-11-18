@@ -122,8 +122,8 @@ public class OAuthSupabaseController {
         String intent = colonIdx >= 0 ? state.substring(colonIdx + 1) : "new_user";
         boolean isReconfigure = intent.startsWith("reconfigure");
 
-        String storedOrigin = cookieValue(request, "oauth_redirect_origin");
-        String origin = storedOrigin != null ? storedOrigin : appProperties.frontend().url();
+        String origin = cookieValue(request, "oauth_redirect_origin");
+        if (origin == null) throw new OAuthStateValidationException();
 
         UUID accountId = null;
         if (isReconfigure) {
@@ -186,6 +186,7 @@ public class OAuthSupabaseController {
     @PostMapping("/select-project")
     public ResponseEntity<Void> selectProject(
             @RequestBody SelectProjectRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response) {
 
         PartialOnboardingSession partial = oAuthSessionStore.getPartial(request.partialSessionToken());
@@ -194,7 +195,7 @@ public class OAuthSupabaseController {
         OAuthCallbackResult.NewUserSingleProject result = oAuthSessionService.selectProject(
                 request.projectRef(), request.partialSessionToken());
 
-        String origin = appProperties.frontend().url();
+        String origin = originValidator.validateAndReturn(httpRequest);
         String redirectUrl = isReconfigure
                 ? origin + "/settings/reconfigure/schema"
                 : origin + "/onboarding/email-provider";

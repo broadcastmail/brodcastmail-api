@@ -222,6 +222,7 @@ class OnboardingControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.post()
                 .uri("/api/v1/onboarding/complete")
+                .header("Origin", "http://localhost:3000")
                 .cookie(new MockCookie("onboarding_session", sessionToken))
                 .exchange();
 
@@ -240,6 +241,7 @@ class OnboardingControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.post()
                 .uri("/api/v1/onboarding/complete")
+                .header("Origin", "http://localhost:3000")
                 .cookie(new MockCookie("onboarding_session", sessionToken))
                 .exchange();
 
@@ -258,6 +260,7 @@ class OnboardingControllerTest extends IntegrationTest {
         // When
         mockMvc.post()
                 .uri("/api/v1/onboarding/complete")
+                .header("Origin", "http://localhost:3000")
                 .cookie(new MockCookie("onboarding_session", sessionToken))
                 .exchange();
 
