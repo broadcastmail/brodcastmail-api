@@ -21,7 +21,10 @@ app:
   encryption:
     key: 01234567890123456789012345678901
   frontend:
-    url: http://localhost:3000
+    allowed-origins:
+      - http://localhost:3000
+    oauth-callback-path: /api/v1/oauth/supabase/callback
+    unsubscribe-redirect-url: http://localhost:3000
   unsubscribe-secret: 12345678901234567890123456789012
 
 supabase:

@@ -8,10 +8,8 @@ import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.SupabaseSql;
-import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClientException;
 
 import java.time.Instant;
 import java.util.List;
@@ -67,22 +65,14 @@ public class OAuthSessionService {
         return onboardingSessionStore.create(session);
     }
 
-    /**
-     * Projects for the /onboarding/select-project picker. userCount is fetched
-     * here (query time), not in handleCallback() — keeps the OAuth redirect
-     * itself to one purpose and doesn't add N external calls to that critical
-     * path for a number the picker screen can afford to wait a beat for.
-     */
     public List<ProjectOption> listPartialProjects(String partialToken) {
         PartialOnboardingSession partial = onboardingSessionStore.getPartial(partialToken);
-        String rawAccessToken = decryptAccessToken(partial);
 
         return partial.projects().stream()
                 .map(project -> new ProjectOption(
                         project.ref(),
                         project.name(),
-                        project.status(),
-                        fetchUserCount(rawAccessToken, project)
+                        project.status()
                 ))
                 .toList();
     }
@@ -138,25 +128,4 @@ public class OAuthSessionService {
         return onboardingSessionStore.create(session);
     }
 
-    private String decryptAccessToken(PartialOnboardingSession partial) {
-        return SecurityUtil.decrypt(partial.encryptedAccessToken(), encryptionProperties.key());
-    }
-
-    private Integer fetchUserCount(String accessToken, SupabaseProject project) {
-        if (!"ACTIVE_HEALTHY".equals(project.status())) {
-            return null; // paused/restoring/etc. — querying it would just fail
-        }
-        try {
-            return supabaseManagementClient.executeSqlQuery(
-                            accessToken, project.ref(), SupabaseSql.COUNT_AUTH_USERS)
-                    .stream()
-                    .findFirst()
-                    .map(row -> row.get("count"))
-                    .map(count -> Integer.valueOf(count.toString()))
-                    .orElse(null);
-        } catch (RestClientException _) {
-            // best-effort — one project's count failing shouldn't break the whole picker
-            return null;
-        }
-    }
 }

@@ -1,5 +1,6 @@
 package com.broadcastmail.api.auth;
 
+import com.broadcastmail.api.config.AppProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
@@ -10,6 +11,8 @@ import java.time.Duration;
 @Service
 @RequiredArgsConstructor
 public class CookieService {
+    private final AppProperties appProperties;
+
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
     private static final String COOKIE_NAME = "bm_session";
@@ -55,6 +58,46 @@ public class CookieService {
                 .sameSite("Lax")
                 .maxAge(Duration.ZERO)
                 .path("/")
+                .build();
+    }
+
+    public ResponseCookie createPkceOriginCookie(String origin) {
+        return ResponseCookie.from("oauth_redirect_origin", origin)
+                .httpOnly(true)
+                .secure(isProduction())
+                .sameSite("Lax")
+                .maxAge(Duration.ofMinutes(5))
+                .path(appProperties.frontend().oauthCallbackPath())
+                .build();
+    }
+
+    public ResponseCookie clearPkceOriginCookie() {
+        return ResponseCookie.from("oauth_redirect_origin", "")
+                .httpOnly(true)
+                .secure(isProduction())
+                .sameSite("Lax")
+                .maxAge(Duration.ZERO)
+                .path(appProperties.frontend().oauthCallbackPath())
+                .build();
+    }
+
+    public ResponseCookie createPkceCookie(String name, String value) {
+        return ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .secure(isProduction())
+                .sameSite("Lax")
+                .maxAge(Duration.ofMinutes(5))
+                .path(appProperties.frontend().oauthCallbackPath())
+                .build();
+    }
+
+    public ResponseCookie clearPkceCookie(String name) {
+        return ResponseCookie.from(name, "")
+                .httpOnly(true)
+                .secure(isProduction())
+                .sameSite("Lax")
+                .maxAge(Duration.ZERO)
+                .path(appProperties.frontend().oauthCallbackPath())
                 .build();
     }
 

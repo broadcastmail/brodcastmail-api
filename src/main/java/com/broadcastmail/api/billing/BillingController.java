@@ -1,6 +1,7 @@
 package com.broadcastmail.api.billing;
 
 import com.broadcastmail.api.billing.dto.SubscriptionResponse;
+import com.broadcastmail.api.config.OriginValidator;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.stripe.exception.StripeException;
@@ -27,14 +28,17 @@ public class BillingController {
 
     private final BillingService billingService;
     private final AccountRepository accountRepository;
+    private final OriginValidator originValidator;
     private static final String ACCOUNT_NOT_FOUND = "Account not found";
 
     @PostMapping("/checkout")
     public ResponseEntity<Map<String, String>> createCheckoutSession(
             @AuthenticationPrincipal UUID accountId,
-            @RequestParam(defaultValue = "false") boolean yearly) throws StripeException {
+            @RequestParam(defaultValue = "false") boolean yearly,
+            @RequestParam(required = false) String redirectOrigin) throws StripeException {
 
-        String url = billingService.createCheckoutSession(accountId, yearly);
+        if (redirectOrigin != null) originValidator.validate(redirectOrigin);
+        String url = billingService.createCheckoutSession(accountId, yearly, redirectOrigin);
         return ResponseEntity.ok(Map.of("url", url));
     }
 
@@ -54,8 +58,10 @@ public class BillingController {
 
     @PostMapping("/portal")
     public ResponseEntity<Map<String, String>> createPortalSession(
-            @AuthenticationPrincipal UUID accountId) throws StripeException {
+            @AuthenticationPrincipal UUID accountId,
+            @RequestParam(required = false) String redirectOrigin) throws StripeException {
 
+        if (redirectOrigin != null) originValidator.validate(redirectOrigin);
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ACCOUNT_NOT_FOUND));
 
@@ -63,7 +69,7 @@ public class BillingController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No Stripe customer found — upgrade first");
         }
 
-        String url = billingService.createPortalSession(account.getStripeCustomerId());
+        String url = billingService.createPortalSession(account.getStripeCustomerId(), redirectOrigin);
         return ResponseEntity.ok(Map.of("url", url));
     }
 }

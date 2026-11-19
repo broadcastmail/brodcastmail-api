@@ -30,10 +30,11 @@ public class SupabaseManagementClient {
     @Value("${supabase.oauth.redirect-uri}")
     private String redirectUri;
 
-    public SupabaseTokenResponse exchangeCodeForTokens(String code){
+    public SupabaseTokenResponse exchangeCodeForTokensPKCE(String code, String codeVerifier) {
         MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
         formData.add("grant_type", "authorization_code");
         formData.add("code", code);
+        formData.add("code_verifier", codeVerifier);
         formData.add("client_id", clientId);
         formData.add("client_secret", clientSecret);
         formData.add("redirect_uri", redirectUri);

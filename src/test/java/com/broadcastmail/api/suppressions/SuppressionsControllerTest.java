@@ -52,7 +52,7 @@ class SuppressionsControllerTest extends IntegrationTest {
         // Then
         assertThat(response).hasStatus(302);
         assertThat(response.getResponse().getHeader("Location"))
-                .isEqualTo(appProperties.frontend().url() + "/unsubscribed?confirmed=1");
+                .isEqualTo(appProperties.frontend().unsubscribeRedirectUrl() + "/unsubscribed?confirmed=1");
         verify(suppressionService).unsubscribe(recipientId);
     }
 
