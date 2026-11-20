@@ -5,5 +5,6 @@ public record ProcessCallbackRequest(
         String state,
         String storedState,
         String codeVerifier,
+        String redirectUri,
         String bmSession
 ) {}

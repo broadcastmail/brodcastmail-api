@@ -10,7 +10,6 @@ import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +24,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
@@ -103,7 +103,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     @Test
     void shouldReturnOnboardingTokenAfterSuccessfulOAuthWithSingleProject() {
-        when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
+        when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(new SupabaseProject("project-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01")));
@@ -118,7 +118,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     @Test
     void shouldReturnPartialTokenWhenMultipleProjects() {
-        when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
+        when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(
@@ -135,7 +135,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     @Test
     void shouldListProjectsForPartialSession() throws Exception {
-        when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
+        when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(
@@ -168,7 +168,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     @Test
     void shouldRejectCallbackWithNoProjects() {
-        when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
+        when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token")).thenReturn(List.of());
 
@@ -182,7 +182,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         Account account = accountRepository.save(CampaignTestFixtures.account().build());
         connectionRepository.save(CampaignTestFixtures.connection(account.getId()).projectRef("project-ref").build());
 
-        when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
+        when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(new SupabaseProject("project-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01")));
@@ -201,7 +201,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
 
         String reconfigureState = "abc123:reconfigure";
-        when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
+        when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(new SupabaseProject("ref-1", "Project", "ACTIVE_HEALTHY", "2026-01-01")));
@@ -221,7 +221,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
 
         String reconfigureState = "abc123:reconfigure";
-        when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
+        when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(

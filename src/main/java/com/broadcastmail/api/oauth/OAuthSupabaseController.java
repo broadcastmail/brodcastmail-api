@@ -3,6 +3,7 @@ package com.broadcastmail.api.oauth;
 import com.broadcastmail.api.auth.CookieService;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.OAuthStateValidationException;
+import com.broadcastmail.api.config.OriginValidator;
 import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
 import com.broadcastmail.api.oauth.dto.ProcessCallbackRequest;
 import com.broadcastmail.api.oauth.dto.ProjectOption;
@@ -33,6 +34,7 @@ public class OAuthSupabaseController {
     private final OAuthSessionService oAuthSessionService;
     private final OAuthSessionStore oAuthSessionStore;
     private final AccountRepository accountRepository;
+    private final OriginValidator originValidator;
 
     @PostMapping("/callback")
     public ResponseEntity<Map<String, String>> callback(
@@ -41,6 +43,8 @@ public class OAuthSupabaseController {
         if (request.storedState() == null || !request.storedState().equals(request.state())) {
             throw new OAuthStateValidationException();
         }
+
+        originValidator.validateCallbackUri(request.redirectUri());
 
         int colonIdx = request.state().indexOf(':');
         String intent = colonIdx >= 0 ? request.state().substring(colonIdx + 1) : "new_user";
@@ -54,7 +58,7 @@ public class OAuthSupabaseController {
         }
 
         OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(
-                request.code(), request.codeVerifier(), accountId);
+                request.code(), request.codeVerifier(), request.redirectUri(), accountId);
 
         return switch (result) {
             case OAuthCallbackResult.ReturningUser(String apiKey) ->

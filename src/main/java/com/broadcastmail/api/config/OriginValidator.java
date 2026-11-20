@@ -23,6 +23,16 @@ public class OriginValidator {
         }
     }
 
+    public void validateCallbackUri(String redirectUri) {
+        try {
+            java.net.URI uri = new java.net.URI(redirectUri);
+            String origin = uri.getScheme() + "://" + uri.getHost() + (uri.getPort() != -1 ? ":" + uri.getPort() : "");
+            validate(origin);
+        } catch (java.net.URISyntaxException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid redirect_uri");
+        }
+    }
+
     public String validateAndReturn(jakarta.servlet.http.HttpServletRequest request) {
         String origin = request.getHeader("Origin");
         if (origin == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing Origin header");

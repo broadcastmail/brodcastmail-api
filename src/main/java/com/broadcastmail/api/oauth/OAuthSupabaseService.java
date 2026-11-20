@@ -30,8 +30,8 @@ public class OAuthSupabaseService {
     private final OAuthSessionService oAuthSessionService;
     private final EncryptionProperties encryptionProperties;
 
-    public OAuthCallbackResult exchangeWithPKCE(String code, String codeVerifier, @Nullable UUID accountId) {
-        SupabaseTokenResponse tokenResponse = supabaseManagementClient.exchangeCodeForTokensPKCE(code, codeVerifier);
+    public OAuthCallbackResult exchangeWithPKCE(String code, String codeVerifier, String redirectUri, @Nullable UUID accountId) {
+        SupabaseTokenResponse tokenResponse = supabaseManagementClient.exchangeCodeForTokensPKCE(code, codeVerifier, redirectUri);
         String rawAccessToken = tokenResponse.accessToken();
         Instant tokenExpiresAt = Instant.now().plusSeconds(tokenResponse.expiresIn());
         String encryptedAccessToken = SecurityUtil.encrypt(rawAccessToken, encryptionProperties.key());
