@@ -55,6 +55,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     private static final String STATE = "abc123:new_user";
     private static final String VERIFIER = "test-code-verifier";
+    private static final String REDIRECT_URI = "http://localhost:3000/api/oauth/callback";
 
     private MockMvcTester.MockMvcRequestBuilder callbackRequest(String code) {
         return callbackRequest(code, STATE, VERIFIER, null);
@@ -64,8 +65,8 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
             String code, String state, String verifier, String bmSession) {
         String bmSessionJson = bmSession != null ? "\"" + bmSession + "\"" : "null";
         String body = """
-                {"code":"%s","state":"%s","storedState":"%s","codeVerifier":"%s","bmSession":%s}
-                """.formatted(code, state, state, verifier, bmSessionJson).strip();
+                {"code":"%s","state":"%s","storedState":"%s","codeVerifier":"%s","redirectUri":"%s","bmSession":%s}
+                """.formatted(code, state, state, verifier, REDIRECT_URI, bmSessionJson).strip();
         return mockMvc.post()
                 .uri("/api/v1/oauth/supabase/callback")
                 .contentType(MediaType.APPLICATION_JSON)
