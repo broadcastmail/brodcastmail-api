@@ -16,6 +16,15 @@ public class SupabaseTokenResponse {
     @JsonProperty("token_type") private String tokenType;
     private final Map<String, Object> extraFields = new HashMap<>();
 
+    public SupabaseTokenResponse() {}
+
+    public SupabaseTokenResponse(String accessToken, String refreshToken, int expiresIn, String tokenType) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
+        this.expiresIn = expiresIn;
+        this.tokenType = tokenType;
+    }
+
     @JsonAnySetter
     public void setExtraField(String key, Object value) { extraFields.put(key, value); }
 
