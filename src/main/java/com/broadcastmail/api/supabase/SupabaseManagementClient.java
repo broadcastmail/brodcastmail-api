@@ -2,7 +2,8 @@ package com.broadcastmail.api.supabase;
 
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
-import com.broadcastmail.api.supabase.dto.SupabaseUser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.antlr.v4.runtime.misc.Pair;
 import org.slf4j.Logger;
@@ -15,6 +16,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -97,18 +100,16 @@ public class SupabaseManagementClient {
     }
 
     public String getOwnerEmail(String accessToken) {
-        SupabaseUser user = supabaseRestClient.get()
-                .uri("/v1/profile")
-                .header(authorizationHeader.a, authorizationHeader.b + accessToken)
-                .retrieve()
-                .body(SupabaseUser.class);
-
-        if (user == null || user.email() == null) {
-            throw new IllegalStateException(
-                    "Could not retrieve email from Supabase account"
-            );
+        try {
+            String[] parts = accessToken.split("\\.");
+            if (parts.length < 2) throw new IllegalStateException("Invalid JWT");
+            String payload = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+            com.fasterxml.jackson.databind.JsonNode node = new ObjectMapper().readTree(payload);
+            String email = node.path("email").asText(null);
+            if (email == null || email.isBlank()) throw new IllegalStateException("Could not retrieve email from Supabase account");
+            return email;
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Could not parse Supabase access token", e);
         }
-
-        return user.email();
     }
 }
