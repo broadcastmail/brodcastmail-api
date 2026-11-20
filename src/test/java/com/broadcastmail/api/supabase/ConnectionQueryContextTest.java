@@ -24,7 +24,7 @@ class ConnectionQueryContextTest {
         Connection connection = authConnection("public", "profiles", "id");
         String sql = ConnectionQueryContext.from(connection).buildRecipientCountQuery();
 
-        assertThat(sql).contains("auth.user_emails").contains("profiles").contains("id");
+        assertThat(sql).contains("_broadcastmail.user_emails").contains("profiles").contains("id");
     }
 
     @Test
@@ -64,6 +64,6 @@ class ConnectionQueryContextTest {
 
         String sql = ConnectionQueryContext.from(connection).buildRecipientCountQuery();
 
-        assertThat(sql).doesNotContain("auth.user_emails").contains("\"public\".\"contacts\"");
+        assertThat(sql).doesNotContain("_broadcastmail.user_emails").contains("\"public\".\"contacts\"");
     }
 }
