@@ -3,6 +3,7 @@ package com.broadcastmail.api.supabase;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.antlr.v4.runtime.misc.Pair;
 import org.slf4j.Logger;
@@ -82,36 +83,43 @@ public class SupabaseManagementClient {
                 .body(new ParameterizedTypeReference<List<SupabaseProject>>(){});
     }
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     public String resolveOwnerEmail(String accessToken, String projectRef) {
-        JsonNode project = supabaseRestClient.get()
-                .uri("/v1/projects/{ref}", projectRef)
-                .header(authorizationHeader.a, authorizationHeader.b + accessToken)
-                .retrieve()
-                .body(JsonNode.class);
+        try {
+            String projectJson = supabaseRestClient.get()
+                    .uri("/v1/projects/{ref}", projectRef)
+                    .header(authorizationHeader.a, authorizationHeader.b + accessToken)
+                    .retrieve()
+                    .body(String.class);
 
-        String orgSlug = project == null ? null : project.path("organization_slug").asText(null);
-        if (orgSlug == null) {
-            log.warn("resolveOwnerEmail: no organization_slug for project {}", projectRef);
-            return null;
+            JsonNode project = OBJECT_MAPPER.readTree(projectJson);
+            String orgSlug = project.path("organization_slug").asText(null);
+            if (orgSlug == null) {
+                log.warn("resolveOwnerEmail: no organization_slug for project {}", projectRef);
+                return null;
+            }
+
+            String membersJson = supabaseRestClient.get()
+                    .uri("/v2/organizations/{slug}/members", orgSlug)
+                    .header(authorizationHeader.a, authorizationHeader.b + accessToken)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode data = OBJECT_MAPPER.readTree(membersJson).path("data");
+            if (!data.isArray() || data.isEmpty()) {
+                log.warn("resolveOwnerEmail: no members found for org {}", orgSlug);
+                return null;
+            }
+
+            String ownerEmail = findOwnerEmail(data);
+            if (ownerEmail == null) {
+                log.warn("resolveOwnerEmail: no owner role found for org {}, using first member email", orgSlug);
+            }
+            return ownerEmail;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to resolve owner email", e);
         }
-
-        JsonNode response = supabaseRestClient.get()
-                .uri("/v2/organizations/{slug}/members", orgSlug)
-                .header(authorizationHeader.a, authorizationHeader.b + accessToken)
-                .retrieve()
-                .body(JsonNode.class);
-
-        JsonNode data = response == null ? null : response.path("data");
-        if (data == null || !data.isArray() || data.isEmpty()) {
-            log.warn("resolveOwnerEmail: no members found for org {}", orgSlug);
-            return null;
-        }
-
-        String ownerEmail = findOwnerEmail(data);
-        if (ownerEmail == null) {
-            log.warn("resolveOwnerEmail: no owner role found for org {}, using first member email", orgSlug);
-        }
-        return ownerEmail;
     }
 
     private String findOwnerEmail(JsonNode data) {

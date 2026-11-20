@@ -25,11 +25,18 @@ public final class SupabaseSql {
     public record SortSpec(String alias, String key, SortDirection direction) {}
 
     public static final String CREATE_READER_ROLE = """
-        CREATE ROLE broadcastmail_reader NOINHERIT LOGIN PASSWORD '%s';
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'broadcastmail_reader') THEN
+                CREATE ROLE broadcastmail_reader NOINHERIT LOGIN PASSWORD '%s';
+            ELSE
+                ALTER ROLE broadcastmail_reader WITH PASSWORD '%s';
+            END IF;
+        END$$;
         GRANT USAGE ON SCHEMA public TO broadcastmail_reader;
         GRANT USAGE ON SCHEMA auth TO broadcastmail_reader;
         GRANT SELECT ON ALL TABLES IN SCHEMA public TO broadcastmail_reader;
-        CREATE VIEW auth.user_emails AS SELECT
+        CREATE OR REPLACE VIEW auth.user_emails AS SELECT
             id, email, created_at, updated_at, confirmed_at, email_confirmed_at,
             phone, phone_confirmed_at, last_sign_in_at, banned_until, is_anonymous,
             raw_app_meta_data, raw_user_meta_data

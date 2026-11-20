@@ -111,7 +111,7 @@ public class OAuthSessionService {
             OnboardingSession.OnboardingSessionBuilder builder) {
 
         String rolePassword = SecurityUtil.generatePassword();
-        String createRoleSql = SupabaseSql.CREATE_READER_ROLE.formatted(rolePassword);
+        String createRoleSql = SupabaseSql.CREATE_READER_ROLE.formatted(rolePassword, rolePassword);
         supabaseManagementClient.executeSql(rawAccessToken, projectRef, createRoleSql);
 
         String jdbcUrl = "jdbc:postgresql://db." + projectRef + ".supabase.co:5432/postgres";
