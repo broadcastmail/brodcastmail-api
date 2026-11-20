@@ -95,7 +95,8 @@ public class OAuthSupabaseService {
         try {
             return supabaseManagementClient.resolveOwnerEmail(rawAccessToken, projectRef);
         } catch (Exception e) {
-            log.warn("Could not resolve owner email from project {}: {}", projectRef, e.getMessage());
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            log.warn("Could not resolve owner email from project {}: {} — {}", projectRef, e.getMessage(), cause.getMessage());
             return null;
         }
     }

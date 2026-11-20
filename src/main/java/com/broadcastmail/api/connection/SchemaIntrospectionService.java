@@ -49,7 +49,7 @@ public class SchemaIntrospectionService {
         List<SupabaseIntrospectionData.Column> authUserColumns = data.columnsByTable().get("auth.users");
         if (authUserColumns == null) return List.of();
 
-        Map<String, Integer> authCardinalities = data.cardinalities().getOrDefault("auth.user_emails", Map.of());
+        Map<String, Integer> authCardinalities = data.cardinalities().getOrDefault("_broadcastmail.user_emails", Map.of());
 
         List<DetectedColumn> authColumns = new ArrayList<>();
         for (SupabaseIntrospectionData.Column col : authUserColumns) {

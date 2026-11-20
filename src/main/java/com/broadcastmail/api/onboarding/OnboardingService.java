@@ -39,7 +39,7 @@ public class OnboardingService {
 
         try (Connection connection = DriverManager.getConnection(jdbcUrl, "broadcastmail_reader", rolePassword);
              Statement stmt = connection.createStatement()) {
-            stmt.execute("SELECT 1 FROM auth.user_emails LIMIT 1");
+            stmt.execute("SELECT 1 FROM _broadcastmail.user_emails LIMIT 1");
         } catch (SQLException _) {
             throw new ConnectionNotFoundException();
         }

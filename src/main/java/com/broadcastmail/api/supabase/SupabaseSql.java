@@ -34,14 +34,18 @@ public final class SupabaseSql {
             END IF;
         END$$;
         GRANT USAGE ON SCHEMA public TO broadcastmail_reader;
-        GRANT USAGE ON SCHEMA auth TO broadcastmail_reader;
         GRANT SELECT ON ALL TABLES IN SCHEMA public TO broadcastmail_reader;
-        CREATE OR REPLACE VIEW auth.user_emails AS SELECT
+        """;
+
+    public static final String GRANT_AUTH_ACCESS = """
+        CREATE SCHEMA IF NOT EXISTS _broadcastmail;
+        CREATE OR REPLACE VIEW _broadcastmail.user_emails AS SELECT
             id, email, created_at, updated_at, confirmed_at, email_confirmed_at,
             phone, phone_confirmed_at, last_sign_in_at, banned_until, is_anonymous,
             raw_app_meta_data, raw_user_meta_data
         FROM auth.users;
-        GRANT SELECT ON auth.user_emails TO broadcastmail_reader;
+        GRANT USAGE ON SCHEMA _broadcastmail TO broadcastmail_reader;
+        GRANT SELECT ON _broadcastmail.user_emails TO broadcastmail_reader;
         """;
 
     public static final Set<String> AUTH_METADATA_COLUMNS = Set.of(
@@ -97,8 +101,8 @@ public final class SupabaseSql {
             LIMIT 1
             """;
 
-    public static final String RESOLVE_RECIPIENTS = "SELECT id, email FROM auth.user_emails";
-    public static final String COUNT_RECIPIENTS = "SELECT COUNT(*) FROM auth.user_emails";
+    public static final String RESOLVE_RECIPIENTS = "SELECT id, email FROM _broadcastmail.user_emails";
+    public static final String COUNT_RECIPIENTS = "SELECT COUNT(*) FROM _broadcastmail.user_emails";
 
     public static final int EMAIL_SAMPLE_SIZE = 10;
     public static final String CHECK_EMAIL_COLUMN =
@@ -113,7 +117,7 @@ public final class SupabaseSql {
         }
     }
 
-    // auth.users always exists, unlike auth.user_emails (a view CREATE_READER_ROLE creates) —
+    // auth.users always exists, unlike _broadcastmail.user_emails (a view GRANT_AUTH_ACCESS creates) —
     // usable to preview a project's user count before it's been selected/set up.
     public static final String COUNT_AUTH_USERS = "SELECT COUNT(*) FROM auth.users";
 

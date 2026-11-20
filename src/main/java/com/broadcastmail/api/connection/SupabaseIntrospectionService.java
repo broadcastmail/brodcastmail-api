@@ -130,10 +130,10 @@ public class SupabaseIntrospectionService {
             Map<String, Integer> authCards = new HashMap<>();
             for (SupabaseIntrospectionData.Column col : authCols) {
                 if (SupabaseSql.AUTH_METADATA_COLUMNS.contains(col.name())) {
-                    authCards.put(col.name(), getCardinality(conn, "auth", "user_emails", col.name()));
+                    authCards.put(col.name(), getCardinality(conn, "_broadcastmail", "user_emails", col.name()));
                 }
             }
-            cardinalities.put("auth.user_emails", authCards);
+            cardinalities.put("_broadcastmail.user_emails", authCards);
         }
 
         return cardinalities;

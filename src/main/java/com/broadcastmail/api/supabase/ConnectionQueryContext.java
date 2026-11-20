@@ -77,7 +77,7 @@ public final class ConnectionQueryContext {
             requireIdentifier(userSchema, SCHEMA_LABEL);
             requireIdentifier(userTable, TABLE_LABEL);
             requireIdentifier(userIdColumn, "id column");
-            return "SELECT COUNT(*) FROM auth.user_emails auth JOIN \""
+            return "SELECT COUNT(*) FROM _broadcastmail.user_emails auth JOIN \""
                     + userSchema + QDOT + userTable
                     + LINKED_JOIN + userIdColumn + "\" = auth.id";
         }
@@ -134,11 +134,11 @@ public final class ConnectionQueryContext {
         return """
                 WITH base_count AS (
                     SELECT COUNT(*) AS __total
-                    FROM auth.user_emails auth %s %s
+                    FROM _broadcastmail.user_emails auth %s %s
                 ),
                 page AS (
                     SELECT %s
-                    FROM auth.user_emails auth %s %s %s LIMIT ?
+                    FROM _broadcastmail.user_emails auth %s %s %s LIMIT ?
                 )
                 SELECT page.*, (SELECT __total FROM base_count) AS __total FROM page
                 """.formatted(join, baseWhere, select, join, whereClause, orderBy);
