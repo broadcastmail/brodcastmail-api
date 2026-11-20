@@ -5,6 +5,8 @@ import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
 import com.broadcastmail.api.supabase.dto.SupabaseUser;
 import lombok.RequiredArgsConstructor;
 import org.antlr.v4.runtime.misc.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
@@ -19,6 +21,7 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 public class SupabaseManagementClient {
+    private static final Logger log = LoggerFactory.getLogger(SupabaseManagementClient.class);
     private final RestClient supabaseRestClient;
     private final Pair<String, String> authorizationHeader = new Pair<>("Authorization", "Bearer ");
     @Value("${supabase.oauth.client-id}")
@@ -47,7 +50,8 @@ public class SupabaseManagementClient {
                     if (!res.getStatusCode().is2xxSuccessful() ||
                             !org.springframework.http.MediaType.APPLICATION_JSON.isCompatibleWith(res.getHeaders().getContentType())) {
                         String body = new String(res.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                        throw new IllegalStateException("Supabase token exchange failed [" + res.getStatusCode() + "] [" + res.getHeaders().getContentType() + "]: " + body);
+                        log.error("Supabase token exchange failed [{}] [{}]: {}", res.getStatusCode(), res.getHeaders().getContentType(), body);
+                        throw new IllegalStateException("Supabase token exchange failed");
                     }
                     return res.bodyTo(SupabaseTokenResponse.class);
                 });
