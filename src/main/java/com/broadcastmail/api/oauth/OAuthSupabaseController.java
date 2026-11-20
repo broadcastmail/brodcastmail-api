@@ -85,7 +85,7 @@ public class OAuthSupabaseController {
                 .queryParam("client_id", clientId)
                 .queryParam("redirect_uri", redirectUri)
                 .queryParam("response_type", "code")
-                .queryParam("scope", "projects:read database:write")
+                .queryParam("scope", "projects:read database:write organizations")
                 .queryParam("state", state)
                 .queryParam("code_challenge", codeChallenge)
                 .queryParam("code_challenge_method", "S256")
