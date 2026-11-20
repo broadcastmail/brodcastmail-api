@@ -29,6 +29,7 @@ class OAuthSupabaseServiceTest {
     private static final String ENCRYPTION_KEY = "test-encryption-key-32-chars-okk";
     private static final String CODE = "auth-code";
     private static final String VERIFIER = "test-code-verifier";
+    private static final String REDIRECT_URI = "http://localhost:3000/api/oauth/callback";
     private static final UUID ACCOUNT_ID = UUID.randomUUID();
 
     @Mock
@@ -61,7 +62,7 @@ class OAuthSupabaseServiceTest {
     }
 
     private void mockTokenExchange() {
-        when(supabaseManagementClient.exchangeCodeForTokensPKCE(CODE, VERIFIER)).thenReturn(tokenResponse());
+        when(supabaseManagementClient.exchangeCodeForTokensPKCE(CODE, VERIFIER, REDIRECT_URI)).thenReturn(tokenResponse());
     }
 
     // Returning user
@@ -75,7 +76,7 @@ class OAuthSupabaseServiceTest {
         when(connectionRepository.findByProjectRef("ref-1")).thenReturn(Optional.of(connection));
         when(accountService.rotateApiKey(existingAccountId)).thenReturn("new-api-key");
 
-        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, null);
+        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, null);
 
         assertThat(result).isInstanceOf(OAuthCallbackResult.ReturningUser.class);
         assertThat(((OAuthCallbackResult.ReturningUser) result).apiKey()).isEqualTo("new-api-key");
@@ -91,7 +92,7 @@ class OAuthSupabaseServiceTest {
         when(oAuthSessionService.setupProjectAndCreateSession(any(), any(), any(), any(), any())).thenReturn(
                 new OAuthCallbackResult.NewUserSingleProject("session-token"));
 
-        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, null);
+        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, null);
 
         assertThat(result).isInstanceOf(OAuthCallbackResult.NewUserSingleProject.class);
     }
@@ -103,7 +104,7 @@ class OAuthSupabaseServiceTest {
         when(connectionRepository.findByProjectRef(any())).thenReturn(Optional.empty());
         when(onboardingSessionStore.createPartial(any())).thenReturn("partial-token");
 
-        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, null);
+        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, null);
 
         assertThat(result).isInstanceOf(OAuthCallbackResult.NewUserMultipleProjects.class);
         assertThat(((OAuthCallbackResult.NewUserMultipleProjects) result).partialSessionToken()).isEqualTo("partial-token");
@@ -114,7 +115,7 @@ class OAuthSupabaseServiceTest {
         mockTokenExchange();
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of());
 
-        assertThatThrownBy(() -> oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, null))
+        assertThatThrownBy(() -> oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, null))
                 .isInstanceOf(NoSupabaseProjectsException.class);
     }
 
@@ -126,7 +127,7 @@ class OAuthSupabaseServiceTest {
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1")));
         when(oAuthSessionService.setupReconfigureSession(any(), any(), any(), any(), any(), any())).thenReturn("session-token");
 
-        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, ACCOUNT_ID);
+        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, ACCOUNT_ID);
 
         assertThat(result).isInstanceOf(OAuthCallbackResult.ReconfigureSingleProject.class);
     }
@@ -137,7 +138,7 @@ class OAuthSupabaseServiceTest {
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1"), project("ref-2")));
         when(onboardingSessionStore.createPartial(any())).thenReturn("partial-token");
 
-        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, ACCOUNT_ID);
+        OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, ACCOUNT_ID);
 
         assertThat(result).isInstanceOf(OAuthCallbackResult.ReconfigureMultipleProjects.class);
     }
