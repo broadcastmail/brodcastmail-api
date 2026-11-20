@@ -10,13 +10,14 @@ import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
-import jakarta.servlet.http.Cookie;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
@@ -36,6 +37,9 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
     private MockMvcTester mockMvc;
 
     @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
     private AccountRepository accountRepository;
 
     @Autowired
@@ -51,24 +55,33 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     private static final String STATE = "abc123:new_user";
     private static final String VERIFIER = "test-code-verifier";
-    private static final String ORIGIN = "http://localhost:3000";
 
     private MockMvcTester.MockMvcRequestBuilder callbackRequest(String code) {
-        return mockMvc.get()
+        return callbackRequest(code, STATE, VERIFIER, null);
+    }
+
+    private MockMvcTester.MockMvcRequestBuilder callbackRequest(
+            String code, String state, String verifier, String bmSession) {
+        String bmSessionJson = bmSession != null ? "\"" + bmSession + "\"" : "null";
+        String body = """
+                {"code":"%s","state":"%s","storedState":"%s","codeVerifier":"%s","bmSession":%s}
+                """.formatted(code, state, state, verifier, bmSessionJson).strip();
+        return mockMvc.post()
                 .uri("/api/v1/oauth/supabase/callback")
-                .param("code", code)
-                .param("state", STATE)
-                .cookie(new Cookie("oauth_state", STATE),
-                        new Cookie("oauth_code_verifier", VERIFIER),
-                        new Cookie("oauth_redirect_origin", ORIGIN));
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body);
     }
 
     @Test
-    void shouldRejectCallbackWithMissingStateCookie() {
-        var result = mockMvc.get()
+    void shouldRejectCallbackWithMissingStoredState() {
+        String body = """
+                {"code":"somecode","state":"%s","storedState":null,"codeVerifier":"%s","bmSession":null}
+                """.formatted(STATE, VERIFIER).strip();
+
+        var result = mockMvc.post()
                 .uri("/api/v1/oauth/supabase/callback")
-                .param("code", "somecode")
-                .param("state", STATE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
                 .exchange();
 
         assertThat(result).hasStatus(401);
@@ -76,19 +89,21 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     @Test
     void shouldRejectCallbackWithStateMismatch() {
-        var result = mockMvc.get()
+        String body = """
+                {"code":"somecode","state":"wrong-state","storedState":"%s","codeVerifier":"%s","bmSession":null}
+                """.formatted(STATE, VERIFIER).strip();
+
+        var result = mockMvc.post()
                 .uri("/api/v1/oauth/supabase/callback")
-                .param("code", "somecode")
-                .param("state", "wrong-state")
-                .cookie(new Cookie("oauth_state", STATE),
-                        new Cookie("oauth_code_verifier", VERIFIER))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
                 .exchange();
 
         assertThat(result).hasStatus(401);
     }
 
     @Test
-    void shouldSetSessionCookieAfterSuccessfulOAuthWithSingleProject() {
+    void shouldReturnOnboardingTokenAfterSuccessfulOAuthWithSingleProject() {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
@@ -97,12 +112,13 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
         var result = callbackRequest("valid-code").exchange();
 
-        assertThat(result).hasStatus(302);
-        assertThat(result.getResponse().getHeaders("Set-Cookie")).anyMatch(h -> h.contains("onboarding_session"));
+        assertThat(result).hasStatus(200);
+        assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("NEW_USER");
+        assertThat(result).bodyJson().extractingPath("$.onboardingToken").asString().isNotBlank();
     }
 
     @Test
-    void shouldRedirectToProjectPickerWhenMultipleProjects() {
+    void shouldReturnPartialTokenWhenMultipleProjects() {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
@@ -113,13 +129,13 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
         var result = callbackRequest("valid-code").exchange();
 
-        assertThat(result).hasStatus(302);
-        assertThat(result.getResponse().getHeader("Location")).contains("select-project");
-        assertThat(result.getResponse().getHeaders("Set-Cookie")).noneMatch(h -> h.contains("onboarding_session") || h.contains("bm_session"));
+        assertThat(result).hasStatus(200);
+        assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("MULTIPLE_PROJECTS");
+        assertThat(result).bodyJson().extractingPath("$.partialToken").asString().isNotBlank();
     }
 
     @Test
-    void shouldListProjectsForPartialSession() {
+    void shouldListProjectsForPartialSession() throws Exception {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
@@ -129,8 +145,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                 ));
 
         var callback = callbackRequest("valid-code").exchange();
-        String location = callback.getResponse().getHeader("Location");
-        String partialToken = location.substring(location.indexOf("partialToken=") + "partialToken=".length());
+        String partialToken = objectMapper.readTree(callback.getResponse().getContentAsByteArray()).get("partialToken").asText();
 
         var result = mockMvc.get()
                 .uri("/api/v1/oauth/supabase/projects")
@@ -164,7 +179,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
     }
 
     @Test
-    void shouldSetSessionCookieAndRedirectToDashboardForReturningUser() {
+    void shouldReturnSessionTokenForReturningUser() {
         Account account = accountRepository.save(CampaignTestFixtures.account().build());
         connectionRepository.save(CampaignTestFixtures.connection(account.getId()).projectRef("project-ref").build());
 
@@ -175,13 +190,13 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
         var result = callbackRequest("valid-code").exchange();
 
-        assertThat(result).hasStatus(302);
-        assertThat(result.getResponse().getHeader("Location")).contains("/dashboard");
-        assertThat(result.getResponse().getHeaders("Set-Cookie")).anyMatch(h -> h.contains("bm_session"));
+        assertThat(result).hasStatus(200);
+        assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("RETURNING_USER");
+        assertThat(result).bodyJson().extractingPath("$.sessionToken").asString().isNotBlank();
     }
 
     @Test
-    void shouldSetOnboardingCookieAndRedirectToReconfigureSchemaForSingleProjectReconfigure() {
+    void shouldReturnOnboardingTokenForSingleProjectReconfigure() {
         Account account = accountRepository.save(CampaignTestFixtures.account()
                 .email("returning-user@example.com").build());
         connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
@@ -193,23 +208,15 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                 .thenReturn(List.of(new SupabaseProject("ref-1", "Project", "ACTIVE_HEALTHY", "2026-01-01")));
         doNothing().when(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
 
-        var result = mockMvc.get()
-                .uri("/api/v1/oauth/supabase/callback")
-                .param("code", "valid-code")
-                .param("state", reconfigureState)
-                .cookie(new Cookie("oauth_state", reconfigureState),
-                        new Cookie("oauth_code_verifier", VERIFIER),
-                        new Cookie("bm_session", TEST_API_KEY),
-                        new Cookie("oauth_redirect_origin", ORIGIN))
-                .exchange();
+        var result = callbackRequest("valid-code", reconfigureState, VERIFIER, TEST_API_KEY).exchange();
 
-        assertThat(result).hasStatus(302);
-        assertThat(result.getResponse().getHeader("Location")).contains("/settings/reconfigure/schema");
-        assertThat(result.getResponse().getHeaders("Set-Cookie")).anyMatch(h -> h.contains("onboarding_session"));
+        assertThat(result).hasStatus(200);
+        assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("RECONFIGURE");
+        assertThat(result).bodyJson().extractingPath("$.onboardingToken").asString().isNotBlank();
     }
 
     @Test
-    void shouldRedirectToReconfigureProjectPickerWhenMultipleProjectsOnReconfigure() {
+    void shouldReturnPartialTokenForReconfigureWithMultipleProjects() {
         Account account = accountRepository.save(CampaignTestFixtures.account()
                 .email("returning-user@example.com").build());
         connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
@@ -223,18 +230,10 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                         new SupabaseProject("ref-2", "Project 2", "ACTIVE_HEALTHY", "2026-01-01")
                 ));
 
-        var result = mockMvc.get()
-                .uri("/api/v1/oauth/supabase/callback")
-                .param("code", "valid-code")
-                .param("state", reconfigureState)
-                .cookie(new Cookie("oauth_state", reconfigureState),
-                        new Cookie("oauth_code_verifier", VERIFIER),
-                        new Cookie("bm_session", TEST_API_KEY),
-                        new Cookie("oauth_redirect_origin", ORIGIN))
-                .exchange();
+        var result = callbackRequest("valid-code", reconfigureState, VERIFIER, TEST_API_KEY).exchange();
 
-        assertThat(result).hasStatus(302);
-        assertThat(result.getResponse().getHeader("Location")).contains("/settings/reconfigure/select-project");
-        assertThat(result.getResponse().getHeaders("Set-Cookie")).noneMatch(h -> h.contains("onboarding_session") || h.contains("bm_session"));
+        assertThat(result).hasStatus(200);
+        assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("RECONFIGURE_MULTIPLE");
+        assertThat(result).bodyJson().extractingPath("$.partialToken").asString().isNotBlank();
     }
 }

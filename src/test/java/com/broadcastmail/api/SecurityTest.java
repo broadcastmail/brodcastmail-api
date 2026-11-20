@@ -63,10 +63,11 @@ class SecurityTest extends IntegrationTest {
 
         // When
         var response = mockMvc.get()
-                .uri("/api/v1/oauth/supabase/authorize");
+                .uri("/api/v1/oauth/supabase/projects")
+                .param("partialToken", "any");
 
-        // Then
-        assertThat(response).hasStatus(302);
+        // Then — 401 (invalid token) not 403 (blocked by security filter), so the endpoint is reachable
+        assertThat(response).hasStatus(401);
     }
 
     @Test
