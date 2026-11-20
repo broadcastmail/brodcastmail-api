@@ -54,8 +54,7 @@ public class ConnectionReconfigureService {
         String rawAccessToken = SecurityUtil.decrypt(session.getEncryptedAccessToken(), encryptionProperties.key());
         String rolePassword = SecurityUtil.generatePassword();
         supabaseManagementClient.executeSql(rawAccessToken, session.getProjectRef(),
-                SupabaseSql.CREATE_READER_ROLE.formatted(rolePassword, rolePassword));
-        supabaseManagementClient.executeSql(rawAccessToken, session.getProjectRef(), SupabaseSql.GRANT_AUTH_ACCESS);
+                SupabaseSql.PROVISION_READER.formatted(rolePassword, rolePassword));
         String encryptedRolePassword = SecurityUtil.encrypt(rolePassword, encryptionProperties.key());
 
         connection.setProjectRef(session.getProjectRef());

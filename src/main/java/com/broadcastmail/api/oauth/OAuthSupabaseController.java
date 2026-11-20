@@ -149,7 +149,7 @@ public class OAuthSupabaseController {
                 response.addHeader(HttpHeaders.SET_COOKIE,
                         cookieService.createOnboardingCookie(token).toString());
                 yield ResponseEntity.status(HttpStatus.FOUND)
-                        .header(HttpHeaders.LOCATION, origin + "/onboarding/email-provider")
+                        .header(HttpHeaders.LOCATION, origin + "/onboarding/schema")
                         .build();
             }
             case OAuthCallbackResult.NewUserMultipleProjects(String partial) ->
@@ -198,7 +198,7 @@ public class OAuthSupabaseController {
         String origin = originValidator.validateAndReturn(httpRequest);
         String redirectUrl = isReconfigure
                 ? origin + "/settings/reconfigure/schema"
-                : origin + "/onboarding/email-provider";
+                : origin + "/onboarding/schema";
 
         response.addHeader(HttpHeaders.SET_COOKIE,
                 cookieService.createOnboardingCookie(result.sessionToken()).toString());

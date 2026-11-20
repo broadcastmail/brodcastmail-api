@@ -24,7 +24,7 @@ public final class SupabaseSql {
 
     public record SortSpec(String alias, String key, SortDirection direction) {}
 
-    public static final String CREATE_READER_ROLE = """
+    public static final String PROVISION_READER = """
         DO $$
         BEGIN
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'broadcastmail_reader') THEN
@@ -35,9 +35,6 @@ public final class SupabaseSql {
         END$$;
         GRANT USAGE ON SCHEMA public TO broadcastmail_reader;
         GRANT SELECT ON ALL TABLES IN SCHEMA public TO broadcastmail_reader;
-        """;
-
-    public static final String GRANT_AUTH_ACCESS = """
         CREATE SCHEMA IF NOT EXISTS _broadcastmail;
         CREATE OR REPLACE VIEW _broadcastmail.user_emails AS SELECT
             id, email, created_at, updated_at, confirmed_at, email_confirmed_at,

@@ -1,7 +1,9 @@
 package com.broadcastmail.api.connection;
 
+import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
+import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
@@ -10,6 +12,7 @@ import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
+import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
@@ -31,9 +34,14 @@ public class SchemaService {
     private final SchemaIntrospectionService schemaIntrospectionService;
     private final ConnectionRepository connectionRepository;
     private final FilterableColumnRepository filterableColumnRepository;
+    private final SupabaseManagementClient supabaseManagementClient;
+    private final EncryptionProperties encryptionProperties;
 
     public SchemaIntrospectionResult detect(String sessionToken) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken);
+        if (session.getEncryptedRolePassword() == null) {
+            session = provisionReader(sessionToken, session);
+        }
         SupabaseIntrospectionData data = supabaseIntrospectionService.introspect(
                 session.getJdbcUrl(), session.getEncryptedRolePassword());
         SchemaIntrospectionResult result = schemaIntrospectionService.process(data);
@@ -93,6 +101,17 @@ public class SchemaService {
                         detected.userTableName(), detected.userTableSchema(), detected.userIdColumn(), false))
                 .withDetectedColumns(detected.filterableColumns())
                 .withAuthColumns(detected.authColumns());
+    }
+
+    private OnboardingSession provisionReader(String sessionToken, OnboardingSession session) {
+        String rawAccessToken = SecurityUtil.decrypt(session.getEncryptedAccessToken(), encryptionProperties.key());
+        String rolePassword = SecurityUtil.generatePassword();
+        supabaseManagementClient.executeSql(rawAccessToken, session.getProjectRef(),
+                SupabaseSql.PROVISION_READER.formatted(rolePassword, rolePassword));
+        OnboardingSession updated = session.withEncryptedRolePassword(
+                SecurityUtil.encrypt(rolePassword, encryptionProperties.key()));
+        onboardingSessionStore.updateSession(sessionToken, updated);
+        return updated;
     }
 
     public SchemaIntrospectionResult detectForAccount(UUID accountId, String projectRef) {
