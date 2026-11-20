@@ -43,8 +43,14 @@ public class SupabaseManagementClient {
                 .uri("/v1/oauth/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(formData)
-                .retrieve()
-                .body(SupabaseTokenResponse.class);
+                .exchange((req, res) -> {
+                    if (!res.getStatusCode().is2xxSuccessful() ||
+                            !org.springframework.http.MediaType.APPLICATION_JSON.isCompatibleWith(res.getHeaders().getContentType())) {
+                        String body = new String(res.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        throw new IllegalStateException("Supabase token exchange failed [" + res.getStatusCode() + "] [" + res.getHeaders().getContentType() + "]: " + body);
+                    }
+                    return res.bodyTo(SupabaseTokenResponse.class);
+                });
     }
 
     public SupabaseTokenResponse refreshAccessToken(String refreshToken)
