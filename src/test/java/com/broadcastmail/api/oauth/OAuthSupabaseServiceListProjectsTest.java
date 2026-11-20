@@ -1,8 +1,10 @@
 package com.broadcastmail.api.oauth;
 
 import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.oauth.dto.ProjectOption;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
+import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,12 +24,14 @@ class OAuthSupabaseServiceListProjectsTest {
     private static final String ENCRYPTION_KEY = "test-encryption-key-32-chars-okk";
 
     @Mock private OAuthSessionStore onboardingSessionStore;
+    @Mock private SupabaseManagementClient supabaseManagementClient;
+    @Mock private EncryptionProperties encryptionProperties;
 
     private OAuthSessionService oAuthSessionService;
 
     @BeforeEach
     void setUp() {
-        oAuthSessionService = new OAuthSessionService(onboardingSessionStore);
+        oAuthSessionService = new OAuthSessionService(onboardingSessionStore, supabaseManagementClient, encryptionProperties);
     }
 
     private PartialOnboardingSession partialSessionWith(List<SupabaseProject> projects) {
