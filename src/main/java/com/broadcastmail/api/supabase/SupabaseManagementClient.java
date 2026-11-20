@@ -75,6 +75,22 @@ public class SupabaseManagementClient {
                 .body(SupabaseTokenResponse.class);
     }
 
+    public String getPoolerPrefix(String accessToken, String projectRef) {
+        try {
+            String json = supabaseRestClient.get()
+                    .uri("/v1/projects/{ref}", projectRef)
+                    .header(authorizationHeader.a, authorizationHeader.b + accessToken)
+                    .retrieve()
+                    .body(String.class);
+            var tree = OBJECT_MAPPER.readTree(json);
+            String provider = tree.path("cloud_provider").asText("aws").toLowerCase();
+            String region = tree.path("region").asText();
+            return provider + "-0-" + region;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to get pooler prefix for " + projectRef, e);
+        }
+    }
+
     public List<SupabaseProject> listProjects(String accessToken) {
         return supabaseRestClient.get()
                 .uri("/v1/projects")

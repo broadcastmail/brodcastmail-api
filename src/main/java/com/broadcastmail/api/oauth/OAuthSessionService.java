@@ -1,9 +1,12 @@
 package com.broadcastmail.api.oauth;
 
+import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
 import com.broadcastmail.api.oauth.dto.ProjectOption;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
+import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,15 +19,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OAuthSessionService {
     private final OAuthSessionStore onboardingSessionStore;
+    private final SupabaseManagementClient supabaseManagementClient;
+    private final EncryptionProperties encryptionProperties;
 
     public OAuthCallbackResult.NewUserSingleProject setupProjectAndCreateSession(
             String projectRef,
             String ownerEmail,
+            String poolerPrefix,
             String encryptedAccessToken,
             String encryptedRefreshToken,
             Instant tokenExpiresAt) {
 
-        String sessionToken = provisionSession(projectRef, OnboardingSession.builder()
+        String sessionToken = provisionSession(projectRef, poolerPrefix, OnboardingSession.builder()
                 .ownerEmail(ownerEmail)
                 .encryptedAccessToken(encryptedAccessToken)
                 .encryptedRefreshToken(encryptedRefreshToken)
@@ -37,6 +43,7 @@ public class OAuthSessionService {
             UUID accountId,
             String ownerEmail,
             String projectRef,
+            String poolerPrefix,
             String encryptedAccessToken,
             String encryptedRefreshToken,
             Instant tokenExpiresAt) {
@@ -46,7 +53,8 @@ public class OAuthSessionService {
                 .ownerEmail(ownerEmail)
                 .projectRef(projectRef)
                 .projectUrl(SupabaseSql.buildProjectUrl(projectRef))
-                .jdbcUrl(SupabaseSql.buildJdbcUrl(projectRef))
+                .jdbcUrl(SupabaseSql.buildPoolerJdbcUrl(projectRef, poolerPrefix))
+                .jdbcUsername(SupabaseSql.poolerReaderRole(projectRef))
                 .encryptedAccessToken(encryptedAccessToken)
                 .encryptedRefreshToken(encryptedRefreshToken)
                 .tokenExpiresAt(tokenExpiresAt)
@@ -72,12 +80,16 @@ public class OAuthSessionService {
             String projectRef, String partialSessionToken) {
         PartialOnboardingSession partial = onboardingSessionStore.getPartial(partialSessionToken);
 
+        String rawAccessToken = SecurityUtil.decrypt(partial.encryptedAccessToken(), encryptionProperties.key());
+        String poolerPrefix = supabaseManagementClient.getPoolerPrefix(rawAccessToken, projectRef);
+
         OAuthCallbackResult.NewUserSingleProject result;
         if (partial.isReconfigure()) {
             String sessionToken = setupReconfigureSession(
                     partial.accountId(),
                     partial.ownerEmail(),
                     projectRef,
+                    poolerPrefix,
                     partial.encryptedAccessToken(),
                     partial.encryptedRefreshToken(),
                     partial.tokenExpiresAt());
@@ -86,6 +98,7 @@ public class OAuthSessionService {
             result = setupProjectAndCreateSession(
                     projectRef,
                     partial.ownerEmail(),
+                    poolerPrefix,
                     partial.encryptedAccessToken(),
                     partial.encryptedRefreshToken(),
                     partial.tokenExpiresAt());
@@ -94,17 +107,17 @@ public class OAuthSessionService {
         onboardingSessionStore.invalidatePartial(partialSessionToken);
         return result;
     }
+
     private String provisionSession(
             String projectRef,
+            String poolerPrefix,
             OnboardingSession.OnboardingSessionBuilder builder) {
-
-        String jdbcUrl = SupabaseSql.buildJdbcUrl(projectRef);
-        String projectUrl = SupabaseSql.buildProjectUrl(projectRef);
 
         OnboardingSession session = builder
                 .projectRef(projectRef)
-                .projectUrl(projectUrl)
-                .jdbcUrl(jdbcUrl)
+                .projectUrl(SupabaseSql.buildProjectUrl(projectRef))
+                .jdbcUrl(SupabaseSql.buildPoolerJdbcUrl(projectRef, poolerPrefix))
+                .jdbcUsername(SupabaseSql.poolerReaderRole(projectRef))
                 .expiresAt(Instant.now().plusSeconds(1800))
                 .build();
 

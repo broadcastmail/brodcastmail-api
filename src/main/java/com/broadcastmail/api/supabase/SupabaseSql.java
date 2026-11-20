@@ -122,6 +122,14 @@ public final class SupabaseSql {
         return "jdbc:postgresql://db." + projectRef + ".supabase.co:6543/postgres?prepareThreshold=0";
     }
 
+    public static String buildPoolerJdbcUrl(String projectRef, String poolerPrefix) {
+        return "jdbc:postgresql://" + poolerPrefix + ".pooler.supabase.com:5432/postgres?prepareThreshold=0";
+    }
+
+    public static String poolerReaderRole(String projectRef) {
+        return READER_ROLE + "." + projectRef;
+    }
+
     public static String buildProjectUrl(String projectRef) {
         return "https://" + projectRef + ".supabase.co";
     }

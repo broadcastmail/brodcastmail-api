@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -96,7 +97,7 @@ class SchemaServiceTest {
         // Given
         SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
-        when(supabaseIntrospectionService.introspect(anyString(), anyString())).thenReturn(data);
+        when(supabaseIntrospectionService.introspect(anyString(), anyString(), any())).thenReturn(data);
         when(schemaIntrospectionService.process(data)).thenReturn(detectedResult());
 
         // When
@@ -132,7 +133,7 @@ class SchemaServiceTest {
                 .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", false));
         SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
         when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
-        when(supabaseIntrospectionService.introspect(anyString(), anyString())).thenReturn(data);
+        when(supabaseIntrospectionService.introspect(anyString(), anyString(), any())).thenReturn(data);
         when(schemaIntrospectionService.process(data)).thenReturn(new SchemaIntrospectionResult.NotDetected());
 
         // When
@@ -164,7 +165,7 @@ class SchemaServiceTest {
         // Given
         SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
-        when(supabaseIntrospectionService.introspect(anyString(), anyString())).thenReturn(data);
+        when(supabaseIntrospectionService.introspect(anyString(), anyString(), any())).thenReturn(data);
         when(schemaIntrospectionService.process(data)).thenReturn(
                 new SchemaIntrospectionResult.MultipleCandidates(List.of(detectedResult(), secondCandidateResult())));
 
@@ -228,7 +229,7 @@ class SchemaServiceTest {
         connection.setProjectRef("project-ref");
         connection.setEncryptedCreds("creds");
         when(connectionRepository.findByAccountId(accountId)).thenReturn(java.util.Optional.of(connection));
-        when(schemaIntrospectionService.introspect(anyString(), anyString())).thenReturn(
+        when(schemaIntrospectionService.introspect(anyString(), anyString(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new com.broadcastmail.api.connection.dto.DetectedColumn("plan", "text", true, 3, false),
                                 new com.broadcastmail.api.connection.dto.DetectedColumn("country", "text", true, 3, false)),

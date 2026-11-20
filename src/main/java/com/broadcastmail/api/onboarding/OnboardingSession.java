@@ -22,6 +22,7 @@ public class OnboardingSession {
     private String projectRef;
     private String projectUrl;
     private String jdbcUrl;
+    private String jdbcUsername;
     private String encryptedRolePassword;
     private String ownerEmail;
     private String encryptedAccessToken;

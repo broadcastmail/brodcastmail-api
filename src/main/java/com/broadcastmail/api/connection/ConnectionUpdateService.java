@@ -53,7 +53,7 @@ public class ConnectionUpdateService {
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(ConnectionNotFoundException::new);
         String pk = emailSourceService.detectPrimaryKey(
-                SupabaseSql.buildJdbcUrl(connection.getProjectRef()), connection.getEncryptedCreds(), emailTableSchema, emailTableName);
+                SupabaseSql.buildJdbcUrl(connection.getProjectRef()), connection.getEncryptedCreds(), null, emailTableSchema, emailTableName);
         connection.setEmailTableSchema(emailTableSchema);
         connection.setEmailTableName(emailTableName);
         connection.setEmailTableIdColumn(pk);
@@ -74,6 +74,7 @@ public class ConnectionUpdateService {
         SchemaIntrospectionResult.Detected detected = schemaIntrospectionService.introspectTable(
                 SupabaseSql.buildJdbcUrl(connection.getProjectRef()),
                 connection.getEncryptedCreds(),
+                null,
                 connection.getUserTableSchema(),
                 connection.getUserTableName(),
                 connection.getUserIdColumn()

@@ -41,7 +41,7 @@ public class OAuthSupabaseService {
         if (projects.isEmpty()) throw new NoSupabaseProjectsException();
 
         if (accountId != null) {
-            return handleReconfigure(accountId, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt, projects);
+            return handleReconfigure(accountId, rawAccessToken, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt, projects);
         }
 
         Optional<UUID> existingAccountId = projects.stream()
@@ -55,8 +55,9 @@ public class OAuthSupabaseService {
         }
 
         if (projects.size() == 1) {
+            String poolerPrefix = supabaseManagementClient.getPoolerPrefix(rawAccessToken, projects.getFirst().ref());
             return oAuthSessionService.setupProjectAndCreateSession(
-                    projects.getFirst().ref(), null,
+                    projects.getFirst().ref(), null, poolerPrefix,
                     encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
         }
 
@@ -68,12 +69,14 @@ public class OAuthSupabaseService {
 
     private OAuthCallbackResult handleReconfigure(
             UUID accountId,
+            String rawAccessToken,
             String encryptedAccessToken, String encryptedRefreshToken,
             Instant tokenExpiresAt, List<SupabaseProject> projects) {
 
         if (projects.size() == 1) {
+            String poolerPrefix = supabaseManagementClient.getPoolerPrefix(rawAccessToken, projects.getFirst().ref());
             String sessionToken = oAuthSessionService.setupReconfigureSession(
-                    accountId, null, projects.getFirst().ref(),
+                    accountId, null, projects.getFirst().ref(), poolerPrefix,
                     encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
             return new OAuthCallbackResult.ReconfigureSingleProject(sessionToken);
         }

@@ -123,7 +123,7 @@ class ConnectionControllerTest extends IntegrationTest {
 
     @Test
     void shouldReturn200WhenUpdatingColumns() throws Exception {
-        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any())).thenReturn(
+        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
                                 new DetectedColumn("is_verified", "boolean", true, null, false)),
@@ -137,7 +137,7 @@ class ConnectionControllerTest extends IntegrationTest {
 
     @Test
     void shouldDeleteExistingColumnsWhenUpdatingColumns() throws Exception {
-        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any())).thenReturn(
+        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
                                 new DetectedColumn("is_verified", "boolean", true, null, false)),

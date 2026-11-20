@@ -35,8 +35,8 @@ public class EmailSourceService {
         }
     }
 
-    public String detectPrimaryKey(String jdbcUrl, String encryptedRolePassword, String schema, String table) {
-        return supabaseIntrospectionService.detectPrimaryKey(jdbcUrl, encryptedRolePassword, schema, table);
+    public String detectPrimaryKey(String jdbcUrl, String encryptedRolePassword, String jdbcUsername, String schema, String table) {
+        return supabaseIntrospectionService.detectPrimaryKey(jdbcUrl, encryptedRolePassword, jdbcUsername, schema, table);
     }
 
     public EmailSourceResult detect(SupabaseIntrospectionData data) {
@@ -69,7 +69,7 @@ public class EmailSourceService {
         com.broadcastmail.common.connection.Connection connection =
                 connectionRepository.findByAccountId(accountId).orElseThrow(ConnectionNotFoundException::new);
         SupabaseIntrospectionData data = supabaseIntrospectionService.introspect(
-                SupabaseSql.buildJdbcUrl(connection.getProjectRef()), connection.getEncryptedCreds());
+                SupabaseSql.buildJdbcUrl(connection.getProjectRef()), connection.getEncryptedCreds(), null);
 
         List<EmailSourceOption> options = buildOptions(data.emailColumnsByTable(), data.primaryKeys());
 

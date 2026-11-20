@@ -43,7 +43,7 @@ public class SchemaService {
             session = provisionReader(sessionToken, session);
         }
         SupabaseIntrospectionData data = supabaseIntrospectionService.introspect(
-                session.getJdbcUrl(), session.getEncryptedRolePassword());
+                session.getJdbcUrl(), session.getEncryptedRolePassword(), session.getJdbcUsername());
         SchemaIntrospectionResult result = schemaIntrospectionService.process(data);
         OnboardingSession updated = switch (result) {
             case SchemaIntrospectionResult.Detected detected ->
@@ -121,7 +121,7 @@ public class SchemaService {
                 projectRef != null ? projectRef : connection.getProjectRef()
         );
 
-        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(jdbcUrl, connection.getEncryptedCreds());
+        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(jdbcUrl, connection.getEncryptedCreds(), null);
 
         if (projectRef != null && !projectRef.equals(connection.getProjectRef())) {
             return result;

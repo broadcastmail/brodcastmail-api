@@ -50,7 +50,7 @@ public class ConnectionQueryService {
                 .orElseThrow(ConnectionNotFoundException::new);
 
         String jdbcUrl = SupabaseSql.buildJdbcUrl(projectRef);
-        SupabaseIntrospectionData data = supabaseIntrospectionService.introspect(jdbcUrl, connection.getEncryptedCreds());
+        SupabaseIntrospectionData data = supabaseIntrospectionService.introspect(jdbcUrl, connection.getEncryptedCreds(), null);
 
         String userKey = connection.getUserTableSchema() + "." + connection.getUserTableName();
         List<SupabaseIntrospectionData.Column> userCols = data.columnsByTable().get(userKey);

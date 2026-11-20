@@ -19,9 +19,10 @@ public class SupabaseIntrospectionService {
 
     private final EncryptionProperties encryptionProperties;
 
-    public SupabaseIntrospectionData introspect(String jdbcUrl, String encryptedRolePassword) {
+    public SupabaseIntrospectionData introspect(String jdbcUrl, String encryptedRolePassword, String jdbcUsername) {
         String rolePassword = SecurityUtil.decrypt(encryptedRolePassword, encryptionProperties.key());
-        try (Connection conn = DriverManager.getConnection(jdbcUrl, SupabaseSql.READER_ROLE, rolePassword);
+        String username = jdbcUsername != null ? jdbcUsername : SupabaseSql.READER_ROLE;
+        try (Connection conn = DriverManager.getConnection(jdbcUrl, username, rolePassword);
              Statement stmt = conn.createStatement()) {
 
             List<SupabaseIntrospectionData.CandidateTable> candidates = findCandidateTables(stmt);
@@ -37,9 +38,10 @@ public class SupabaseIntrospectionService {
     }
 
     public SupabaseIntrospectionData introspectSingleTable(
-            String jdbcUrl, String encryptedRolePassword, String schema, String table, String idColumn) {
+            String jdbcUrl, String encryptedRolePassword, String jdbcUsername, String schema, String table, String idColumn) {
         String rolePassword = SecurityUtil.decrypt(encryptedRolePassword, encryptionProperties.key());
-        try (Connection conn = DriverManager.getConnection(jdbcUrl, SupabaseSql.READER_ROLE, rolePassword);
+        String username = jdbcUsername != null ? jdbcUsername : SupabaseSql.READER_ROLE;
+        try (Connection conn = DriverManager.getConnection(jdbcUrl, username, rolePassword);
              Statement stmt = conn.createStatement()) {
 
             List<SupabaseIntrospectionData.CandidateTable> candidates =
@@ -55,9 +57,10 @@ public class SupabaseIntrospectionService {
         }
     }
 
-    public String detectPrimaryKey(String jdbcUrl, String encryptedRolePassword, String schema, String table) {
+    public String detectPrimaryKey(String jdbcUrl, String encryptedRolePassword, String jdbcUsername, String schema, String table) {
         String rolePassword = SecurityUtil.decrypt(encryptedRolePassword, encryptionProperties.key());
-        try (Connection conn = DriverManager.getConnection(jdbcUrl, SupabaseSql.READER_ROLE, rolePassword);
+        String username = jdbcUsername != null ? jdbcUsername : SupabaseSql.READER_ROLE;
+        try (Connection conn = DriverManager.getConnection(jdbcUrl, username, rolePassword);
              PreparedStatement stmt = conn.prepareStatement(SupabaseSql.FIND_TABLE_PRIMARY_KEY)) {
             stmt.setString(1, schema);
             stmt.setString(2, table);

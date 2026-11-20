@@ -63,7 +63,7 @@ class SchemaIntrospectionServiceTest extends IntegrationTest {
 
     /** All tests in this class set up {@code public.profiles}, FK'd to {@code auth.users.id} — detection always succeeds. */
     private SchemaIntrospectionResult.Detected introspectDetected() {
-        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(jdbcUrl, encryptedRolePassword);
+        SchemaIntrospectionResult result = schemaIntrospectionService.introspect(jdbcUrl, encryptedRolePassword, null);
         assertThat(result).isInstanceOf(SchemaIntrospectionResult.Detected.class);
         return (SchemaIntrospectionResult.Detected) result;
     }

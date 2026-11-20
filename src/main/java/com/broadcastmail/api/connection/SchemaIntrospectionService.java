@@ -31,14 +31,14 @@ public class SchemaIntrospectionService {
                 : new SchemaIntrospectionResult.MultipleCandidates(detected);
     }
 
-    public SchemaIntrospectionResult introspect(String jdbcUrl, String encryptedRolePassword) {
-        return process(supabaseIntrospectionService.introspect(jdbcUrl, encryptedRolePassword));
+    public SchemaIntrospectionResult introspect(String jdbcUrl, String encryptedRolePassword, String jdbcUsername) {
+        return process(supabaseIntrospectionService.introspect(jdbcUrl, encryptedRolePassword, jdbcUsername));
     }
 
     public SchemaIntrospectionResult.Detected introspectTable(
-            String jdbcUrl, String encryptedRolePassword, String schema, String table, String idColumn) {
+            String jdbcUrl, String encryptedRolePassword, String jdbcUsername, String schema, String table, String idColumn) {
         SupabaseIntrospectionData data =
-                supabaseIntrospectionService.introspectSingleTable(jdbcUrl, encryptedRolePassword, schema, table, idColumn);
+                supabaseIntrospectionService.introspectSingleTable(jdbcUrl, encryptedRolePassword, jdbcUsername, schema, table, idColumn);
         return switch (process(data)) {
             case SchemaIntrospectionResult.Detected d -> d;
             default -> throw new IllegalStateException("Expected detected table: " + schema + "." + table);
