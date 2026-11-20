@@ -55,10 +55,9 @@ public class OAuthSupabaseService {
         }
 
         if (projects.size() == 1) {
-            String poolerPrefix = supabaseManagementClient.getPoolerPrefix(rawAccessToken, projects.getFirst().ref());
             return oAuthSessionService.setupProjectAndCreateSession(
-                    projects.getFirst().ref(), null, poolerPrefix,
-                    encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
+                    projects.getFirst().ref(), null, projects.getFirst().poolerPrefix(),
+                    rawAccessToken, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
         }
 
         String partialToken = onboardingSessionStore.createPartial(
@@ -74,10 +73,9 @@ public class OAuthSupabaseService {
             Instant tokenExpiresAt, List<SupabaseProject> projects) {
 
         if (projects.size() == 1) {
-            String poolerPrefix = supabaseManagementClient.getPoolerPrefix(rawAccessToken, projects.getFirst().ref());
             String sessionToken = oAuthSessionService.setupReconfigureSession(
-                    accountId, null, projects.getFirst().ref(), poolerPrefix,
-                    encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
+                    accountId, null, projects.getFirst().ref(), projects.getFirst().poolerPrefix(),
+                    rawAccessToken, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
             return new OAuthCallbackResult.ReconfigureSingleProject(sessionToken);
         }
 

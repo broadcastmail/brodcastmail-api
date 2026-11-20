@@ -6,6 +6,7 @@ import com.broadcastmail.api.oauth.dto.ProjectOption;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,12 +27,13 @@ class OAuthSupabaseServiceListProjectsTest {
     @Mock private OAuthSessionStore onboardingSessionStore;
     @Mock private SupabaseManagementClient supabaseManagementClient;
     @Mock private EncryptionProperties encryptionProperties;
+    @Mock private ConnectionRepository connectionRepository;
 
     private OAuthSessionService oAuthSessionService;
 
     @BeforeEach
     void setUp() {
-        oAuthSessionService = new OAuthSessionService(onboardingSessionStore, supabaseManagementClient, encryptionProperties);
+        oAuthSessionService = new OAuthSessionService(onboardingSessionStore, supabaseManagementClient, encryptionProperties, connectionRepository);
     }
 
     private PartialOnboardingSession partialSessionWith(List<SupabaseProject> projects) {
@@ -47,8 +49,8 @@ class OAuthSupabaseServiceListProjectsTest {
     @Test
     void shouldReturnProjectsWithNullUserCount() {
         List<SupabaseProject> projects = List.of(
-                new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01"),
-                new SupabaseProject("ref-2", "Project 2", "PAUSED", "2026-01-01")
+                new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws"),
+                new SupabaseProject("ref-2", "Project 2", "PAUSED", "2026-01-01", "us-east-1", "aws")
         );
         when(onboardingSessionStore.getPartial("partial-token"))
                 .thenReturn(partialSessionWith(projects));

@@ -108,8 +108,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
-                .thenReturn(List.of(new SupabaseProject("project-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01")));
-        when(supabaseManagementClient.getPoolerPrefix(eq("access-token"), eq("project-ref"))).thenReturn("aws-0-us-east-1");
+                .thenReturn(List.of(new SupabaseProject("project-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws")));
         doNothing().when(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
 
         var result = callbackRequest("valid-code").exchange();
@@ -125,8 +124,8 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(
-                        new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01"),
-                        new SupabaseProject("ref-2", "Project 2", "ACTIVE_HEALTHY", "2026-01-01")
+                        new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws"),
+                        new SupabaseProject("ref-2", "Project 2", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws")
                 ));
 
         var result = callbackRequest("valid-code").exchange();
@@ -142,8 +141,8 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(
-                        new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01"),
-                        new SupabaseProject("ref-2", "Project 2", "PAUSED", "2026-01-01")
+                        new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws"),
+                        new SupabaseProject("ref-2", "Project 2", "PAUSED", "2026-01-01", "us-east-1", "aws")
                 ));
 
         var callback = callbackRequest("valid-code").exchange();
@@ -188,7 +187,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
-                .thenReturn(List.of(new SupabaseProject("project-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01")));
+                .thenReturn(List.of(new SupabaseProject("project-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws")));
 
         var result = callbackRequest("valid-code").exchange();
 
@@ -207,8 +206,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
-                .thenReturn(List.of(new SupabaseProject("ref-1", "Project", "ACTIVE_HEALTHY", "2026-01-01")));
-        when(supabaseManagementClient.getPoolerPrefix(eq("access-token"), eq("ref-1"))).thenReturn("aws-0-us-east-1");
+                .thenReturn(List.of(new SupabaseProject("ref-1", "Project", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws")));
         doNothing().when(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
 
         var result = callbackRequest("valid-code", reconfigureState, VERIFIER, TEST_API_KEY).exchange();
@@ -229,8 +227,8 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(
-                        new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01"),
-                        new SupabaseProject("ref-2", "Project 2", "ACTIVE_HEALTHY", "2026-01-01")
+                        new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws"),
+                        new SupabaseProject("ref-2", "Project 2", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws")
                 ));
 
         var result = callbackRequest("valid-code", reconfigureState, VERIFIER, TEST_API_KEY).exchange();

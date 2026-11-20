@@ -58,7 +58,7 @@ class OAuthSupabaseServiceTest {
     }
 
     private SupabaseProject project(String ref) {
-        return new SupabaseProject(ref, "Project", "ACTIVE_HEALTHY", "2026-01-01");
+        return new SupabaseProject(ref, "Project", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws");
     }
 
     private void mockTokenExchange() {
@@ -88,9 +88,8 @@ class OAuthSupabaseServiceTest {
     void shouldReturnNewUserSingleProjectWhenOneProject() {
         mockTokenExchange();
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1")));
-        when(supabaseManagementClient.getPoolerPrefix("raw-access-token", "ref-1")).thenReturn("aws-0-us-east-1");
         when(connectionRepository.findByProjectRef("ref-1")).thenReturn(Optional.empty());
-        when(oAuthSessionService.setupProjectAndCreateSession(any(), any(), any(), any(), any(), any())).thenReturn(
+        when(oAuthSessionService.setupProjectAndCreateSession(any(), any(), any(), any(), any(), any(), any())).thenReturn(
                 new OAuthCallbackResult.NewUserSingleProject("session-token"));
 
         OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, null);
@@ -126,8 +125,7 @@ class OAuthSupabaseServiceTest {
     void shouldReturnReconfigureSingleProjectWhenAccountIdProvided() {
         mockTokenExchange();
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1")));
-        when(supabaseManagementClient.getPoolerPrefix("raw-access-token", "ref-1")).thenReturn("aws-0-us-east-1");
-        when(oAuthSessionService.setupReconfigureSession(any(), any(), any(), any(), any(), any(), any())).thenReturn("session-token");
+        when(oAuthSessionService.setupReconfigureSession(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn("session-token");
 
         OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, ACCOUNT_ID);
 
