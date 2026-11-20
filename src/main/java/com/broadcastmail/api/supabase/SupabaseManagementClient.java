@@ -102,13 +102,21 @@ public class SupabaseManagementClient {
     public String getOwnerEmail(String accessToken) {
         try {
             String[] parts = accessToken.split("\\.");
-            if (parts.length < 2) throw new IllegalStateException("Invalid JWT");
+            if (parts.length < 2) {
+                log.error("getOwnerEmail: access token is not a valid JWT (parts={})", parts.length);
+                throw new IllegalStateException("Invalid JWT");
+            }
             String payload = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+            log.debug("getOwnerEmail: JWT payload={}", payload);
             com.fasterxml.jackson.databind.JsonNode node = new ObjectMapper().readTree(payload);
             String email = node.path("email").asText(null);
-            if (email == null || email.isBlank()) throw new IllegalStateException("Could not retrieve email from Supabase account");
+            if (email == null || email.isBlank()) {
+                log.error("getOwnerEmail: no email claim in JWT payload={}", payload);
+                throw new IllegalStateException("Could not retrieve email from Supabase account");
+            }
             return email;
         } catch (JsonProcessingException e) {
+            log.error("getOwnerEmail: failed to parse JWT payload", e);
             throw new IllegalStateException("Could not parse Supabase access token", e);
         }
     }
