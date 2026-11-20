@@ -98,7 +98,7 @@ public class SupabaseManagementClient {
 
     public String getOwnerEmail(String accessToken) {
         SupabaseUser user = supabaseRestClient.get()
-                .uri("/v1/user")
+                .uri("/v1/profile")
                 .header(authorizationHeader.a, authorizationHeader.b + accessToken)
                 .retrieve()
                 .body(SupabaseUser.class);
