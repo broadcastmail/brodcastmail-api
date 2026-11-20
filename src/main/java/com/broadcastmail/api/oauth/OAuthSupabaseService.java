@@ -12,6 +12,8 @@ import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Nullable;
@@ -23,6 +25,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class OAuthSupabaseService {
+    private static final Logger log = LoggerFactory.getLogger(OAuthSupabaseService.class);
 
     private final SupabaseManagementClient supabaseManagementClient;
     private final OAuthSessionStore onboardingSessionStore;
@@ -33,6 +36,7 @@ public class OAuthSupabaseService {
 
     public OAuthCallbackResult exchangeWithPKCE(String code, String codeVerifier, @Nullable UUID accountId) {
         SupabaseTokenResponse tokenResponse = supabaseManagementClient.exchangeCodeForTokensPKCE(code, codeVerifier);
+        log.info("Supabase token response extra fields: {}", tokenResponse.extraFieldNames());
         String rawAccessToken = tokenResponse.accessToken();
         Instant tokenExpiresAt = Instant.now().plusSeconds(tokenResponse.expiresIn());
         String encryptedAccessToken = SecurityUtil.encrypt(rawAccessToken, encryptionProperties.key());
