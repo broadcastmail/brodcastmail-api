@@ -40,7 +40,7 @@ public class SupabaseManagementClient {
         formData.add("redirect_uri", redirectUri);
 
         return supabaseRestClient.post()
-                .uri("/api/v1/oauth/token")
+                .uri("/v1/oauth/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(formData)
                 .retrieve()
@@ -57,7 +57,7 @@ public class SupabaseManagementClient {
         formData.add("redirect_uri", redirectUri);
 
         return supabaseRestClient.post()
-                .uri("/api/v1/oauth/token")
+                .uri("/v1/oauth/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(formData)
                 .retrieve()
