@@ -7,8 +7,8 @@ import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
-import com.broadcastmail.common.account.Account;
-import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,7 +36,7 @@ class OAuthSupabaseServiceTest {
     @Mock
     private OAuthSessionStore onboardingSessionStore;
     @Mock
-    private AccountRepository accountRepository;
+    private ConnectionRepository connectionRepository;
     @Mock
     private AccountService accountService;
     @Mock
@@ -48,7 +48,7 @@ class OAuthSupabaseServiceTest {
     void setUp() {
         EncryptionProperties encryptionProperties = new EncryptionProperties(ENCRYPTION_KEY);
         oAuthSupabaseService = new OAuthSupabaseService(
-                supabaseManagementClient, onboardingSessionStore, accountRepository,
+                supabaseManagementClient, onboardingSessionStore, connectionRepository,
                 accountService, oAuthSessionService, encryptionProperties);
     }
 
@@ -62,17 +62,18 @@ class OAuthSupabaseServiceTest {
 
     private void mockTokenExchange() {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE(CODE, VERIFIER)).thenReturn(tokenResponse());
-        when(supabaseManagementClient.getOwnerEmail("raw-access-token")).thenReturn("owner@example.com");
     }
 
     // Returning user
 
     @Test
-    void shouldReturnReturningUserWhenEmailAlreadyExists() {
+    void shouldReturnReturningUserWhenProjectRefAlreadyConnected() {
         mockTokenExchange();
-        Account account = Account.builder().id(UUID.randomUUID()).build();
-        when(accountRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(account));
-        when(accountService.rotateApiKey(account.getId())).thenReturn("new-api-key");
+        UUID existingAccountId = UUID.randomUUID();
+        Connection connection = Connection.builder().accountId(existingAccountId).build();
+        when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1")));
+        when(connectionRepository.findByProjectRef("ref-1")).thenReturn(Optional.of(connection));
+        when(accountService.rotateApiKey(existingAccountId)).thenReturn("new-api-key");
 
         OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, null);
 
@@ -85,8 +86,8 @@ class OAuthSupabaseServiceTest {
     @Test
     void shouldReturnNewUserSingleProjectWhenOneProject() {
         mockTokenExchange();
-        when(accountRepository.findByEmail(any())).thenReturn(Optional.empty());
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1")));
+        when(connectionRepository.findByProjectRef("ref-1")).thenReturn(Optional.empty());
         when(oAuthSessionService.setupProjectAndCreateSession(any(), any(), any(), any(), any(), any())).thenReturn(
                 new OAuthCallbackResult.NewUserSingleProject("session-token"));
 
@@ -98,8 +99,8 @@ class OAuthSupabaseServiceTest {
     @Test
     void shouldReturnNewUserMultipleProjectsWhenManyProjects() {
         mockTokenExchange();
-        when(accountRepository.findByEmail(any())).thenReturn(Optional.empty());
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1"), project("ref-2")));
+        when(connectionRepository.findByProjectRef(any())).thenReturn(Optional.empty());
         when(onboardingSessionStore.createPartial(any())).thenReturn("partial-token");
 
         OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, null);
@@ -111,7 +112,6 @@ class OAuthSupabaseServiceTest {
     @Test
     void shouldThrowWhenNoProjectsFound() {
         mockTokenExchange();
-        when(accountRepository.findByEmail(any())).thenReturn(Optional.empty());
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of());
 
         assertThatThrownBy(() -> oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, null))

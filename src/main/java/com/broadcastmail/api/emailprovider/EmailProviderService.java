@@ -106,10 +106,13 @@ public class EmailProviderService {
                 ? session.getAccountId()
                 : UUID.nameUUIDFromBytes(sessionToken.getBytes());
 
+        String recipient = session.getOwnerEmail() != null
+                ? session.getOwnerEmail()
+                : session.getResendDetails().fromAddress();
         resendClient.sendTestEmail(rateLimitKey,
                 decryptedApiKey,
                 session.getResendDetails().fromAddress(),
-                session.getOwnerEmail(),
+                recipient,
                 "Test email from BroadcastMail",
                 "<p>Your Resend integration is working correctly.</p>");
     }

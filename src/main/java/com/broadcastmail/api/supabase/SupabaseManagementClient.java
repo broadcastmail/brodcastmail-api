@@ -2,8 +2,7 @@ package com.broadcastmail.api.supabase;
 
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import org.antlr.v4.runtime.misc.Pair;
 import org.slf4j.Logger;
@@ -16,8 +15,6 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -85,6 +82,51 @@ public class SupabaseManagementClient {
                 .body(new ParameterizedTypeReference<List<SupabaseProject>>(){});
     }
 
+    public String resolveOwnerEmail(String accessToken, String projectRef) {
+        JsonNode project = supabaseRestClient.get()
+                .uri("/v1/projects/{ref}", projectRef)
+                .header(authorizationHeader.a, authorizationHeader.b + accessToken)
+                .retrieve()
+                .body(JsonNode.class);
+
+        String orgSlug = project == null ? null : project.path("organization_slug").asText(null);
+        if (orgSlug == null) {
+            log.warn("resolveOwnerEmail: no organization_slug for project {}", projectRef);
+            return null;
+        }
+
+        JsonNode response = supabaseRestClient.get()
+                .uri("/v2/organizations/{slug}/members", orgSlug)
+                .header(authorizationHeader.a, authorizationHeader.b + accessToken)
+                .retrieve()
+                .body(JsonNode.class);
+
+        JsonNode data = response == null ? null : response.path("data");
+        if (data == null || !data.isArray() || data.isEmpty()) {
+            log.warn("resolveOwnerEmail: no members found for org {}", orgSlug);
+            return null;
+        }
+
+        String ownerEmail = findOwnerEmail(data);
+        if (ownerEmail == null) {
+            log.warn("resolveOwnerEmail: no owner role found for org {}, using first member email", orgSlug);
+        }
+        return ownerEmail;
+    }
+
+    private String findOwnerEmail(JsonNode data) {
+        for (JsonNode member : data) {
+            JsonNode attrs = member.path("attributes");
+            for (JsonNode role : attrs.path("roles")) {
+                if ("Owner".equals(role.path("name").asText()) && "organization".equals(role.path("scope").asText())) {
+                    String email = attrs.path("primary_email").asText(null);
+                    if (email != null && !email.isBlank()) return email;
+                }
+            }
+        }
+        return data.get(0).path("attributes").path("primary_email").asText(null);
+    }
+
     public void executeSql(String accessToken, String projectRef, String sql){
         executeSqlQuery(accessToken, projectRef, sql);
     }
@@ -99,25 +141,4 @@ public class SupabaseManagementClient {
                 .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
     }
 
-    public String getOwnerEmail(String accessToken) {
-        try {
-            String[] parts = accessToken.split("\\.");
-            if (parts.length < 2) {
-                log.error("getOwnerEmail: access token is not a valid JWT (parts={})", parts.length);
-                throw new IllegalStateException("Invalid JWT");
-            }
-            String payload = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
-            log.debug("getOwnerEmail: JWT payload={}", payload);
-            com.fasterxml.jackson.databind.JsonNode node = new ObjectMapper().readTree(payload);
-            String email = node.path("email").asText(null);
-            if (email == null || email.isBlank()) {
-                log.error("getOwnerEmail: no email claim in JWT payload={}", payload);
-                throw new IllegalStateException("Could not retrieve email from Supabase account");
-            }
-            return email;
-        } catch (JsonProcessingException e) {
-            log.error("getOwnerEmail: failed to parse JWT payload", e);
-            throw new IllegalStateException("Could not parse Supabase access token", e);
-        }
-    }
 }

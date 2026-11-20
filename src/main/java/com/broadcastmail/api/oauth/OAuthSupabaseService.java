@@ -9,8 +9,8 @@ import com.broadcastmail.api.onboarding.PartialOnboardingSession;
 import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
-import com.broadcastmail.common.account.Account;
-import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.connection.ConnectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,33 +29,36 @@ public class OAuthSupabaseService {
 
     private final SupabaseManagementClient supabaseManagementClient;
     private final OAuthSessionStore onboardingSessionStore;
-    private final AccountRepository accountRepository;
+    private final ConnectionRepository connectionRepository;
     private final AccountService accountService;
     private final OAuthSessionService oAuthSessionService;
     private final EncryptionProperties encryptionProperties;
 
     public OAuthCallbackResult exchangeWithPKCE(String code, String codeVerifier, @Nullable UUID accountId) {
         SupabaseTokenResponse tokenResponse = supabaseManagementClient.exchangeCodeForTokensPKCE(code, codeVerifier);
-        log.info("Supabase token response extra fields: {}", tokenResponse.extraFieldNames());
         String rawAccessToken = tokenResponse.accessToken();
         Instant tokenExpiresAt = Instant.now().plusSeconds(tokenResponse.expiresIn());
         String encryptedAccessToken = SecurityUtil.encrypt(rawAccessToken, encryptionProperties.key());
         String encryptedRefreshToken = SecurityUtil.encrypt(tokenResponse.refreshToken(), encryptionProperties.key());
-        String ownerEmail = supabaseManagementClient.getOwnerEmail(rawAccessToken);
-
-        if (accountId != null) {
-            return handleReconfigure(accountId, ownerEmail, rawAccessToken,
-                    encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
-        }
-
-        Optional<Account> existing = accountRepository.findByEmail(ownerEmail);
-        if (existing.isPresent()) {
-            String rawKey = accountService.rotateApiKey(existing.get().getId());
-            return new OAuthCallbackResult.ReturningUser(rawKey);
-        }
 
         List<SupabaseProject> projects = supabaseManagementClient.listProjects(rawAccessToken);
         if (projects.isEmpty()) throw new NoSupabaseProjectsException();
+
+        String ownerEmail = resolveOwnerEmail(rawAccessToken, projects.getFirst().ref());
+
+        if (accountId != null) {
+            return handleReconfigure(accountId, ownerEmail, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt, projects);
+        }
+
+        Optional<UUID> existingAccountId = projects.stream()
+                .flatMap(p -> connectionRepository.findByProjectRef(p.ref()).stream())
+                .map(Connection::getAccountId)
+                .findFirst();
+
+        if (existingAccountId.isPresent()) {
+            String rawKey = accountService.rotateApiKey(existingAccountId.get());
+            return new OAuthCallbackResult.ReturningUser(rawKey);
+        }
 
         if (projects.size() == 1) {
             return oAuthSessionService.setupProjectAndCreateSession(
@@ -70,11 +73,9 @@ public class OAuthSupabaseService {
     }
 
     private OAuthCallbackResult handleReconfigure(
-            UUID accountId, String ownerEmail, String rawAccessToken,
-            String encryptedAccessToken, String encryptedRefreshToken, Instant tokenExpiresAt) {
-
-        List<SupabaseProject> projects = supabaseManagementClient.listProjects(rawAccessToken);
-        if (projects.isEmpty()) throw new NoSupabaseProjectsException();
+            UUID accountId, String ownerEmail,
+            String encryptedAccessToken, String encryptedRefreshToken,
+            Instant tokenExpiresAt, List<SupabaseProject> projects) {
 
         if (projects.size() == 1) {
             String sessionToken = oAuthSessionService.setupReconfigureSession(
@@ -88,5 +89,14 @@ public class OAuthSupabaseService {
                         accountId, ownerEmail, encryptedAccessToken, encryptedRefreshToken,
                         tokenExpiresAt, projects));
         return new OAuthCallbackResult.ReconfigureMultipleProjects(partialToken);
+    }
+
+    private String resolveOwnerEmail(String rawAccessToken, String projectRef) {
+        try {
+            return supabaseManagementClient.resolveOwnerEmail(rawAccessToken, projectRef);
+        } catch (Exception e) {
+            log.warn("Could not resolve owner email from project {}: {}", projectRef, e.getMessage());
+            return null;
+        }
     }
 }

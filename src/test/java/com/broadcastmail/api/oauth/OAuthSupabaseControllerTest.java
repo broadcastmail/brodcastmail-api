@@ -91,7 +91,6 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
     void shouldSetSessionCookieAfterSuccessfulOAuthWithSingleProject() {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
-        when(supabaseManagementClient.getOwnerEmail("access-token")).thenReturn("owner@example.com");
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(new SupabaseProject("project-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01")));
         doNothing().when(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
@@ -106,7 +105,6 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
     void shouldRedirectToProjectPickerWhenMultipleProjects() {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
-        when(supabaseManagementClient.getOwnerEmail("access-token")).thenReturn("owner@example.com");
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(
                         new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01"),
@@ -124,7 +122,6 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
     void shouldListProjectsForPartialSession() {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
-        when(supabaseManagementClient.getOwnerEmail("access-token")).thenReturn("owner@example.com");
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(
                         new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01"),
@@ -159,7 +156,6 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
     void shouldRejectCallbackWithNoProjects() {
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
-        when(supabaseManagementClient.getOwnerEmail("access-token")).thenReturn("owner@example.com");
         when(supabaseManagementClient.listProjects("access-token")).thenReturn(List.of());
 
         var result = callbackRequest("valid-code").exchange();
@@ -169,11 +165,13 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     @Test
     void shouldSetSessionCookieAndRedirectToDashboardForReturningUser() {
-        accountRepository.save(CampaignTestFixtures.account().email("returning-user@example.com").build());
+        Account account = accountRepository.save(CampaignTestFixtures.account().build());
+        connectionRepository.save(CampaignTestFixtures.connection(account.getId()).projectRef("project-ref").build());
 
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
-        when(supabaseManagementClient.getOwnerEmail("access-token")).thenReturn("returning-user@example.com");
+        when(supabaseManagementClient.listProjects("access-token"))
+                .thenReturn(List.of(new SupabaseProject("project-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01")));
 
         var result = callbackRequest("valid-code").exchange();
 
@@ -191,7 +189,6 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         String reconfigureState = "abc123:reconfigure";
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
-        when(supabaseManagementClient.getOwnerEmail("access-token")).thenReturn("returning-user@example.com");
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(new SupabaseProject("ref-1", "Project", "ACTIVE_HEALTHY", "2026-01-01")));
         doNothing().when(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
@@ -220,7 +217,6 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         String reconfigureState = "abc123:reconfigure";
         when(supabaseManagementClient.exchangeCodeForTokensPKCE("valid-code", VERIFIER))
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
-        when(supabaseManagementClient.getOwnerEmail("access-token")).thenReturn("returning-user@example.com");
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(
                         new SupabaseProject("ref-1", "Project 1", "ACTIVE_HEALTHY", "2026-01-01"),
