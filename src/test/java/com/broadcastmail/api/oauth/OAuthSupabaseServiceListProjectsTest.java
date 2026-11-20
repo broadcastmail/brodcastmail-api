@@ -1,10 +1,8 @@
 package com.broadcastmail.api.oauth;
 
 import com.broadcastmail.api.common.SecurityUtil;
-import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.oauth.dto.ProjectOption;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
-import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.dto.SupabaseProject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,7 +14,6 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,18 +21,13 @@ class OAuthSupabaseServiceListProjectsTest {
 
     private static final String ENCRYPTION_KEY = "test-encryption-key-32-chars-okk";
 
-    @Mock private SupabaseManagementClient supabaseManagementClient;
     @Mock private OAuthSessionStore onboardingSessionStore;
 
     private OAuthSessionService oAuthSessionService;
 
     @BeforeEach
     void setUp() {
-        oAuthSessionService = new OAuthSessionService(
-                supabaseManagementClient,
-                onboardingSessionStore,
-                new EncryptionProperties(ENCRYPTION_KEY)
-        );
+        oAuthSessionService = new OAuthSessionService(onboardingSessionStore);
     }
 
     private PartialOnboardingSession partialSessionWith(List<SupabaseProject> projects) {
@@ -63,6 +55,5 @@ class OAuthSupabaseServiceListProjectsTest {
                 new ProjectOption("ref-1", "Project 1", "ACTIVE_HEALTHY"),
                 new ProjectOption("ref-2", "Project 2", "PAUSED")
         );
-        verifyNoInteractions(supabaseManagementClient);
     }
 }

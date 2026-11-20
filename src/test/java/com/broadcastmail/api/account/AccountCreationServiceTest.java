@@ -4,6 +4,7 @@ import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.config.ResendProperties;
 import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
+import com.broadcastmail.api.supabase.SupabaseManagementClient;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -48,6 +49,9 @@ class AccountCreationServiceTest {
     @Mock
     private ResendClient resendClient;
 
+    @Mock
+    private SupabaseManagementClient supabaseManagementClient;
+
     @Captor
     private ArgumentCaptor<Account> accountCaptor;
 
@@ -67,7 +71,8 @@ class AccountCreationServiceTest {
                 connectionRepository,
                 resendClient,
                 new EncryptionProperties(ENCRYPTION_KEY),
-                new ResendProperties("https://webhooks.example.com")
+                new ResendProperties("https://webhooks.example.com"),
+                supabaseManagementClient
         );
     }
 
