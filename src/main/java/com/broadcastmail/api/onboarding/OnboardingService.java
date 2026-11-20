@@ -1,7 +1,9 @@
 package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.account.AccountCreationService;
+import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.connection.ConnectionService;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
@@ -20,6 +22,7 @@ public class OnboardingService {
     private final OAuthSessionStore onboardingSessionStore;
     private final AccountCreationService accountCreationService;
     private final ConnectionService connectionService;
+    private final EncryptionProperties encryptionProperties;
 
     public String completeOnboarding(String sessionToken) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken)
@@ -34,7 +37,7 @@ public class OnboardingService {
     public void testConnection(String sessionToken) {
         OnboardingSession onboardingSession = onboardingSessionStore.get(sessionToken);
 
-        String rolePassword = onboardingSession.getEncryptedRolePassword();
+        String rolePassword = SecurityUtil.decrypt(onboardingSession.getEncryptedRolePassword(), encryptionProperties.key());
         String jdbcUrl = onboardingSession.getJdbcUrl();
 
         try (Connection connection = DriverManager.getConnection(jdbcUrl, "broadcastmail_reader", rolePassword);

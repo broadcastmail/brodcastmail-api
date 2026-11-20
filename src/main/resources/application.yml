@@ -41,7 +41,7 @@ supabase:
   oauth:
     client-id: ${SUPABASE_CLIENT_ID}
     client-secret: ${SUPABASE_CLIENT_SECRET}
-    redirect-uri: ${SUPABASE_REDIRECT_URI:http://localhost:3030/api/v1/oauth/supabase/callback}
+    redirect-uri: ${SUPABASE_REDIRECT_URI:http://localhost:3000/api/oauth/callback}
 stripe:
   secret-key: ${STRIPE_SECRET_KEY}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET}
