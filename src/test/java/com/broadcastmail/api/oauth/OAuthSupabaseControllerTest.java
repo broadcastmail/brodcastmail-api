@@ -36,8 +36,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
     @Autowired
     private MockMvcTester mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @Autowired
     private AccountRepository accountRepository;
