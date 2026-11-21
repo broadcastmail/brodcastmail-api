@@ -89,7 +89,7 @@ class OAuthSupabaseServiceTest {
         mockTokenExchange();
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1")));
         when(connectionRepository.findByProjectRef("ref-1")).thenReturn(Optional.empty());
-        when(oAuthSessionService.setupProjectAndCreateSession(any(), any(), any(), any(), any(), any(), any())).thenReturn(
+        when(oAuthSessionService.setupProjectAndCreateSession(any(), any(), any(), any(), any(), any())).thenReturn(
                 new OAuthCallbackResult.NewUserSingleProject("session-token"));
 
         OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, null);

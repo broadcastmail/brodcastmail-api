@@ -57,7 +57,7 @@ public class OAuthSupabaseService {
         if (projects.size() == 1) {
             return oAuthSessionService.setupProjectAndCreateSession(
                     projects.getFirst().ref(), null, projects.getFirst().poolerPrefix(),
-                    rawAccessToken, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
+                    encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
         }
 
         String partialToken = onboardingSessionStore.createPartial(

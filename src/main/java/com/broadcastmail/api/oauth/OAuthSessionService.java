@@ -30,12 +30,11 @@ public class OAuthSessionService {
             String projectRef,
             String ownerEmail,
             String poolerPrefix,
-            String rawAccessToken,
             String encryptedAccessToken,
             String encryptedRefreshToken,
             Instant tokenExpiresAt) {
 
-        String sessionToken = provisionSession(projectRef, poolerPrefix, rawAccessToken, OnboardingSession.builder()
+        String sessionToken = provisionSession(projectRef, poolerPrefix, OnboardingSession.builder()
                 .ownerEmail(ownerEmail)
                 .encryptedAccessToken(encryptedAccessToken)
                 .encryptedRefreshToken(encryptedRefreshToken)
@@ -120,7 +119,6 @@ public class OAuthSessionService {
                     projectRef,
                     partial.ownerEmail(),
                     poolerPrefix,
-                    rawAccessToken,
                     partial.encryptedAccessToken(),
                     partial.encryptedRefreshToken(),
                     partial.tokenExpiresAt());
@@ -133,19 +131,13 @@ public class OAuthSessionService {
     private String provisionSession(
             String projectRef,
             String poolerPrefix,
-            String rawAccessToken,
             OnboardingSession.OnboardingSessionBuilder builder) {
-
-        String rolePassword = SecurityUtil.generatePassword();
-        supabaseManagementClient.executeSql(rawAccessToken, projectRef,
-                SupabaseSql.PROVISION_READER.formatted(rolePassword, rolePassword));
 
         OnboardingSession session = builder
                 .projectRef(projectRef)
                 .projectUrl(SupabaseSql.buildProjectUrl(projectRef))
                 .jdbcUrl(SupabaseSql.buildPoolerJdbcUrl(projectRef, poolerPrefix))
                 .jdbcUsername(SupabaseSql.poolerReaderRole(projectRef))
-                .encryptedRolePassword(SecurityUtil.encrypt(rolePassword, encryptionProperties.key()))
                 .expiresAt(Instant.now().plusSeconds(1800))
                 .build();
 

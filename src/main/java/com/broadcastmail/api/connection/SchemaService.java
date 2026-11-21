@@ -18,6 +18,7 @@ import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SchemaService {
@@ -40,7 +42,9 @@ public class SchemaService {
     public SchemaIntrospectionResult detect(String sessionToken) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken);
         if (session.getEncryptedRolePassword() == null) {
+            log.info("[detect] provisioning reader for project={}", session.getProjectRef());
             session = provisionReader(sessionToken, session);
+            log.info("[detect] provisioning done, attempting JDBC url={} username={}", session.getJdbcUrl(), session.getJdbcUsername());
         }
         SupabaseIntrospectionData data = supabaseIntrospectionService.introspect(
                 session.getJdbcUrl(), session.getEncryptedRolePassword(), session.getJdbcUsername());

@@ -207,7 +207,6 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                 .thenReturn(new SupabaseTokenResponse("access-token", "refresh-token", 3600, "Bearer"));
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(new SupabaseProject("ref-1", "Project", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws")));
-        doNothing().when(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
 
         var result = callbackRequest("valid-code", reconfigureState, VERIFIER, TEST_API_KEY).exchange();
 
