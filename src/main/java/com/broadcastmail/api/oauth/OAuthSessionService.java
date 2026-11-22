@@ -6,9 +6,9 @@ import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
 import com.broadcastmail.api.oauth.dto.ProjectOption;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
-import com.broadcastmail.api.supabase.SupabaseManagementClient;
+import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.SupabaseSql;
-import com.broadcastmail.api.supabase.dto.SupabaseProject;
+import com.broadcastmail.api.supabase.management.dto.SupabaseProject;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -48,30 +49,25 @@ public class OAuthSessionService {
             String ownerEmail,
             String projectRef,
             String poolerPrefix,
-            String rawAccessToken,
             String encryptedAccessToken,
             String encryptedRefreshToken,
             Instant tokenExpiresAt) {
 
-        String encryptedRolePassword = connectionRepository.findByAccountId(accountId)
-                .map(Connection::getEncryptedCreds)
-                .orElseGet(() -> {
-                    String pw = SecurityUtil.generatePassword();
-                    supabaseManagementClient.executeSql(rawAccessToken, projectRef,
-                            SupabaseSql.PROVISION_READER.formatted(pw, pw));
-                    return SecurityUtil.encrypt(pw, encryptionProperties.key());
-                });
+        // Reuse the existing role only on the same project — on another project it doesn't exist, and /schema/test
+        // provisions a new one. Never re-password it: Supavisor caches secrets, so a rotated password fails for a while.
+        Optional<Connection> sameProject = connectionRepository.findByAccountId(accountId)
+                .filter(c -> projectRef.equals(c.getProjectRef()));
 
         OnboardingSession session = OnboardingSession.builder()
                 .accountId(accountId)
                 .ownerEmail(ownerEmail)
                 .projectRef(projectRef)
                 .projectUrl(SupabaseSql.buildProjectUrl(projectRef))
-                .jdbcUrl(SupabaseSql.buildPoolerJdbcUrl(projectRef, poolerPrefix))
-                .jdbcUsername(SupabaseSql.poolerReaderRole(projectRef))
+                .poolerPrefix(poolerPrefix)
+                .dbRole(sameProject.map(Connection::getDbRole).orElse(null))
+                .encryptedRolePassword(sameProject.map(Connection::getEncryptedCreds).orElse(null))
                 .encryptedAccessToken(encryptedAccessToken)
                 .encryptedRefreshToken(encryptedRefreshToken)
-                .encryptedRolePassword(encryptedRolePassword)
                 .tokenExpiresAt(tokenExpiresAt)
                 .expiresAt(Instant.now().plusSeconds(1800))
                 .build();
@@ -109,7 +105,6 @@ public class OAuthSessionService {
                     partial.ownerEmail(),
                     projectRef,
                     poolerPrefix,
-                    rawAccessToken,
                     partial.encryptedAccessToken(),
                     partial.encryptedRefreshToken(),
                     partial.tokenExpiresAt());
@@ -136,8 +131,7 @@ public class OAuthSessionService {
         OnboardingSession session = builder
                 .projectRef(projectRef)
                 .projectUrl(SupabaseSql.buildProjectUrl(projectRef))
-                .jdbcUrl(SupabaseSql.buildPoolerJdbcUrl(projectRef, poolerPrefix))
-                .jdbcUsername(SupabaseSql.poolerReaderRole(projectRef))
+                .poolerPrefix(poolerPrefix)
                 .expiresAt(Instant.now().plusSeconds(1800))
                 .build();
 

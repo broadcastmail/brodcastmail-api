@@ -3,6 +3,7 @@ package com.broadcastmail.api.account;
 import com.broadcastmail.api.billing.BillingService;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
+import com.broadcastmail.api.common.exceptions.EmailAlreadyTakenException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import jakarta.transaction.Transactional;
@@ -36,5 +37,16 @@ public class AccountService {
 
         billingService.cancelSubscriptionsForCustomer(account.getStripeCustomerId());
         accountRepository.delete(account);
+    }
+
+    /** Moves the account to the Supabase org owner's email, unless another account already uses it. */
+    @Transactional
+    public void updateOwnerEmail(UUID accountId, String email) {
+        accountRepository.findByEmail(email).ifPresent(existing -> {
+            if (!existing.getId().equals(accountId)) {
+                throw new EmailAlreadyTakenException();
+            }
+        });
+        accountRepository.updateEmail(accountId, email);
     }
 }

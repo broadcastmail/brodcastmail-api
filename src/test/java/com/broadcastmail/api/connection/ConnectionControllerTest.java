@@ -1,5 +1,6 @@
 package com.broadcastmail.api.connection;
 
+import com.broadcastmail.api.connection.schema.SchemaIntrospectionService;
 import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.TestSecurityConfig;
@@ -9,7 +10,11 @@ import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.emailprovider.EmailProviderService;
 import com.broadcastmail.api.emailprovider.dto.EmailProviderInfoResponse;
 import com.broadcastmail.api.emailprovider.dto.VerifyKeyResponse;
-import com.broadcastmail.api.supabase.TenantConnectionGateway;
+import com.broadcastmail.api.supabase.reader.ReaderConnectionVerifier;
+import com.broadcastmail.api.supabase.reader.ReaderRoleService;
+import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
+import com.broadcastmail.api.supabase.management.SupabaseAccessTokens;
+import com.broadcastmail.api.supabase.reader.TenantConnectionGateway;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
@@ -63,6 +68,21 @@ class ConnectionControllerTest extends IntegrationTest {
     private EmailProviderService emailProviderService;
     @MockitoBean
     private TenantConnectionGateway tenantConnectionGateway;
+    @MockitoBean
+    private SupabaseAccessTokens supabaseAccessTokens;
+    @MockitoBean
+    private ReaderRoleService readerRoleService;
+    @MockitoBean
+    private SupabaseManagementClient supabaseManagementClient;
+    @MockitoBean
+    private ReaderConnectionVerifier readerConnectionVerifier;
+
+    private void stubNewProjectRole() {
+        when(supabaseManagementClient.getPoolerPrefix(any(), any())).thenReturn("aws-0-eu-west-1");
+        when(readerRoleService.provision(any(), any(), any()))
+                .thenReturn(new ReaderRoleService.Provisioned("broadcastmail_r_abc", "enc-pw"));
+        when(readerRoleService.decryptPassword(any())).thenReturn("pw");
+    }
 
     private Account account;
     private Connection connection;
@@ -83,6 +103,7 @@ class ConnectionControllerTest extends IntegrationTest {
 
     @Test
     void shouldReturn200WhenUpdatingProject() throws Exception {
+        stubNewProjectRole();
         var response = authedPatch("/api/v1/connections/reconnect/project").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateProjectRequest("new-ref"))).exchange();
 
@@ -91,12 +112,16 @@ class ConnectionControllerTest extends IntegrationTest {
 
     @Test
     void shouldNullDownstreamFieldsWhenUpdatingProject() throws Exception {
+        stubNewProjectRole();
         authedPatch("/api/v1/connections/reconnect/project").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateProjectRequest("new-ref"))).exchange();
 
         Connection updated = connectionRepository.findByAccountId(account.getId()).orElseThrow();
 
         assertThat(updated.getProjectRef()).isEqualTo("new-ref");
+        assertThat(updated.getDbRole()).isEqualTo("broadcastmail_r_abc");
+        assertThat(updated.getPoolerPrefix()).isEqualTo("aws-0-eu-west-1");
+        assertThat(updated.getEncryptedCreds()).isEqualTo("enc-pw");
         assertThat(updated.getUserTableName()).isNull();
         assertThat(updated.getUserTableSchema()).isNull();
         assertThat(updated.getEmailColumn()).isNull();
@@ -123,7 +148,7 @@ class ConnectionControllerTest extends IntegrationTest {
 
     @Test
     void shouldReturn200WhenUpdatingColumns() throws Exception {
-        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any(), any())).thenReturn(
+        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
                                 new DetectedColumn("is_verified", "boolean", true, null, false)),
@@ -137,7 +162,7 @@ class ConnectionControllerTest extends IntegrationTest {
 
     @Test
     void shouldDeleteExistingColumnsWhenUpdatingColumns() throws Exception {
-        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any(), any(), any())).thenReturn(
+        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
                                 new DetectedColumn("is_verified", "boolean", true, null, false)),

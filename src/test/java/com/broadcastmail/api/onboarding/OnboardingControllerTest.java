@@ -273,7 +273,6 @@ class OnboardingControllerTest extends IntegrationTest {
         return OnboardingSession.builder()
                 .projectRef("project-ref")
                 .projectUrl("https://project-ref.supabase.co")
-                .jdbcUrl("jdbc:postgresql://db.project-ref.supabase.co:5432/postgres")
                 .encryptedRolePassword("encrypted-role-password")
                 .ownerEmail("test@example.com")
                 .encryptedAccessToken("encrypted-access-token")

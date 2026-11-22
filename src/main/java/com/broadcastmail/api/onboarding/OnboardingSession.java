@@ -1,10 +1,14 @@
 package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
+import com.broadcastmail.api.connection.ConnectionSpec;
+import com.broadcastmail.api.connection.EmailSourceSpec;
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
-import com.broadcastmail.api.onboarding.dto.EmailSourceOption;
+import com.broadcastmail.api.connection.dto.EmailSourceOption;
+import com.broadcastmail.api.filterablecolumn.ColumnSelection;
+import com.broadcastmail.common.connection.ReaderConnectionFactory;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.With;
@@ -21,9 +25,12 @@ public class OnboardingSession {
     private UUID accountId;
     private String projectRef;
     private String projectUrl;
-    private String jdbcUrl;
-    private String jdbcUsername;
+    private String poolerPrefix;
+    // Set together once the reader role exists on projectRef (provisioned at /schema/test, or reused on same-project
+    // reconfigure). Read through hasReader() / readerConnectionFactory() rather than null-checking.
+    private String dbRole;
     private String encryptedRolePassword;
+    private boolean connectionVerified;
     private String ownerEmail;
     private String encryptedAccessToken;
     private String encryptedRefreshToken;
@@ -72,6 +79,37 @@ public class OnboardingSession {
             throw new InvalidOnboardingSessionException();
         }
         return this;
+    }
+
+    public OnboardingSession requireConnectionVerified() {
+        if (!connectionVerified || !hasReader()) {
+            throw new InvalidOnboardingSessionException();
+        }
+        return this;
+    }
+
+    public boolean hasReader() {
+        return dbRole != null;
+    }
+
+    /** @throws InvalidOnboardingSessionException before the reader role has been provisioned */
+    public ReaderConnectionFactory readerConnectionFactory() {
+        if (!hasReader()) throw new InvalidOnboardingSessionException();
+        return new ReaderConnectionFactory(projectRef, poolerPrefix, dbRole);
+    }
+
+    public ConnectionSpec connectionSpec() {
+        return new ConnectionSpec(projectRef, projectUrl, poolerPrefix, dbRole, encryptedRolePassword,
+                schemaDetails.userSchema(), schemaDetails.userTable(), schemaDetails.userIdColumn());
+    }
+
+    public EmailSourceSpec emailSourceSpec() {
+        return new EmailSourceSpec(emailTableDetails.emailTableSchema(), emailTableDetails.emailTableName(),
+                emailTableDetails.emailTableIdColumn(), emailTableDetails.emailColumn());
+    }
+
+    public ColumnSelection columnSelection() {
+        return new ColumnSelection(detectedColumns, authColumns, confirmedColumnNames);
     }
 
     public boolean isReconfigure() {

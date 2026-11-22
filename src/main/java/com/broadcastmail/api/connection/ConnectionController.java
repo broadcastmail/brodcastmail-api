@@ -1,7 +1,8 @@
 package com.broadcastmail.api.connection;
 
-import com.broadcastmail.api.auth.CookieService;
-import com.broadcastmail.api.config.OriginValidator;
+import com.broadcastmail.api.connection.filter.FilterContextService;
+import com.broadcastmail.api.connection.schema.EmailSourceService;
+import com.broadcastmail.api.connection.schema.SchemaService;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.oauth.dto.ProjectOption;
 import com.broadcastmail.api.connection.dto.EmailSourceResult;
@@ -11,15 +12,10 @@ import com.broadcastmail.api.emailprovider.dto.ReconfigureProviderRequest;
 import com.broadcastmail.api.emailprovider.dto.UpdateSenderRequest;
 import com.broadcastmail.api.emailprovider.dto.VerifyKeyRequest;
 import com.broadcastmail.api.emailprovider.dto.VerifyKeyResponse;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -44,31 +40,10 @@ public class ConnectionController {
 
     private final SchemaService schemaService;
     private final EmailSourceService emailSourceService;
-    private final ConnectionReconfigureService connectionReconfigureService;
     private final ConnectionQueryService connectionQueryService;
     private final ConnectionUpdateService connectionUpdateService;
-    private final CookieService cookieService;
     private final EmailProviderService emailProviderService;
     private final FilterContextService filterContextService;
-    private final OriginValidator originValidator;
-
-    // ── Reconfigure (full OAuth re-setup) ──────────────────────────────────
-    @PostMapping("/reconfigure")
-    public ResponseEntity<Void> reconfigure(
-            @CookieValue(name = "onboarding_session", required = false) String sessionToken,
-            HttpServletRequest request,
-            HttpServletResponse response) {
-        if (sessionToken == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        connectionReconfigureService.reconfigure(sessionToken);
-        String origin = originValidator.validateAndReturn(request);
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                cookieService.clearOnboardingCookie().toString());
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, origin + "/settings")
-                .build();
-    }
 
     // ── Reconnect (edit fields without OAuth) ──────────────────────────────
 

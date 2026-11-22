@@ -1,6 +1,6 @@
 package com.broadcastmail.api.onboarding;
 
-import com.broadcastmail.api.supabase.dto.SupabaseProject;
+import com.broadcastmail.api.supabase.management.dto.SupabaseProject;
 
 import java.time.Duration;
 import java.time.Instant;

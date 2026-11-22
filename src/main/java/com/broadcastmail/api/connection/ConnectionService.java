@@ -1,18 +1,17 @@
 package com.broadcastmail.api.connection;
 
-import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
-import com.broadcastmail.common.filterablecolumn.FilterableColumn;
-import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
-import com.broadcastmail.api.onboarding.OnboardingSession;
-import com.broadcastmail.common.campaign.filter.FilterSource;
+import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.api.filterablecolumn.ColumnSelection;
+import com.broadcastmail.api.filterablecolumn.FilterableColumnService;
+import com.broadcastmail.api.supabase.reader.ReaderRoleService;
+import com.broadcastmail.api.supabase.SupabaseSql.TableRef;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -21,32 +20,48 @@ import java.util.UUID;
 public class ConnectionService {
 
     private final ConnectionRepository connectionRepository;
-    private final FilterableColumnRepository filterableColumnRepository;
+    private final FilterableColumnService filterableColumnService;
 
-    public void createConnection(UUID accountId, OnboardingSession session) {
-        OnboardingSession.EmailTableDetails emailTable = session.getEmailTableDetails();
+    public Connection getByAccountId(UUID accountId) {
+        return connectionRepository.findByAccountId(accountId).orElseThrow(ConnectionNotFoundException::new);
+    }
+
+    public void createConnection(UUID accountId, ConnectionSpec spec, EmailSourceSpec emailSource, ColumnSelection columns) {
         Connection connection = Connection.builder()
                 .accountId(accountId)
-                .projectRef(session.getProjectRef())
-                .projectUrl(session.getProjectUrl())
-                .encryptedCreds(session.getEncryptedRolePassword())
-                .userTableSchema(session.getSchemaDetails().userSchema())
-                .userTableName(session.getSchemaDetails().userTable())
-                .userIdColumn(session.getSchemaDetails().userIdColumn())
-                .emailTableSchema(emailTable.emailTableSchema())
-                .emailTableName(emailTable.emailTableName())
-                .emailTableIdColumn(emailTable.emailTableIdColumn())
-                .emailColumn(emailTable.emailColumn())
+                .emailTableSchema(emailSource.tableSchema())
+                .emailTableName(emailSource.tableName())
+                .emailTableIdColumn(emailSource.idColumn())
+                .emailColumn(emailSource.emailColumn())
                 .build();
+        apply(connection, spec);
         connectionRepository.save(connection);
+        filterableColumnService.create(connection.getId(), columns);
+    }
 
-        if (session.getConfirmedColumnNames() != null) {
-            List<FilterableColumn> filterableColumns = new ArrayList<>();
-            filterableColumns.addAll(FilterableColumnFactory.from(
-                    connection.getId(), session.getDetectedColumns(), FilterSource.PROFILE_TABLE, session.getConfirmedColumnNames()));
-            filterableColumns.addAll(FilterableColumnFactory.from(
-                    connection.getId(), session.getAuthColumns(), FilterSource.AUTH_METADATA, session.getConfirmedColumnNames()));
-            filterableColumnRepository.saveAll(filterableColumns);
-        }
+    /** Points an existing connection at a new project/role/profile table; the email table is kept. */
+    public Connection reconfigure(Connection connection, ConnectionSpec spec, ColumnSelection columns) {
+        apply(connection, spec);
+        connectionRepository.save(connection);
+        filterableColumnService.replace(connection.getId(), columns);
+        return connection;
+    }
+
+    /** The tables the connection's reader role must be able to read: its profile table and email table. */
+    public static Set<TableRef> tablesOf(Connection connection) {
+        return ReaderRoleService.tables(
+                connection.getUserTableSchema(), connection.getUserTableName(),
+                connection.getEmailTableSchema(), connection.getEmailTableName());
+    }
+
+    private static void apply(Connection connection, ConnectionSpec spec) {
+        connection.setProjectRef(spec.projectRef());
+        connection.setProjectUrl(spec.projectUrl());
+        connection.setPoolerPrefix(spec.poolerPrefix());
+        connection.setDbRole(spec.dbRole());
+        connection.setEncryptedCreds(spec.encryptedRolePassword());
+        connection.setUserTableSchema(spec.userTableSchema());
+        connection.setUserTableName(spec.userTableName());
+        connection.setUserIdColumn(spec.userIdColumn());
     }
 }

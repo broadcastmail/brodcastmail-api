@@ -4,15 +4,15 @@ import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.config.ResendProperties;
 import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
-import com.broadcastmail.api.supabase.SupabaseManagementClient;
+import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
-import com.broadcastmail.api.oauth.OAuthToken;
+import com.broadcastmail.api.oauth.token.OAuthToken;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.resend.ResendClient;
-import com.broadcastmail.api.token.OAuthTokenRepository;
+import com.broadcastmail.api.oauth.token.OAuthTokenRepository;
 import com.broadcastmail.common.emailprovider.EmailProvider;
 import com.broadcastmail.common.emailprovider.EmailProviderRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,7 +91,6 @@ class AccountCreationServiceTest {
                 )
                 .projectRef("project-ref")
                 .projectUrl("https://project-ref.supabase.co")
-                .jdbcUrl("jdbc:postgresql://db.project-ref.supabase.co:5432/postgres")
                 .encryptedRolePassword("encrypted-role-password")
                 .tokenExpiresAt(Instant.now().plusSeconds(3600))
                 .expiresAt(Instant.now().plusSeconds(1800))
