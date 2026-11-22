@@ -62,7 +62,7 @@ class SessionReaderServiceTest {
         var inOrder = inOrder(onboardingSessionStore, readerConnectionVerifier);
         inOrder.verify(onboardingSessionStore).updateSession(eq("token"), saved.capture());
         inOrder.verify(readerConnectionVerifier).verify(
-               new ReaderConnectionFactory("ref", "aws-0-eu-west-1", "broadcastmail_r_abc"), eq("pw"));
+                new ReaderConnectionFactory("ref", "aws-0-eu-west-1", "broadcastmail_r_abc"), "pw");
         assertThat(saved.getAllValues().getFirst().getDbRole()).isEqualTo("broadcastmail_r_abc");
         assertThat(saved.getAllValues().getFirst().isConnectionVerified()).isFalse();
         assertThat(result.isConnectionVerified()).isTrue();
