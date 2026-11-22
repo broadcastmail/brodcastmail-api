@@ -6,6 +6,7 @@ import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 
 @Service
@@ -15,6 +16,7 @@ public class OnboardingService {
     private final AccountCreationService accountCreationService;
     private final ConnectionService connectionService;
     private final SessionReaderService sessionReaderService;
+    private final TransactionTemplate transactionTemplate;
 
     public String completeOnboarding(String sessionToken) {
         onboardingSessionStore.get(sessionToken)
@@ -23,9 +25,13 @@ public class OnboardingService {
                 .requireResendDetails();
         // No-op when /schema/test already ran; otherwise provisions + verifies now. Also grants the final table set.
         OnboardingSession session = sessionReaderService.ensureReady(sessionToken).requireConnectionVerified();
-        AccountCreationResult result = accountCreationService.createFromOnboarding(session);
-        connectionService.createConnection(
-                result.accountId(), session.connectionSpec(), session.emailSourceSpec(), session.columnSelection());
+        // Account and connection are saved together: a half-created account blocks every retry on the unique email.
+        AccountCreationResult result = transactionTemplate.execute(status -> {
+            AccountCreationResult created = accountCreationService.createFromOnboarding(session);
+            connectionService.createConnection(
+                    created.accountId(), session.connectionSpec(), session.emailSourceSpec(), session.columnSelection());
+            return created;
+        });
         return result.rawApiKey();
     }
 
