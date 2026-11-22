@@ -82,6 +82,20 @@ public class GlobalExceptionHandler {
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 
+    @ExceptionHandler(SupabaseReauthRequiredException.class)
+    public ResponseEntity<Map<String, String>> handleSupabaseReauthRequired(SupabaseReauthRequiredException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(Map.of(ERROR_KEY, SupabaseReauthRequiredException.CODE));
+    }
+
+    @ExceptionHandler(ReaderNotReadyException.class)
+    public ResponseEntity<Map<String, String>> handleReaderNotReady(ReaderNotReadyException ex) {
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
     @ExceptionHandler(ConnectionNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleConnectionNotFound(ConnectionNotFoundException ex) {
         return ResponseEntity

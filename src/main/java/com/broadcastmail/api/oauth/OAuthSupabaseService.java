@@ -6,9 +6,9 @@ import com.broadcastmail.api.common.exceptions.NoSupabaseProjectsException;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
-import com.broadcastmail.api.supabase.SupabaseManagementClient;
-import com.broadcastmail.api.supabase.dto.SupabaseProject;
-import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
+import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
+import com.broadcastmail.api.supabase.management.dto.SupabaseProject;
+import com.broadcastmail.api.supabase.management.dto.SupabaseTokenResponse;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +41,7 @@ public class OAuthSupabaseService {
         if (projects.isEmpty()) throw new NoSupabaseProjectsException();
 
         if (accountId != null) {
-            return handleReconfigure(accountId, rawAccessToken, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt, projects);
+            return handleReconfigure(accountId, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt, projects);
         }
 
         Optional<UUID> existingAccountId = projects.stream()
@@ -68,14 +68,13 @@ public class OAuthSupabaseService {
 
     private OAuthCallbackResult handleReconfigure(
             UUID accountId,
-            String rawAccessToken,
             String encryptedAccessToken, String encryptedRefreshToken,
             Instant tokenExpiresAt, List<SupabaseProject> projects) {
 
         if (projects.size() == 1) {
             String sessionToken = oAuthSessionService.setupReconfigureSession(
                     accountId, null, projects.getFirst().ref(), projects.getFirst().poolerPrefix(),
-                    rawAccessToken, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
+                    encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
             return new OAuthCallbackResult.ReconfigureSingleProject(sessionToken);
         }
 

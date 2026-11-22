@@ -1,6 +1,5 @@
 package com.broadcastmail.api.connection.dto;
 
-import com.broadcastmail.api.onboarding.dto.EmailSourceOption;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 

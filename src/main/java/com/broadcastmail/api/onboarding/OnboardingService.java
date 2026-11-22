@@ -1,19 +1,11 @@
 package com.broadcastmail.api.onboarding;
 
 import com.broadcastmail.api.account.AccountCreationService;
-import com.broadcastmail.api.common.SecurityUtil;
-import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
-import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.connection.ConnectionService;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 
 
 @Service
@@ -22,29 +14,23 @@ public class OnboardingService {
     private final OAuthSessionStore onboardingSessionStore;
     private final AccountCreationService accountCreationService;
     private final ConnectionService connectionService;
-    private final EncryptionProperties encryptionProperties;
+    private final SessionReaderService sessionReaderService;
 
     public String completeOnboarding(String sessionToken) {
-        OnboardingSession session = onboardingSessionStore.get(sessionToken)
+        onboardingSessionStore.get(sessionToken)
                 .requireSchemaConfirmed()
                 .requireEmailTableConfirmed()
                 .requireResendDetails();
+        // No-op when /schema/test already ran; otherwise provisions + verifies now. Also grants the final table set.
+        OnboardingSession session = sessionReaderService.ensureReady(sessionToken).requireConnectionVerified();
         AccountCreationResult result = accountCreationService.createFromOnboarding(session);
-        connectionService.createConnection(result.accountId(), session);
+        connectionService.createConnection(
+                result.accountId(), session.connectionSpec(), session.emailSourceSpec(), session.columnSelection());
         return result.rawApiKey();
     }
 
+    /** Provisions the reader role on first call and waits (up to ~15s) for the pooler to accept it. */
     public void testConnection(String sessionToken) {
-        OnboardingSession onboardingSession = onboardingSessionStore.get(sessionToken);
-
-        String rolePassword = SecurityUtil.decrypt(onboardingSession.getEncryptedRolePassword(), encryptionProperties.key());
-        String jdbcUrl = onboardingSession.getJdbcUrl();
-
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, "broadcastmail_reader", rolePassword);
-             Statement stmt = connection.createStatement()) {
-            stmt.execute("SELECT 1 FROM _broadcastmail.user_emails LIMIT 1");
-        } catch (SQLException _) {
-            throw new ConnectionNotFoundException();
-        }
+        sessionReaderService.ensureReady(sessionToken);
     }
 }

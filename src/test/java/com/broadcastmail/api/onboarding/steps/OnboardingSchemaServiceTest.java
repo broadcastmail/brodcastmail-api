@@ -1,0 +1,216 @@
+package com.broadcastmail.api.onboarding.steps;
+
+import com.broadcastmail.api.onboarding.OnboardingSession;
+import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
+import com.broadcastmail.api.connection.schema.SchemaIntrospectionService;
+import com.broadcastmail.api.connection.dto.DetectedColumn;
+import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
+import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
+import com.broadcastmail.api.connection.introspection.SupabaseIntrospectionService;
+import com.broadcastmail.api.oauth.OAuthSessionStore;
+import com.broadcastmail.api.supabase.management.ManagementSqlRunners;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class OnboardingSchemaServiceTest {
+
+    @Mock
+    private OAuthSessionStore onboardingSessionStore;
+
+    @Mock
+    private SupabaseIntrospectionService supabaseIntrospectionService;
+
+    @Mock
+    private SchemaIntrospectionService schemaIntrospectionService;
+
+    @Mock
+    private ManagementSqlRunners managementSqlRunners;
+
+    @Captor
+    private ArgumentCaptor<OnboardingSession> sessionCaptor;
+
+    @InjectMocks
+    private OnboardingSchemaService schemaService;
+
+    private OnboardingSession baseSession() {
+        return OnboardingSession.builder()
+                .ownerEmail("test@example.com")
+                .encryptedAccessToken("encrypted-access")
+                .encryptedRefreshToken("encrypted-refresh")
+                .projectRef("project-ref")
+                .projectUrl("https://project-ref.supabase.co")
+                .encryptedRolePassword("encrypted-role-password")
+                .tokenExpiresAt(Instant.now().plusSeconds(3600))
+                .expiresAt(Instant.now().plusSeconds(1800))
+                .build();
+    }
+
+    private SchemaIntrospectionResult.Detected detectedResult() {
+        return new SchemaIntrospectionResult.Detected(
+                "profiles",
+                "public",
+                "id",
+                List.of(
+                        new DetectedColumn("plan", "text", true, 3, false),
+                        new DetectedColumn("full_name", "text", true, 0, false),
+                        new DetectedColumn("created_at", "timestamptz", true, 0, false)
+                ),
+                List.of()
+        );
+    }
+
+    private SchemaIntrospectionResult.Detected secondCandidateResult() {
+        return new SchemaIntrospectionResult.Detected(
+                "subscriptions",
+                "public",
+                "user_id",
+                List.of(new DetectedColumn("status", "text", true, 2, false)),
+                List.of()
+        );
+    }
+
+    @Test
+    void shouldStoreDetectedTableAfterIntrospection() {
+        // Given
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
+        when(onboardingSessionStore.get("token")).thenReturn(baseSession());
+        when(supabaseIntrospectionService.introspect(any())).thenReturn(data);
+        when(schemaIntrospectionService.process(data)).thenReturn(detectedResult());
+
+        // When
+        schemaService.detect("token");
+
+        // Then
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaDetails().userTable()).isEqualTo("profiles");
+        assertThat(sessionCaptor.getValue().getSchemaDetails().userSchema()).isEqualTo("public");
+        assertThat(sessionCaptor.getValue().getSchemaDetails().confirmed()).isFalse();
+    }
+
+    @Test
+    void shouldConfirmSchemaWithColumnNames() {
+        // Given
+        OnboardingSession sessionWithSchema = baseSession()
+                .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", false));
+        when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
+
+        // When
+        schemaService.selectColumns("token", List.of("plan", "full_name"));
+
+        // Then
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaDetails().confirmed()).isTrue();
+        assertThat(sessionCaptor.getValue().getConfirmedColumnNames()).containsExactly("plan", "full_name");
+    }
+
+    @Test
+    void shouldClearSchemaDetailsWhenTableNotDetected() {
+        // Given
+        OnboardingSession sessionWithSchema = baseSession()
+                .withSchemaDetails(new OnboardingSession.SchemaDetails("profiles", "public", "id", false));
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
+        when(onboardingSessionStore.get("token")).thenReturn(sessionWithSchema);
+        when(supabaseIntrospectionService.introspect(any())).thenReturn(data);
+        when(schemaIntrospectionService.process(data)).thenReturn(new SchemaIntrospectionResult.NotDetected());
+
+        // When
+        SchemaIntrospectionResult result = schemaService.detect("token");
+
+        // Then
+        assertThat(result).isInstanceOf(SchemaIntrospectionResult.NotDetected.class);
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaDetails()).isNull();
+        assertThat(sessionCaptor.getValue().getDetectedColumns()).isNull();
+    }
+
+    @Test
+    void shouldThrowWhenConfirmingWithoutDetection() {
+        // Given
+        OnboardingSession session = baseSession(); // no schemaDetails
+        when(onboardingSessionStore.get("token")).thenReturn(session);
+
+        // When
+        List<String> columns = List.of("plan");
+
+        // Then
+        assertThatThrownBy(() -> schemaService.selectColumns("token", columns))
+                .isInstanceOf(InvalidOnboardingSessionException.class);
+    }
+
+    @Test
+    void shouldStoreCandidatesWhenMultipleTablesDetected() {
+        // Given
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
+        when(onboardingSessionStore.get("token")).thenReturn(baseSession());
+        when(supabaseIntrospectionService.introspect(any())).thenReturn(data);
+        when(schemaIntrospectionService.process(data)).thenReturn(
+                new SchemaIntrospectionResult.MultipleCandidates(List.of(detectedResult(), secondCandidateResult())));
+
+        // When
+        SchemaIntrospectionResult result = schemaService.detect("token");
+
+        // Then
+        assertThat(result).isInstanceOf(SchemaIntrospectionResult.MultipleCandidates.class);
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaDetails()).isNull();
+        assertThat(sessionCaptor.getValue().getSchemaCandidates()).extracting(SchemaIntrospectionResult.Detected::userTableName)
+                .containsExactly("profiles", "subscriptions");
+    }
+
+    @Test
+    void shouldSelectTableFromStoredCandidates() {
+        // Given
+        OnboardingSession sessionWithCandidates = baseSession()
+                .withSchemaCandidates(List.of(detectedResult(), secondCandidateResult()));
+        when(onboardingSessionStore.get("token")).thenReturn(sessionWithCandidates);
+
+        // When
+        SchemaIntrospectionResult.Detected chosen = schemaService.selectTable("token", "public", "subscriptions");
+
+        // Then
+        assertThat(chosen.userTableName()).isEqualTo("subscriptions");
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaDetails().userTable()).isEqualTo("subscriptions");
+        assertThat(sessionCaptor.getValue().getSchemaDetails().userIdColumn()).isEqualTo("user_id");
+        assertThat(sessionCaptor.getValue().getSchemaCandidates()).isNull();
+    }
+
+    @Test
+    void shouldThrowWhenSelectingTableNotInCandidateList() {
+        // Given
+        OnboardingSession sessionWithCandidates = baseSession()
+                .withSchemaCandidates(List.of(detectedResult(), secondCandidateResult()));
+        when(onboardingSessionStore.get("token")).thenReturn(sessionWithCandidates);
+
+        // Then
+        assertThatThrownBy(() -> schemaService.selectTable("token", "public", "not_a_real_table"))
+                .isInstanceOf(InvalidOnboardingSessionException.class);
+    }
+
+    @Test
+    void shouldThrowWhenSelectingTableWithoutPriorDetection() {
+        // Given
+        when(onboardingSessionStore.get("token")).thenReturn(baseSession()); // no candidates
+
+        // Then
+        assertThatThrownBy(() -> schemaService.selectTable("token", "public", "profiles"))
+                .isInstanceOf(InvalidOnboardingSessionException.class);
+    }
+}

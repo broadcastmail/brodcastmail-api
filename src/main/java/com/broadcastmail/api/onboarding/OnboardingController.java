@@ -1,10 +1,10 @@
 package com.broadcastmail.api.onboarding;
 
+import com.broadcastmail.api.onboarding.steps.OnboardingEmailSourceService;
+import com.broadcastmail.api.onboarding.steps.OnboardingSchemaService;
 import com.broadcastmail.api.auth.CookieService;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.config.OriginValidator;
-import com.broadcastmail.api.connection.EmailSourceService;
-import com.broadcastmail.api.connection.SchemaService;
 import com.broadcastmail.api.connection.dto.EmailSourceResult;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.emailprovider.EmailProviderService;
@@ -37,8 +37,8 @@ public class OnboardingController {
     private final EmailProviderService emailProviderService;
     private final OnboardingService onboardingService;
     private final OAuthSessionStore onboardingSessionStore;
-    private final SchemaService schemaService;
-    private final EmailSourceService emailSourceService;
+    private final OnboardingSchemaService onboardingSchemaService;
+    private final OnboardingEmailSourceService onboardingEmailSourceService;
     private final CookieService cookieService;
     private final OriginValidator originValidator;
 
@@ -108,7 +108,7 @@ public class OnboardingController {
     @GetMapping("/schema")
     public ResponseEntity<SchemaIntrospectionResult> detectSchema(
             @CookieValue(name = "onboarding_session", required = false) String sessionToken) {
-        SchemaIntrospectionResult result = schemaService.detect(sessionToken);
+        SchemaIntrospectionResult result = onboardingSchemaService.detect(sessionToken);
         return ResponseEntity.ok(result);
     }
 
@@ -120,11 +120,11 @@ public class OnboardingController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         if (request.skipRequested()) {
-            schemaService.skipProfileTable(sessionToken);
+            onboardingSchemaService.skipProfileTable(sessionToken);
             return ResponseEntity.ok().build();
         }
         SchemaIntrospectionResult.Detected result =
-                schemaService.selectTable(sessionToken, request.userTableSchema(), request.userTableName());
+                onboardingSchemaService.selectTable(sessionToken, request.userTableSchema(), request.userTableName());
         return ResponseEntity.ok(result);
     }
 
@@ -145,14 +145,14 @@ public class OnboardingController {
         if (sessionToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        schemaService.selectColumns(sessionToken, request.columnNames());
+        onboardingSchemaService.selectColumns(sessionToken, request.columnNames());
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/email/source")
     public ResponseEntity<EmailSourceResult> detectEmailSource(
             @CookieValue(name = "onboarding_session", required = false) String sessionToken) {
-        return ResponseEntity.ok(emailSourceService.detect(sessionToken));
+        return ResponseEntity.ok(onboardingEmailSourceService.detect(sessionToken));
     }
 
     @PostMapping("/email/select-source")
@@ -162,7 +162,7 @@ public class OnboardingController {
         if (sessionToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        emailSourceService.confirm(sessionToken, request);
+        onboardingEmailSourceService.confirm(sessionToken, request);
         return ResponseEntity.ok().build();
     }
 

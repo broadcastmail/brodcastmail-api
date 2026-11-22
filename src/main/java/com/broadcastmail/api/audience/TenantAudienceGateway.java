@@ -1,7 +1,7 @@
 package com.broadcastmail.api.audience;
 
 import com.broadcastmail.api.audience.dto.AudienceListResponse;
-import com.broadcastmail.api.supabase.TenantConnectionGateway;
+import com.broadcastmail.api.supabase.reader.TenantConnectionGateway;
 import com.broadcastmail.common.connection.Connection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

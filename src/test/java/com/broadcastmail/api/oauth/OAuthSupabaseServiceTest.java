@@ -4,9 +4,9 @@ import com.broadcastmail.api.account.AccountService;
 import com.broadcastmail.api.common.exceptions.NoSupabaseProjectsException;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.oauth.dto.OAuthCallbackResult;
-import com.broadcastmail.api.supabase.SupabaseManagementClient;
-import com.broadcastmail.api.supabase.dto.SupabaseProject;
-import com.broadcastmail.api.supabase.dto.SupabaseTokenResponse;
+import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
+import com.broadcastmail.api.supabase.management.dto.SupabaseProject;
+import com.broadcastmail.api.supabase.management.dto.SupabaseTokenResponse;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -125,7 +125,7 @@ class OAuthSupabaseServiceTest {
     void shouldReturnReconfigureSingleProjectWhenAccountIdProvided() {
         mockTokenExchange();
         when(supabaseManagementClient.listProjects("raw-access-token")).thenReturn(List.of(project("ref-1")));
-        when(oAuthSessionService.setupReconfigureSession(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn("session-token");
+        when(oAuthSessionService.setupReconfigureSession(any(), any(), any(), any(), any(), any(), any())).thenReturn("session-token");
 
         OAuthCallbackResult result = oAuthSupabaseService.exchangeWithPKCE(CODE, VERIFIER, REDIRECT_URI, ACCOUNT_ID);
 
