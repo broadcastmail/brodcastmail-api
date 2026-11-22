@@ -17,12 +17,17 @@ public class CookieService {
     private String activeProfile;
     private static final String COOKIE_NAME = "bm_session";
 
+    private String cookieDomain() {
+        return appProperties.frontend().cookieDomainOrNull();
+    }
+
     private boolean isProduction() {
         return "prod".equals(activeProfile);
     }
 
     public ResponseCookie createSessionCookie(String rawApiKey) {
         return ResponseCookie.from(COOKIE_NAME, rawApiKey)
+                .domain(cookieDomain())
                 .httpOnly(true)
                 .secure(isProduction())
                 .sameSite(isProduction() ? "None" : "Lax")
@@ -33,6 +38,7 @@ public class CookieService {
 
     public ResponseCookie clearSessionCookie() {
         return ResponseCookie.from(COOKIE_NAME, "")
+                .domain(cookieDomain())
                 .httpOnly(true)
                 .secure(isProduction())
                 .sameSite(isProduction() ? "None" : "Lax")
@@ -43,6 +49,7 @@ public class CookieService {
 
     public ResponseCookie createOnboardingCookie(String sessionToken) {
         return ResponseCookie.from("onboarding_session", sessionToken)
+                .domain(cookieDomain())
                 .httpOnly(true)
                 .secure(isProduction())
                 .sameSite("Lax")
@@ -53,6 +60,7 @@ public class CookieService {
 
     public ResponseCookie clearOnboardingCookie() {
         return ResponseCookie.from("onboarding_session", "")
+                .domain(cookieDomain())
                 .httpOnly(true)
                 .secure(isProduction())
                 .sameSite("Lax")

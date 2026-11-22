@@ -4,7 +4,6 @@ import com.broadcastmail.api.onboarding.steps.OnboardingEmailSourceService;
 import com.broadcastmail.api.onboarding.steps.OnboardingSchemaService;
 import com.broadcastmail.api.auth.CookieService;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
-import com.broadcastmail.api.config.OriginValidator;
 import com.broadcastmail.api.connection.dto.EmailSourceResult;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.emailprovider.EmailProviderService;
@@ -18,7 +17,6 @@ import com.broadcastmail.api.onboarding.dto.RecapData;
 import com.broadcastmail.api.onboarding.dto.SelectColumnsRequest;
 import com.broadcastmail.api.onboarding.dto.SelectTableRequest;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,25 +38,19 @@ public class OnboardingController {
     private final OnboardingSchemaService onboardingSchemaService;
     private final OnboardingEmailSourceService onboardingEmailSourceService;
     private final CookieService cookieService;
-    private final OriginValidator originValidator;
 
 
+    /** 204, not a redirect: the frontend calls this with XHR cross-origin and navigates to /dashboard itself. */
     @PostMapping("/complete")
     public ResponseEntity<Void> complete(
-            @CookieValue(name = "onboarding_session", required = false) String sessionToken,
-            HttpServletRequest request,
-            HttpServletResponse response) {
+            @CookieValue(name = "onboarding_session", required = false) String sessionToken) {
         if (sessionToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        String origin = originValidator.validateAndReturn(request);
         String rawApiKey = onboardingService.completeOnboarding(sessionToken);
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                cookieService.createSessionCookie(rawApiKey).toString());
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                cookieService.clearOnboardingCookie().toString());
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, origin + "/dashboard")
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, cookieService.createSessionCookie(rawApiKey).toString())
+                .header(HttpHeaders.SET_COOKIE, cookieService.clearOnboardingCookie().toString())
                 .build();
     }
 

@@ -227,7 +227,7 @@ class OnboardingControllerTest extends IntegrationTest {
                 .exchange();
 
         // Then
-        assertThat(response).hasStatus(302);
+        assertThat(response).hasStatus(204);
         assertThat(response.getResponse().getHeaders("Set-Cookie"))
                 .anyMatch(cookie -> cookie.contains("onboarding_session=") && cookie.contains("Max-Age=0"));
     }
@@ -246,7 +246,7 @@ class OnboardingControllerTest extends IntegrationTest {
                 .exchange();
 
         // Then
-        assertThat(response).hasStatus(302);
+        assertThat(response).hasStatus(204);
         assertThat(response.getResponse().getHeaders("Set-Cookie"))
                 .anyMatch(cookie -> cookie.contains("bm_session=bm_live_testkey"));
     }

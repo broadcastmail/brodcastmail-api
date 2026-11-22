@@ -1,9 +1,6 @@
 package com.broadcastmail.api.onboarding.reconfigure;
 
 import com.broadcastmail.api.auth.CookieService;
-import com.broadcastmail.api.config.OriginValidator;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -21,22 +18,20 @@ public class ReconfigureController {
 
     private final ReconfigureService reconfigureService;
     private final CookieService cookieService;
-    private final OriginValidator originValidator;
 
+    /**
+     * 204, not a redirect: the frontend calls this with XHR cross-origin and navigates itself. A 302 back to the
+     * frontend origin would be followed by the XHR and fail CORS, surfacing an error after a successful reconfigure.
+     */
     @PostMapping("/reconfigure")
     public ResponseEntity<Void> reconfigure(
-            @CookieValue(name = "onboarding_session", required = false) String sessionToken,
-            HttpServletRequest request,
-            HttpServletResponse response) {
+            @CookieValue(name = "onboarding_session", required = false) String sessionToken) {
         if (sessionToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         reconfigureService.reconfigure(sessionToken);
-        String origin = originValidator.validateAndReturn(request);
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                cookieService.clearOnboardingCookie().toString());
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, origin + "/settings")
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, cookieService.clearOnboardingCookie().toString())
                 .build();
     }
 }

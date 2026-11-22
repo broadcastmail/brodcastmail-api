@@ -19,7 +19,7 @@ class CookieServiceTest {
     void setUp() {
         AppProperties appProperties = new AppProperties(
                 "test-secret",
-                new AppProperties.Frontend(List.of("http://localhost:3000"), "/api/v1/oauth/supabase/callback", "http://localhost:3000")
+                new AppProperties.Frontend(List.of("http://localhost:3000"), "/api/v1/oauth/supabase/callback", "http://localhost:3000", null)
         );
         cookieService = new CookieService(appProperties);
     }
@@ -101,5 +101,52 @@ class CookieServiceTest {
         assertThat(cookie.getName()).isEqualTo("onboarding_session");
         assertThat(cookie.getValue()).isEmpty();
         assertThat(cookie.getMaxAge()).isEqualTo(Duration.ZERO);
+    }
+
+    @Test
+    void sessionAndOnboardingCookiesShouldShareParentDomainWhenConfigured() {
+        // Given
+        CookieService shared = new CookieService(new AppProperties("test-secret", new AppProperties.Frontend(
+                List.of("https://dev.broadcastmail.dev"), "/api/v1/oauth/supabase/callback",
+                "https://dev.broadcastmail.dev", ".broadcastmail.dev")));
+        ReflectionTestUtils.setField(shared, "activeProfile", "prod");
+
+        // When
+        List<ResponseCookie> cookies = List.of(
+                shared.createSessionCookie("bm_live_testkey"),
+                shared.clearSessionCookie(),
+                shared.createOnboardingCookie("token"),
+                shared.clearOnboardingCookie());
+
+        // Then
+        assertThat(cookies).extracting(ResponseCookie::getDomain).containsOnly(".broadcastmail.dev");
+    }
+
+    @Test
+    void cookiesShouldStayHostOnlyWhenDomainIsUnset() {
+        // Given
+        activeProfile("dev");
+
+        // When
+        ResponseCookie cookie = cookieService.createOnboardingCookie("token");
+
+        // Then
+        assertThat(cookie.getDomain()).isNull();
+        assertThat(cookie.toString()).doesNotContain("Domain=");
+    }
+
+    @Test
+    void pkceCookiesShouldStayHostOnlyEvenWhenDomainIsConfigured() {
+        // Given
+        CookieService shared = new CookieService(new AppProperties("test-secret", new AppProperties.Frontend(
+                List.of("https://dev.broadcastmail.dev"), "/api/v1/oauth/supabase/callback",
+                "https://dev.broadcastmail.dev", ".broadcastmail.dev")));
+        ReflectionTestUtils.setField(shared, "activeProfile", "prod");
+
+        // When
+        ResponseCookie cookie = shared.createPkceCookie("oauth_code_verifier", "verifier");
+
+        // Then
+        assertThat(cookie.getDomain()).isNull();
     }
 }

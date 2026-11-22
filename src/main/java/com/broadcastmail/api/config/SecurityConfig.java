@@ -59,12 +59,18 @@ public class SecurityConfig {
     public SecurityFilterChain apiFilterChain(
             HttpSecurity http,
             ApiKeyAuthFilter apiKeyAuthFilter,
-            CorsConfigurationSource corsConfigurationSource) {
+            CorsConfigurationSource corsConfigurationSource,
+            AppProperties appProperties) {
         try {
+            // The frontend calls the API cross-origin, so its JS can only read XSRF-TOKEN if the cookie lives on the
+            // shared parent domain; spa() makes Spring issue it on every request and accept the raw value as a header.
+            CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse(); // NOSONAR
+            csrfTokenRepository.setCookieCustomizer(cookie -> cookie.domain(appProperties.frontend().cookieDomainOrNull()));
             http
                     .cors(cors -> cors.configurationSource(corsConfigurationSource))
                     .csrf(csrf -> csrf
-                            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()) // NOSONAR
+                            .spa()
+                            .csrfTokenRepository(csrfTokenRepository) // NOSONAR
                             .requireCsrfProtectionMatcher(CSRF_REQUIRED_MATCHER) // NOSONAR
                             .ignoringRequestMatchers("/api/v1/oauth/supabase/**")) // NOSONAR
                     .sessionManagement(session -> session

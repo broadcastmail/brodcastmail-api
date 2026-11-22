@@ -116,7 +116,7 @@ class ReconfigureControllerTest extends IntegrationTest {
     }
 
     @Test
-    void shouldRedirectToSettingsWhenReconfigureSucceeds() {
+    void shouldReturn204AndClearOnboardingCookieWhenReconfigureSucceeds() {
         // Given
         String sessionToken = createSession(OLD_REF, OLD_ROLE, OWNER_EMAIL);
 
@@ -124,9 +124,9 @@ class ReconfigureControllerTest extends IntegrationTest {
         var response = authedReconfigure(sessionToken).exchange();
 
         // Then
-        assertThat(response)
-                .hasStatus(302)
-                .hasHeader("Location", ORIGIN + "/settings");
+        assertThat(response).hasStatus(204);
+        assertThat(response.getResponse().getHeader("Location")).isNull();
+        assertThat(response.getResponse().getHeader("Set-Cookie")).startsWith("onboarding_session=;");
     }
 
     @Test

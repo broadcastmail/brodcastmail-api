@@ -33,6 +33,7 @@ app:
     allowed-origins: ${FRONTEND_ALLOWED_ORIGINS:http://localhost:3000}
     oauth-callback-path: /api/v1/oauth/supabase/callback
     unsubscribe-redirect-url: ${UNSUBSCRIBE_REDIRECT_URL:http://localhost:3000}
+    cookie-domain: ${APP_COOKIE_DOMAIN:}
   unsubscribeSecret: ${UNSUBSCRIBE_SECRET}
   resend:
     webhook-base-url: ${RESEND_WEBHOOK_BASE_URL}
