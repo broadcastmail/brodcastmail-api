@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -67,6 +68,26 @@ public class ReaderRoleService {
         }
         if (newProjectRef.equals(oldProjectRef)) {
             syncGrants(accessToken, newProjectRef, newRole, tables);
+        }
+    }
+
+    /**
+     * Drops this project's per-integration roles that aren't in {@code inUse} — e.g. roles provisioned by onboarding
+     * sessions that were abandoned or replaced by a new OAuth sign-in. Best effort: failures are only logged.
+     */
+    public void dropUnused(String accessToken, String projectRef, Set<String> inUse) {
+        try {
+            List<String> unused = supabaseManagementClient.sqlRunner(accessToken, projectRef)
+                    .query(SupabaseSql.LIST_READER_ROLES_SQL).stream()
+                    .map(row -> String.valueOf(row.get("rolname")))
+                    .filter(role -> SupabaseSql.isPerIntegrationRole(role) && !inUse.contains(role))
+                    .toList();
+            unused.forEach(role -> dropQuietly(accessToken, projectRef, role));
+            if (!unused.isEmpty()) {
+                log.info("[reader] dropped {} unused role(s) on project={}", unused.size(), projectRef);
+            }
+        } catch (RuntimeException e) {
+            log.warn("[reader] could not clean up unused roles on project={}: {}", projectRef, e.getMessage());
         }
     }
 
