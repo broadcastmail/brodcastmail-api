@@ -45,7 +45,6 @@ public class OAuthSessionStore {
         sessions.put(token, updated);
     }
 
-    /** Reader roles held by onboarding/reconfigure sessions still in progress on {@code projectRef}. */
     public Set<String> readerRolesOn(String projectRef) {
         return sessions.asMap().values().stream()
                 .filter(s -> s.hasReader() && projectRef.equals(s.getProjectRef()))
