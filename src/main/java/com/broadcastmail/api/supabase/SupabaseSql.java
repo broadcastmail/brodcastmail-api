@@ -132,6 +132,7 @@ public final class SupabaseSql {
                 DO $$
                 BEGIN
                     IF EXISTS (SELECT FROM pg_roles WHERE rolname = '%1$s') THEN
+                        GRANT %1$s TO CURRENT_USER;
                         DROP OWNED BY %1$s;
                         DROP ROLE %1$s;
                     END IF;

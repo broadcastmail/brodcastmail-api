@@ -77,4 +77,15 @@ class SupabaseSqlReaderTest {
                 .contains("table_schema <> '_broadcastmail'")
                 .contains("format('REVOKE SELECT ON %I.%I FROM broadcastmail_r_abc'");
     }
+
+    @Test
+    void dropShouldGrantMembershipBeforeDroppingOwnedObjects() {
+        // When
+        String sql = SupabaseSql.dropReaderRoleSql("broadcastmail_r_abc");
+
+        // Then — postgres isn't a member of the reader role, and DROP OWNED BY requires membership
+        assertThat(sql.indexOf("GRANT broadcastmail_r_abc TO CURRENT_USER"))
+                .isNotNegative()
+                .isLessThan(sql.indexOf("DROP OWNED BY broadcastmail_r_abc"));
+    }
 }
