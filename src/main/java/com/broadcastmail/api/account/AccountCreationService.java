@@ -16,6 +16,10 @@ import com.broadcastmail.api.oauth.token.OAuthTokenRepository;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.common.emailprovider.EmailProvider;
 import com.broadcastmail.common.emailprovider.EmailProviderRepository;
+import com.broadcastmail.api.common.exceptions.EmailAlreadyTakenException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +56,10 @@ public class AccountCreationService {
             }
         }
 
+        if (ownerEmail != null && accountRepository.findByEmail(ownerEmail).isPresent()) {
+            throw new EmailAlreadyTakenException("An account with this email already exists. Sign in instead.");
+        }
+
         String rawApiKey = SecurityUtil.generateApiKey();
         String hashedApiKey = SecurityUtil.sha256(rawApiKey);
         Account account = Account.builder()
@@ -72,8 +80,10 @@ public class AccountCreationService {
         oAuthTokenRepository.save(token);
 
         String rawResendApiKey = SecurityUtil.decrypt(session.getResendDetails().encryptedResendApiKey(), encryptionProperties.key());
-        String webhookEndpoint = resendProperties.webhookBaseUrl() + "/webhooks/resend/" + account.getId();
+        String webhookEndpoint = StringUtils.trimTrailingCharacter(resendProperties.webhookBaseUrl(), '/')
+                + "/webhooks/resend/" + account.getId();
         ResendClient.RegisteredWebhook webhook = resendClient.registerWebhook(rawResendApiKey, webhookEndpoint);
+        removeWebhookIfRolledBack(rawResendApiKey, webhook.id());
 
         EmailProvider emailProvider = EmailProvider.builder()
                 .accountId(account.getId())
@@ -86,5 +96,16 @@ public class AccountCreationService {
         emailProviderRepository.save(emailProvider);
 
         return new AccountCreationResult(rawApiKey, account.getId());
+    }
+
+    // Resend isn't part of the transaction: if account creation rolls back, the webhook would point at nothing.
+    private void removeWebhookIfRolledBack(String apiKey, String webhookId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) return;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) resendClient.deleteWebhookQuietly(apiKey, webhookId);
+            }
+        });
     }
 }

@@ -85,6 +85,14 @@ public class ResendClient {
     }
 
 
+    public void deleteWebhookQuietly(String apiKey, String webhookId) {
+        try {
+            new Resend(apiKey).webhooks().remove(webhookId);
+        } catch (ResendException e) {
+            log.warn("[resend] could not remove webhook={}: {}", webhookId, e.getMessage());
+        }
+    }
+
     // Not in worker bc it can be resolved quickly in here
     public void sendTestEmail(UUID accountId, String apiKey, String from, String to, String subject, String html) {
         if (testEmailRateLimit.getIfPresent(accountId) != null) {
