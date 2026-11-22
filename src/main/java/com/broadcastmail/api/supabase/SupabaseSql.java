@@ -30,6 +30,10 @@ public final class SupabaseSql {
 
     public static final String READER_ROLE_PREFIX = "broadcastmail_r_";
 
+    /** Per-integration reader roles on a project; the backslashes stop LIKE treating "_" as a wildcard. */
+    public static final String LIST_READER_ROLES_SQL =
+            "SELECT rolname FROM pg_roles WHERE rolname LIKE 'broadcastmail\\_r\\_%'";
+
     private static final SecureRandom ROLE_RANDOM = new SecureRandom();
 
     /** Schemas never offered for selection — Supabase internals plus our own. */

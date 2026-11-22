@@ -11,6 +11,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Set;
+import java.util.Map;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -68,5 +70,36 @@ class ReaderRoleServiceTest {
         assertThatCode(() -> readerRoleService.dropQuietly("token", "ref", "broadcastmail_r_abc"))
                 .doesNotThrowAnyException();
         verify(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void dropUnusedShouldDropOnlyPerIntegrationRolesNotInUse() {
+        // Given
+        when(supabaseManagementClient.sqlRunner("token", "ref")).thenReturn(sql -> List.of(
+                Map.of("rolname", "broadcastmail_r_old1"),
+                Map.of("rolname", "broadcastmail_r_live"),
+                Map.of("rolname", "broadcastmail_r_saved"),
+                Map.of("rolname", "broadcastmail_r_old2")));
+
+        // When
+        readerRoleService.dropUnused("token", "ref", Set.of("broadcastmail_r_live", "broadcastmail_r_saved"));
+
+        // Then
+        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.dropReaderRoleSql("broadcastmail_r_old1"));
+        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.dropReaderRoleSql("broadcastmail_r_old2"));
+        verify(supabaseManagementClient, times(2)).executeSql(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void dropUnusedShouldSwallowFailures() {
+        // Given
+        when(supabaseManagementClient.sqlRunner("token", "ref")).thenReturn(sql -> {
+            throw new IllegalStateException("management api down");
+        });
+
+        // When / Then
+        assertThatCode(() -> readerRoleService.dropUnused("token", "ref", Set.of()))
+                .doesNotThrowAnyException();
+        verify(supabaseManagementClient, never()).executeSql(anyString(), anyString(), anyString());
     }
 }

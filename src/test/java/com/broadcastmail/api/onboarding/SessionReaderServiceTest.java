@@ -8,6 +8,10 @@ import com.broadcastmail.api.supabase.management.SupabaseAccessTokens;
 import com.broadcastmail.api.supabase.SupabaseSql.TableRef;
 import com.broadcastmail.common.connection.ReaderConnectionFactory;
 import org.junit.jupiter.api.Test;
+import java.util.Optional;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import com.broadcastmail.common.connection.ConnectionRepository;
+import com.broadcastmail.common.connection.Connection;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -33,6 +37,8 @@ class SessionReaderServiceTest {
     private ReaderConnectionVerifier readerConnectionVerifier;
     @Mock
     private SupabaseAccessTokens supabaseAccessTokens;
+    @Mock
+    private ConnectionRepository connectionRepository;
     @InjectMocks
     private SessionReaderService sessionReaderService;
 
@@ -114,5 +120,41 @@ class SessionReaderServiceTest {
         // Then
         assertThat(SessionReaderService.selectedTables(session)).containsExactly(new TableRef("public", "contacts"));
         assertThat(List.copyOf(SessionReaderService.selectedTables(baseSession()))).hasSize(1);
+    }
+
+    @Test
+    void shouldDropUnusedRolesKeepingLiveSessionsAndSavedConnectionAfterProvisioning() {
+        // Given
+        when(onboardingSessionStore.get("token")).thenReturn(baseSession());
+        when(supabaseAccessTokens.decrypt(any())).thenReturn("access");
+        when(readerRoleService.provision(any(), any(), any()))
+                .thenReturn(new ReaderRoleService.Provisioned("broadcastmail_r_abc", "enc-pw"));
+        when(onboardingSessionStore.readerRolesOn("ref")).thenReturn(Set.of("broadcastmail_r_abc", "broadcastmail_r_other"));
+        when(connectionRepository.findByProjectRef("ref"))
+                .thenReturn(Optional.of(Connection.builder().projectRef("ref").dbRole("broadcastmail_r_saved").build()));
+
+        // When
+        sessionReaderService.ensureReady("token");
+
+        // Then
+        verify(readerRoleService).dropUnused("access", "ref",
+                Set.of("broadcastmail_r_abc", "broadcastmail_r_other", "broadcastmail_r_saved"));
+    }
+
+    @Test
+    void shouldSkipRoleCleanupWhenRolesInUseCannotBeDetermined() {
+        // Given
+        when(onboardingSessionStore.get("token")).thenReturn(baseSession());
+        when(readerRoleService.provision(any(), any(), any()))
+                .thenReturn(new ReaderRoleService.Provisioned("broadcastmail_r_abc", "enc-pw"));
+        when(connectionRepository.findByProjectRef("ref"))
+                .thenThrow(new IncorrectResultSizeDataAccessException(1, 2));
+
+        // When
+        OnboardingSession result = sessionReaderService.ensureReady("token");
+
+        // Then
+        assertThat(result.isConnectionVerified()).isTrue();
+        verify(readerRoleService, never()).dropUnused(any(), any(), any());
     }
 }

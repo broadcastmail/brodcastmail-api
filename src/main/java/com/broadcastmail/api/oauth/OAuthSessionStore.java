@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.Set;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -41,6 +43,14 @@ public class OAuthSessionStore {
 
     public void updateSession(String token, OnboardingSession updated) {
         sessions.put(token, updated);
+    }
+
+    /** Reader roles held by onboarding/reconfigure sessions still in progress on {@code projectRef}. */
+    public Set<String> readerRolesOn(String projectRef) {
+        return sessions.asMap().values().stream()
+                .filter(s -> s.hasReader() && projectRef.equals(s.getProjectRef()))
+                .map(OnboardingSession::getDbRole)
+                .collect(Collectors.toSet());
     }
 
     public void invalidate(String token) {
