@@ -3,6 +3,7 @@ package com.broadcastmail.api.config;
 import com.broadcastmail.api.common.SecurityPaths;
 import com.broadcastmail.api.common.exceptions.SecurityConfigurationException;
 import com.broadcastmail.api.security.ApiKeyAuthFilter;
+import jakarta.servlet.DispatcherType;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -76,6 +77,7 @@ public class SecurityConfig {
                     .sessionManagement(session -> session
                             .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth
+                            .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                             .anyRequest().authenticated())
                     .addFilterBefore(
                             apiKeyAuthFilter,

@@ -6,6 +6,7 @@ import com.broadcastmail.api.campaign.CampaignService;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.api.common.exceptions.AudienceNotConfiguredException;
+import com.broadcastmail.api.common.exceptions.CampaignContentMissingException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
 import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
@@ -54,6 +55,9 @@ public class CampaignConfirmService {
         Campaign campaign = campaignService.getCampaign(accountId, campaignId);
         if (campaign.getStatus() != CampaignStatus.DRAFT) {
             throw new CampaignNotEditableException();
+        }
+        if (isBlank(campaign.getSubject()) || isBlank(campaign.getBodyHtml())) {
+            throw new CampaignContentMissingException();
         }
 
         if (campaignRepository.existsByAccountIdAndFailureReason(accountId, "RATE_LIMITED")) {
@@ -182,5 +186,9 @@ public class CampaignConfirmService {
             throw new IllegalStateException("Could not enqueue every retry recipient");
         }
         return retry;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }
