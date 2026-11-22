@@ -5,6 +5,7 @@ import com.broadcastmail.api.campaign.CampaignService;
 import com.broadcastmail.api.campaign.sse.CampaignStatusNotifier;
 import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
+import com.broadcastmail.api.common.exceptions.CampaignContentMissingException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotRetryableException;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
@@ -144,6 +145,19 @@ class CampaignConfirmServiceTest {
 
         // When / Then
         assertThatThrownBy(() -> campaignConfirmService.confirmCampaign(ACCOUNT_ID, CAMPAIGN_ID)).isInstanceOf(CampaignNotEditableException.class);
+        verify(campaignRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectConfirmationWhenSubjectOrBodyIsMissing() {
+        // Given
+        Campaign emptyDraft = campaign(CampaignStatus.DRAFT);
+        emptyDraft.setSubject("");
+        when(campaignService.getCampaign(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(emptyDraft);
+
+        // When / Then
+        assertThatThrownBy(() -> campaignConfirmService.confirmCampaign(ACCOUNT_ID, CAMPAIGN_ID))
+                .isInstanceOf(CampaignContentMissingException.class);
         verify(campaignRepository, never()).save(any());
     }
 

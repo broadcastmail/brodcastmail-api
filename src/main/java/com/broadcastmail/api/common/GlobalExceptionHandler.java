@@ -68,6 +68,13 @@ public class GlobalExceptionHandler {
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 
+    @ExceptionHandler(CampaignContentMissingException.class)
+    public ResponseEntity<Map<String, String>> handleCampaignContentMissing(CampaignContentMissingException ex) {
+        return ResponseEntity
+                .status(HttpStatus.UNPROCESSABLE_CONTENT)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
     @ExceptionHandler(AudienceNotConfiguredException.class)
     public ResponseEntity<Map<String, String>> handleAudienceNotConfigured(AudienceNotConfiguredException ex) {
         return ResponseEntity

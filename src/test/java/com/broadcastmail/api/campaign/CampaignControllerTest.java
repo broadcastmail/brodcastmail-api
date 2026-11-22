@@ -93,6 +93,21 @@ class CampaignControllerTest extends IntegrationTest {
     }
 
     @Test
+    void shouldCreateDraftWithEmptySubjectAndBody() throws Exception {
+        // Given — what the dashboard's "New campaign" button sends
+        CreateCampaignRequest request = new CreateCampaignRequest("Untitled campaign", "", "", null, null, null);
+
+        // When
+        var response = authedPost("/api/v1/campaigns")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(201);
+    }
+
+    @Test
     void shouldReturn404WhenCampaignDoesNotExist() {
         // Given
         UUID nonExistentId = UUID.randomUUID();
