@@ -26,6 +26,8 @@ app:
     oauth-callback-path: /api/v1/oauth/supabase/callback
     unsubscribe-redirect-url: http://localhost:3000
   unsubscribe-secret: 12345678901234567890123456789012
+  resend:
+    webhook-base-url: http://localhost:8081
 
 supabase:
   oauth:

@@ -1,5 +1,6 @@
 package com.broadcastmail.api.resend;
 
+import lombok.extern.slf4j.Slf4j;
 import com.broadcastmail.api.common.exceptions.EmailSendException;
 import com.broadcastmail.api.common.exceptions.InvalidResendApiKeyException;
 import com.broadcastmail.api.common.exceptions.ResendRateLimitException;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
+@Slf4j
 public class ResendClient {
 
     private final Cache<UUID, Boolean> testEmailRateLimit = Caffeine.newBuilder()
@@ -75,9 +77,10 @@ public class ResendClient {
             CreateWebhookResponseSuccess response= resend.webhooks().create(options);
             return new RegisteredWebhook(response.getId(), response.getSigningSecret());
         }
-        catch (ResendException _)
+        catch (ResendException e)
         {
-            throw new InvalidResendApiKeyException("Error occurred while registering webhook");
+            log.warn("[resend] webhook registration failed for endpoint={}: {}", endpointUrl, e.getMessage());
+            throw new InvalidResendApiKeyException("Couldn't register the Resend webhook: " + e.getMessage());
         }
     }
 
