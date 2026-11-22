@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -189,7 +190,9 @@ class OnboardingSchemaServiceTest {
         verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
         assertThat(sessionCaptor.getValue().getSchemaDetails().userTable()).isEqualTo("subscriptions");
         assertThat(sessionCaptor.getValue().getSchemaDetails().userIdColumn()).isEqualTo("user_id");
-        assertThat(sessionCaptor.getValue().getSchemaCandidates()).isNull();
+        assertThat(sessionCaptor.getValue().getSchemaCandidates())
+                .extracting(SchemaIntrospectionResult.Detected::userTableName)
+                .containsExactly("profiles", "subscriptions");
     }
 
     @Test
@@ -212,5 +215,58 @@ class OnboardingSchemaServiceTest {
         // Then
         assertThatThrownBy(() -> schemaService.selectTable("token", "public", "profiles"))
                 .isInstanceOf(InvalidOnboardingSessionException.class);
+    }
+
+    @Test
+    void shouldReuseCachedIntrospectionWhenSchemaIsReloaded() {
+        // Given
+        SupabaseIntrospectionData cached = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
+        when(onboardingSessionStore.get("token")).thenReturn(baseSession().withIntrospectionData(cached));
+        when(schemaIntrospectionService.process(cached)).thenReturn(detectedResult());
+
+        // When
+        SchemaIntrospectionResult result = schemaService.detect("token");
+
+        // Then
+        assertThat(result).isInstanceOf(SchemaIntrospectionResult.Detected.class);
+        verify(supabaseIntrospectionService, never()).introspect(any());
+        verify(managementSqlRunners, never()).forEncryptedToken(any(), any());
+    }
+
+    @Test
+    void shouldSelectDetectedTableAgainAfterSkippingToAuthOnly() {
+        // Given — single detection keeps no candidate list, and the user picked "auth.users only"
+        SupabaseIntrospectionData data = new SupabaseIntrospectionData(List.of(), Map.of(), Map.of(), Map.of(), Map.of());
+        OnboardingSession skipped = baseSession()
+                .withIntrospectionData(data)
+                .withSchemaDetails(new OnboardingSession.SchemaDetails(null, null, null, true))
+                .withDetectedColumns(List.of());
+        when(onboardingSessionStore.get("token")).thenReturn(skipped);
+        when(schemaIntrospectionService.process(data)).thenReturn(detectedResult());
+
+        // When
+        SchemaIntrospectionResult.Detected chosen = schemaService.selectTable("token", "public", "profiles");
+
+        // Then
+        assertThat(chosen.userTableName()).isEqualTo("profiles");
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaDetails().userTable()).isEqualTo("profiles");
+        assertThat(sessionCaptor.getValue().getSchemaDetails().confirmed()).isFalse();
+    }
+
+    @Test
+    void shouldKeepCandidatesWhenSkippingToAuthOnly() {
+        // Given
+        OnboardingSession sessionWithCandidates = baseSession()
+                .withSchemaCandidates(List.of(detectedResult(), secondCandidateResult()));
+        when(onboardingSessionStore.get("token")).thenReturn(sessionWithCandidates);
+
+        // When
+        schemaService.skipProfileTable("token");
+
+        // Then
+        verify(onboardingSessionStore).updateSession(eq("token"), sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getSchemaCandidates()).hasSize(2);
+        assertThat(sessionCaptor.getValue().getSchemaDetails().userTable()).isNull();
     }
 }

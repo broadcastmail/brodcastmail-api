@@ -112,16 +112,13 @@ class SchemaIntrospectionServiceTest extends IntegrationTest {
     }
 
     @Test
-    void shouldPreTickLowCardinalityColumns() {
+    void shouldNotPreSelectAnyColumn() {
         // Given / When
         SchemaIntrospectionResult.Detected result = introspectDetected();
 
-        // Then
-        assertThat(result.filterableColumns())
-                .filteredOn(col -> col.columnName().equals("plan"))
-                .first()
-                .extracting(DetectedColumn::enabled)
-                .isEqualTo(true);
+        // Then — the user picks filterable columns themselves
+        assertThat(result.filterableColumns()).extracting(DetectedColumn::enabled).containsOnly(false);
+        assertThat(result.authColumns()).extracting(DetectedColumn::enabled).containsOnly(false);
     }
 
     @Test

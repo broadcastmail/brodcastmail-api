@@ -56,7 +56,7 @@ public class SchemaIntrospectionService {
             if (!SupabaseSql.AUTH_METADATA_COLUMNS.contains(col.name())) continue;
             String uiType = mapToUiType(col.dataType());
             int cardinality = authCardinalities.getOrDefault(col.name(), 0);
-            authColumns.add(new DetectedColumn(col.name(), uiType, true, cardinality, cardinality > 50));
+            authColumns.add(new DetectedColumn(col.name(), uiType, false, cardinality, cardinality > 50));
         }
         return authColumns;
     }
@@ -75,7 +75,7 @@ public class SchemaIntrospectionService {
                 if (isNonFilterable(col.name())) continue;
                 String uiType = mapToUiType(col.dataType());
                 int cardinality = tableCardinalities.getOrDefault(col.name(), 0);
-                filterableColumns.add(new DetectedColumn(col.name(), uiType, true, cardinality, cardinality > 50));
+                filterableColumns.add(new DetectedColumn(col.name(), uiType, false, cardinality, cardinality > 50));
             }
         }
 
@@ -83,7 +83,7 @@ public class SchemaIntrospectionService {
         boolean hasCreatedAt = profileColumns != null
                 && profileColumns.stream().anyMatch(c -> c.name().equals("created_at"));
         if (!hasCreatedAt) {
-            filterableColumns.add(new DetectedColumn("created_at", "timestamptz", true, 0, false));
+            filterableColumns.add(new DetectedColumn("created_at", "timestamptz", false, 0, false));
         }
 
         return new SchemaIntrospectionResult.Detected(
