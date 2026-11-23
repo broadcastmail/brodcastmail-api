@@ -310,6 +310,23 @@ class CampaignControllerTest extends IntegrationTest {
         assertThat(campaignRepository.findById(campaign.getId()).orElseThrow().getName()).isEqualTo(campaign.getName());
     }
 
+    @Test
+    void shouldUpdateAudienceWhenTheRequestLeavesTheNameOut() {
+        // Given
+        Campaign campaign = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId()).build());
+
+        // When
+        var response = authedPatch("/api/v1/campaigns/" + campaign.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"audienceMode\": \"all\", \"includedIds\": [], \"excludedIds\": []}")
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatusOk();
+        assertThat(campaignRepository.findById(campaign.getId()).orElseThrow().getName()).isEqualTo(campaign.getName());
+    }
+
     private MockMvcTester.MockMvcRequestBuilder authedGet(String uri) {
         return mockMvc.get().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
     }
