@@ -4,6 +4,7 @@ import com.broadcastmail.api.connection.introspection.SupabaseIntrospectionServi
 import com.broadcastmail.api.connection.dto.DetectedColumn;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.connection.dto.SupabaseIntrospectionData;
+import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.api.supabase.management.ManagementSqlRunner;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,14 @@ public class SchemaIntrospectionService {
             case SchemaIntrospectionResult.Detected d -> d;
             default -> throw new IllegalStateException("Expected detected table: " + schema + "." + table);
         };
+    }
+
+    public SchemaIntrospectionResult.Detected introspectSaved(ManagementSqlRunner sql, Connection connection) {
+        if (connection.getUserTableName() == null) {
+            return new SchemaIntrospectionResult.Detected(null, null, null, List.of(),
+                    buildAuthColumns(supabaseIntrospectionService.introspectAuthOnly(sql)));
+        }
+        return introspectTable(sql, connection.getUserTableSchema(), connection.getUserTableName(), connection.getUserIdColumn());
     }
 
     private List<DetectedColumn> buildAuthColumns(SupabaseIntrospectionData data) {

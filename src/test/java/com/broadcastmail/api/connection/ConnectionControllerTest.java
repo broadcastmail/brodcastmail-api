@@ -148,7 +148,7 @@ class ConnectionControllerTest extends IntegrationTest {
 
     @Test
     void shouldReturn200WhenUpdatingColumns() throws Exception {
-        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any())).thenReturn(
+        when(schemaIntrospectionService.introspectSaved(any(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
                                 new DetectedColumn("is_verified", "boolean", true, null, false)),
@@ -162,7 +162,7 @@ class ConnectionControllerTest extends IntegrationTest {
 
     @Test
     void shouldDeleteExistingColumnsWhenUpdatingColumns() throws Exception {
-        when(schemaIntrospectionService.introspectTable(any(), any(), any(), any())).thenReturn(
+        when(schemaIntrospectionService.introspectSaved(any(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected("profiles", "public", "id",
                         List.of(new DetectedColumn("plan", "text", true, null, false),
                                 new DetectedColumn("is_verified", "boolean", true, null, false)),
@@ -177,6 +177,22 @@ class ConnectionControllerTest extends IntegrationTest {
 
         assertThat(filterableColumnRepository.findByConnectionId(connection.getId())).extracting(FilterableColumn::getColumnName)
                 .containsExactlyInAnyOrder("plan", "is_verified");
+    }
+
+    @Test
+    void shouldClearColumnsWhenUpdatingWithEmptyList() throws Exception {
+        when(schemaIntrospectionService.introspectSaved(any(), any())).thenReturn(
+                new SchemaIntrospectionResult.Detected(null, null, null, List.of(),
+                        List.of(new DetectedColumn("created_at", "datetime", false, 10, false))));
+        filterableColumnRepository.save(
+                FilterableColumn.builder().connectionId(connection.getId()).columnName("created_at").columnType("datetime").displayName("created_at")
+                        .source(FilterSource.AUTH_METADATA).enabled(true).cardinalityWarning(false).build());
+
+        var response = authedPatch("/api/v1/connections/reconnect/columns").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateColumnsRequest(List.of()))).exchange();
+
+        assertThat(response).hasStatus(200);
+        assertThat(filterableColumnRepository.findByConnectionId(connection.getId())).isEmpty();
     }
 
     @Test

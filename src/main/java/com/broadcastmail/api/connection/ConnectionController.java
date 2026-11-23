@@ -89,7 +89,7 @@ public class ConnectionController {
     @GetMapping("/reconnect/columns")
     public ResponseEntity<List<FilterableColumnResponse>> listColumnsForReconnect(
             @AuthenticationPrincipal UUID accountId) {
-        return ResponseEntity.ok(connectionQueryService.listColumns(accountId));
+        return ResponseEntity.ok(schemaService.editableColumns(accountId));
     }
 
     @DeleteMapping("/reconnect/profile-columns")

@@ -1,6 +1,7 @@
 package com.broadcastmail.api.connection.schema;
 
 import com.broadcastmail.api.connection.dto.DetectedColumn;
+import com.broadcastmail.api.connection.dto.FilterableColumnResponse;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.supabase.management.ManagementSqlRunners;
 import com.broadcastmail.common.campaign.filter.FilterSource;
@@ -66,5 +67,33 @@ class SchemaServiceTest {
        assertThat(result.filterableColumns())
                 .extracting(c -> c.columnName() + ":" + c.enabled())
                 .containsExactly("plan:true", "country:false");
+    }
+
+    @Test
+    void editableColumnsShouldOfferUnsavedAuthColumnsForAuthOnlyConnection() {
+        // Given
+        UUID accountId = UUID.randomUUID();
+        UUID connectionId = UUID.randomUUID();
+        Connection connection = new Connection();
+        connection.setId(connectionId);
+        connection.setProjectRef("project-ref");
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(connection));
+        when(schemaIntrospectionService.introspectSaved(any(), any())).thenReturn(
+                new SchemaIntrospectionResult.Detected(null, null, null, List.of(),
+                        List.of(new DetectedColumn("created_at", "datetime", false, 10, false),
+                                new DetectedColumn("last_sign_in_at", "datetime", false, 10, false))));
+        when(filterableColumnRepository.findByConnectionId(connectionId)).thenReturn(List.of(
+                FilterableColumn.builder()
+                        .connectionId(connectionId).columnName("created_at").columnType("datetime").displayName("created_at")
+                        .source(FilterSource.AUTH_METADATA)
+                        .enabled(true).cardinalityWarning(false).build()));
+
+        // When
+        List<FilterableColumnResponse> result = schemaService.editableColumns(accountId);
+
+        // Then
+        assertThat(result)
+                .extracting(c -> c.source() + ":" + c.columnName() + ":" + c.enabled())
+                .containsExactly("AUTH_METADATA:created_at:true", "AUTH_METADATA:last_sign_in_at:false");
     }
 }

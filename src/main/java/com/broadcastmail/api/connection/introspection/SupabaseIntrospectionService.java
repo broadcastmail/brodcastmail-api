@@ -34,6 +34,10 @@ public class SupabaseIntrospectionService {
         return build(sql, List.of(new SupabaseIntrospectionData.CandidateTable(schema, table, idColumn)));
     }
 
+    public SupabaseIntrospectionData introspectAuthOnly(ManagementSqlRunner sql) {
+        return build(sql, List.of());
+    }
+
     public String detectPrimaryKey(ManagementSqlRunner sql, TableRef table) {
         return catalogReader.primaryKey(sql, table);
     }

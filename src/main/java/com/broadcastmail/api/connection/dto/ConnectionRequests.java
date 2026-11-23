@@ -1,7 +1,7 @@
 package com.broadcastmail.api.connection.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -12,7 +12,7 @@ public class ConnectionRequests {
             @NotBlank String userTableSchema,
             @NotBlank String userTableName,
             @NotBlank String userIdColumn) {}
-    public record UpdateColumnsRequest(@NotEmpty List<String> columnNames) {}
+    public record UpdateColumnsRequest(@NotNull List<String> columnNames) {}
     public record UpdateEmailTableRequest(
             String emailTableSchema,
             String emailTableName,
