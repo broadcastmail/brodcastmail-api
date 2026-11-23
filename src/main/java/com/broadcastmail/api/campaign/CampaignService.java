@@ -13,6 +13,7 @@ import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
+import com.broadcastmail.api.campaign.filter.FilterRequestMapper;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.common.account.plan.PlanFeature;
@@ -77,7 +78,7 @@ public class CampaignService {
 
         if (request.filters() != null) {
             for (int i = 0; i < request.filters().size(); i++) {
-                filters.add(mapToFilter(saved.getId(), i, request.filters().get(i)));
+                filters.add(FilterRequestMapper.toEntity(saved.getId(), i, request.filters().get(i)));
             }
             filterRepository.saveAll(filters);
         }
@@ -152,7 +153,7 @@ public class CampaignService {
             filterRepository.flush();
             List<CampaignFilter> filters = new ArrayList<>();
             for (int i = 0; i < request.filters().size(); i++) {
-                filters.add(mapToFilter(campaignId, i, request.filters().get(i)));
+                filters.add(FilterRequestMapper.toEntity(campaignId, i, request.filters().get(i)));
             }
             filterRepository.saveAll(filters);
         }
@@ -260,22 +261,5 @@ public class CampaignService {
 
     private String sanitize(String html) {
         return Jsoup.clean(html, Safelist.relaxed().addAttributes(":all", "style"));
-    }
-
-    private CampaignFilter mapToFilter(UUID campaignId, int order, FilterRequest request) {
-        String filterValue = request.filterValues() != null && !request.filterValues().isEmpty()
-                ? String.join(",", request.filterValues())
-                : request.filterValue();
-        return CampaignFilter.builder()
-                .campaignId(campaignId)
-                .columnName(request.columnName())
-                .operator(request.operator())
-                .filterValue(filterValue)
-                .filterOrder(order)
-                .source(request.sourceOrDefault())
-                .jsonKey(request.jsonKey())
-                .groupIndex(request.groupIndex())
-                .groupLogic(request.groupLogic())
-                .build();
     }
 }

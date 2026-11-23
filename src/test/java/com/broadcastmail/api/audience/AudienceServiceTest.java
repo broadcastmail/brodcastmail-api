@@ -3,6 +3,9 @@ package com.broadcastmail.api.audience;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.common.account.Account;
+import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
+import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
+import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -15,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
@@ -38,6 +42,8 @@ class AudienceServiceTest {
     private CampaignFilterValidator filterValidator;
     @Mock
     private SuppressionsRepository suppressionsRepository;
+    @Spy
+    private CampaignFilterSerializer filterSerializer = new CampaignFilterSerializer();
     @InjectMocks
     private AudienceService audienceService;
 
@@ -61,6 +67,28 @@ class AudienceServiceTest {
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         verify(tenantAudienceGateway).queryAudience(any(), sql.capture(), anyList(), anyList(), eq(50));
         assertThat(sql.getValue()).contains("ORDER BY auth.\"created_at\"");
+    }
+
+    @Test
+    void shouldQualifyFilterColumnsWhenEmailAndProfileTablesShareColumnNames() throws Exception {
+        // Given — email source contacts, profile table profiles, both with created_at
+        UUID accountId = UUID.randomUUID();
+        Account account = CampaignTestFixtures.account().id(accountId).build();
+        Connection connection = CampaignTestFixtures.connection(accountId).id(UUID.randomUUID())
+                .emailTableSchema("public").emailTableName("contacts").emailTableIdColumn("id").emailColumn("email").build();
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(connection));
+        when(tenantAudienceGateway.queryAudience(any(), anyString(), anyList(), anyList(), anyInt()))
+                .thenReturn(new TenantAudienceGateway.AudienceQueryResult(0, List.of()));
+        FilterRequest filter = new FilterRequest("created_at", FilterOperator.WITHIN, "7", FilterSource.PROFILE_TABLE,
+                null, null, null, null);
+
+        // When
+        audienceService.list(account, Optional.empty(), 50, List.of(filter), null, "email", SortDirection.ASCENDING);
+
+        // Then
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(tenantAudienceGateway).queryAudience(any(), sql.capture(), anyList(), anyList(), eq(50));
+        assertThat(sql.getValue()).contains("WHERE linked.\"created_at\" >").doesNotContain("WHERE \"created_at\"");
     }
 
     private FilterableColumn column(String name, FilterSource source) {

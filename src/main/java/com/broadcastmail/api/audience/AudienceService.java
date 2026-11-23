@@ -2,11 +2,13 @@ package com.broadcastmail.api.audience;
 
 import com.broadcastmail.api.audience.dto.AudienceListResponse;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
+import com.broadcastmail.api.campaign.filter.FilterRequestMapper;
+import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
+import com.broadcastmail.common.campaign.filter.FilterQuery;
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
-import com.broadcastmail.api.supabase.TenantFilterSqlBuilder;
 import com.broadcastmail.api.supabase.ConnectionQueryContext;
 import com.broadcastmail.api.supabase.SupabaseSql;
 import com.broadcastmail.common.account.Account;
@@ -34,6 +36,7 @@ public class AudienceService {
     private final TenantAudienceGateway tenantAudienceGateway;
     private final CampaignFilterValidator filterValidator;
     private final SuppressionsRepository suppressionsRepository;
+    private final CampaignFilterSerializer filterSerializer;
 
     public AudienceListResponse list(
             Account account,
@@ -56,9 +59,10 @@ public class AudienceService {
         ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
         SupabaseSql.SortSpec sort = ctx.buildSortSpec(sortSource, sortKey, sortDirection);
 
-        TenantFilterSqlBuilder.FilterClause where = TenantFilterSqlBuilder.buildWhereClause(filters, filterRootLogic);
+        String rootLogic = "OR".equalsIgnoreCase(filterRootLogic) ? "OR" : "AND";
+        FilterQuery where = filterSerializer.serialize(FilterRequestMapper.toEntities(filters), rootLogic, ctx.filterAliases());
         String baseWhere = where.sql();
-        List<Object> filterParams = new ArrayList<>(where.params());
+        List<Object> filterParams = new ArrayList<>(where.parameters());
         AudienceCursor.PageQuery page = AudienceCursor.buildPageQuery(cursor, baseWhere, filterParams, sort, ctx.idRef());
 
         String sql = ctx.buildAudienceQuery(baseWhere, page.whereClause(), sort);

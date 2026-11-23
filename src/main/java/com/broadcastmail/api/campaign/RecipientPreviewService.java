@@ -49,13 +49,14 @@ public class RecipientPreviewService {
         List<CampaignFilter> filters = filterRepository.findByCampaignId(campaignId);
         filterValidator.validateSaved(accountId, filters);
         String rootLogic = campaign.getFilterRootLogic() != null ? campaign.getFilterRootLogic() : "AND";
-        FilterQuery filterQuery = filterSerializer.serialize(filters, rootLogic);
+        ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
+        FilterQuery filterQuery = filterSerializer.serialize(filters, rootLogic, ctx.filterAliases());
 
         Set<String> allExcluded = buildExclusionSet(accountId, campaign);
         boolean hasFilters = !filterQuery.sql().isEmpty();
         boolean hasExcluded = !allExcluded.isEmpty();
 
-        String sql = buildCountSql(connection, filterQuery, hasFilters, hasExcluded);
+        String sql = buildCountSql(ctx, filterQuery, hasFilters, hasExcluded);
 
         try {
             int count = tenantAudienceGateway.countRecipients(connection, sql, filterQuery.parameters(), allExcluded);
@@ -91,9 +92,8 @@ public class RecipientPreviewService {
         return excluded;
     }
 
-    private String buildCountSql(Connection connection, FilterQuery filterQuery,
+    private String buildCountSql(ConnectionQueryContext ctx, FilterQuery filterQuery,
                                   boolean hasFilters, boolean hasExcluded) {
-        ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
         if (!hasFilters) {
             String base = ctx.buildBaseCountQuery();
             return hasExcluded ? base + " WHERE " + ctx.emailColumnExpression() + " != ALL(?)" : base;

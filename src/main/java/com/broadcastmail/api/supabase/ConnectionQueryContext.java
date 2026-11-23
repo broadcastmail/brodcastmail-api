@@ -2,9 +2,9 @@ package com.broadcastmail.api.supabase;
 
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.campaign.filter.FilterAliases;
+import com.broadcastmail.common.connection.RecipientSource;
 import org.hibernate.query.SortDirection;
-
-import java.util.Objects;
 
 import static com.broadcastmail.api.supabase.SupabaseSql.*;
 
@@ -15,6 +15,7 @@ public final class ConnectionQueryContext {
     private final String emailColumnExpression;
     private final boolean hasLinkedUserTable;
     private final boolean profileIsEmailTable;
+    private final RecipientSource recipientSource;
 
     private final String userSchema;
     private final String userTable;
@@ -30,11 +31,9 @@ public final class ConnectionQueryContext {
         this.userSchema = connection.getUserTableSchema();
         this.userTable = connection.getUserTableName();
         this.userIdColumn = connection.getUserIdColumn();
-        // Joining the email table to itself would make every unqualified filter column ambiguous.
-        this.profileIsEmailTable = !authMode && userTable != null
-                && userTable.equals(connection.getEmailTableName())
-                && Objects.equals(userSchema, connection.getEmailTableSchema());
-        this.hasLinkedUserTable = userTable != null && !profileIsEmailTable;
+        this.recipientSource = RecipientSource.of(connection);
+        this.profileIsEmailTable = recipientSource.profileIsEmailTable();
+        this.hasLinkedUserTable = recipientSource.hasLinkedProfile();
 
         if (authMode) {
             this.emailSchema = null;
@@ -55,6 +54,10 @@ public final class ConnectionQueryContext {
 
     public static ConnectionQueryContext from(Connection connection) {
         return new ConnectionQueryContext(connection);
+    }
+
+    public FilterAliases filterAliases() {
+        return recipientSource.filterAliases();
     }
 
     public String idRef() {
