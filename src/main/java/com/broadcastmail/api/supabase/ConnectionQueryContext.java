@@ -4,6 +4,8 @@ import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import org.hibernate.query.SortDirection;
 
+import java.util.Objects;
+
 import static com.broadcastmail.api.supabase.SupabaseSql.*;
 
 public final class ConnectionQueryContext {
@@ -12,6 +14,7 @@ public final class ConnectionQueryContext {
     private final String idRef;
     private final String emailColumnExpression;
     private final boolean hasLinkedUserTable;
+    private final boolean profileIsEmailTable;
 
     private final String userSchema;
     private final String userTable;
@@ -27,7 +30,11 @@ public final class ConnectionQueryContext {
         this.userSchema = connection.getUserTableSchema();
         this.userTable = connection.getUserTableName();
         this.userIdColumn = connection.getUserIdColumn();
-        this.hasLinkedUserTable = userTable != null;
+        // Joining the email table to itself would make every unqualified filter column ambiguous.
+        this.profileIsEmailTable = !authMode && userTable != null
+                && userTable.equals(connection.getEmailTableName())
+                && Objects.equals(userSchema, connection.getEmailTableSchema());
+        this.hasLinkedUserTable = userTable != null && !profileIsEmailTable;
 
         if (authMode) {
             this.emailSchema = null;
@@ -60,7 +67,7 @@ public final class ConnectionQueryContext {
     }
 
     public SupabaseSql.SortSpec buildSortSpec(FilterSource sortSource, String sortKey, SortDirection direction) {
-        String alias = sortSource == FilterSource.PROFILE_TABLE ? "linked"
+        String alias = sortSource == FilterSource.PROFILE_TABLE && hasLinkedUserTable ? "linked"
                 : authMode ? AUTH_ALIAS : EMAIL_ALIAS;
         return new SupabaseSql.SortSpec(alias, sortKey, direction);
     }
@@ -101,9 +108,11 @@ public final class ConnectionQueryContext {
             String profileJoin = hasLinkedUserTable
                     ? "LEFT JOIN \"" + userSchema + QDOT + userTable + LINKED_JOIN + userIdColumn + "\" = " + EMAIL_ALIAS + ".\"" + emailIdColumn + "\""
                     : "";
-            String select = hasLinkedUserTable
-                    ? EMAIL_ALIAS + ".\"" + emailIdColumn + "\" AS __id, " + emailColumnExpression + " AS __email, linked.*"
-                    : EMAIL_ALIAS + ".\"" + emailIdColumn + "\" AS __id, " + emailColumnExpression + " AS __email";
+            String idAndEmail = EMAIL_ALIAS + ".\"" + emailIdColumn + "\" AS __id, " + emailColumnExpression + " AS __email";
+            String select;
+            if (hasLinkedUserTable) select = idAndEmail + ", linked.*";
+            else if (profileIsEmailTable) select = idAndEmail + ", " + EMAIL_ALIAS + ".*";
+            else select = idAndEmail;
             String orderBy = emailIdColumn.equals(sort.key())
                     ? ORDER_BY + EMAIL_ALIAS + ".\"" + emailIdColumn + "\" " + dir
                     : ORDER_BY + sort.alias() + ".\"" + sort.key() + "\" " + dir + " NULLS LAST, " + EMAIL_ALIAS + ".\"" + emailIdColumn + "\" " + dir;

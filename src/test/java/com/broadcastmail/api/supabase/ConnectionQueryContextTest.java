@@ -1,6 +1,8 @@
 package com.broadcastmail.api.supabase;
 
 import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.campaign.filter.FilterSource;
+import org.hibernate.query.SortDirection;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,5 +67,28 @@ class ConnectionQueryContextTest {
         String sql = ConnectionQueryContext.from(connection).buildRecipientCountQuery();
 
         assertThat(sql).doesNotContain("_broadcastmail.user_emails").contains("\"public\".\"contacts\"");
+    }
+
+    @Test
+    void shouldNotJoinEmailTableToItselfWhenItIsAlsoTheProfileTable() {
+        // Given
+        Connection connection = mock(Connection.class);
+        when(connection.getEmailColumn()).thenReturn("email");
+        when(connection.getEmailTableSchema()).thenReturn("public");
+        when(connection.getEmailTableName()).thenReturn("profiles");
+        when(connection.getEmailTableIdColumn()).thenReturn("id");
+        when(connection.getUserTableSchema()).thenReturn("public");
+        when(connection.getUserTableName()).thenReturn("profiles");
+        when(connection.getUserIdColumn()).thenReturn("id");
+        ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
+
+        // When
+        String count = ctx.buildRecipientCountQuery();
+        String list = ctx.buildAudienceQuery("WHERE \"country\" = ?", "WHERE \"country\" = ?",
+                ctx.buildSortSpec(FilterSource.PROFILE_TABLE, "country", SortDirection.ASCENDING));
+
+        // Then
+        assertThat(count).doesNotContain("JOIN");
+        assertThat(list).doesNotContain("JOIN").contains("email.*").contains("ORDER BY email.\"country\"");
     }
 }
