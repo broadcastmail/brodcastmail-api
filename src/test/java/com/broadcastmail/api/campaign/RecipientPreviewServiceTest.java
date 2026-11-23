@@ -172,7 +172,7 @@ class RecipientPreviewServiceTest {
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(
                 List.of(CampaignFilter.builder().columnName("plan").operator(FilterOperator.EQ).filterValue("pro").filterOrder(0)
                         .source(FilterSource.PROFILE_TABLE).build()));
-        String expectedSql = ConnectionQueryContext.from(connection).buildRecipientCountQuery() + " WHERE \"plan\" = ?";
+        String expectedSql = ConnectionQueryContext.from(connection).buildRecipientCountQuery() + " WHERE linked.\"plan\" = ?";
         when(tenantAudienceGateway.countRecipients(any(), anyString(), any(), any())).thenReturn(7);
         givenAccount();
 

@@ -2,6 +2,8 @@ package com.broadcastmail.api.supabase;
 
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
+import com.broadcastmail.common.campaign.filter.FilterAliases;
+import com.broadcastmail.common.connection.RecipientSource;
 import org.hibernate.query.SortDirection;
 
 import static com.broadcastmail.api.supabase.SupabaseSql.*;
@@ -12,6 +14,8 @@ public final class ConnectionQueryContext {
     private final String idRef;
     private final String emailColumnExpression;
     private final boolean hasLinkedUserTable;
+    private final boolean profileIsEmailTable;
+    private final RecipientSource recipientSource;
 
     private final String userSchema;
     private final String userTable;
@@ -27,7 +31,9 @@ public final class ConnectionQueryContext {
         this.userSchema = connection.getUserTableSchema();
         this.userTable = connection.getUserTableName();
         this.userIdColumn = connection.getUserIdColumn();
-        this.hasLinkedUserTable = userTable != null;
+        this.recipientSource = RecipientSource.of(connection);
+        this.profileIsEmailTable = recipientSource.profileIsEmailTable();
+        this.hasLinkedUserTable = recipientSource.hasLinkedProfile();
 
         if (authMode) {
             this.emailSchema = null;
@@ -50,6 +56,10 @@ public final class ConnectionQueryContext {
         return new ConnectionQueryContext(connection);
     }
 
+    public FilterAliases filterAliases() {
+        return recipientSource.filterAliases();
+    }
+
     public String idRef() {
         return idRef;
     }
@@ -60,7 +70,7 @@ public final class ConnectionQueryContext {
     }
 
     public SupabaseSql.SortSpec buildSortSpec(FilterSource sortSource, String sortKey, SortDirection direction) {
-        String alias = sortSource == FilterSource.PROFILE_TABLE ? "linked"
+        String alias = sortSource == FilterSource.PROFILE_TABLE && hasLinkedUserTable ? "linked"
                 : authMode ? AUTH_ALIAS : EMAIL_ALIAS;
         return new SupabaseSql.SortSpec(alias, sortKey, direction);
     }
@@ -101,9 +111,11 @@ public final class ConnectionQueryContext {
             String profileJoin = hasLinkedUserTable
                     ? "LEFT JOIN \"" + userSchema + QDOT + userTable + LINKED_JOIN + userIdColumn + "\" = " + EMAIL_ALIAS + ".\"" + emailIdColumn + "\""
                     : "";
-            String select = hasLinkedUserTable
-                    ? EMAIL_ALIAS + ".\"" + emailIdColumn + "\" AS __id, " + emailColumnExpression + " AS __email, linked.*"
-                    : EMAIL_ALIAS + ".\"" + emailIdColumn + "\" AS __id, " + emailColumnExpression + " AS __email";
+            String idAndEmail = EMAIL_ALIAS + ".\"" + emailIdColumn + "\" AS __id, " + emailColumnExpression + " AS __email";
+            String select;
+            if (hasLinkedUserTable) select = idAndEmail + ", linked.*";
+            else if (profileIsEmailTable) select = idAndEmail + ", " + EMAIL_ALIAS + ".*";
+            else select = idAndEmail;
             String orderBy = emailIdColumn.equals(sort.key())
                     ? ORDER_BY + EMAIL_ALIAS + ".\"" + emailIdColumn + "\" " + dir
                     : ORDER_BY + sort.alias() + ".\"" + sort.key() + "\" " + dir + " NULLS LAST, " + EMAIL_ALIAS + ".\"" + emailIdColumn + "\" " + dir;
