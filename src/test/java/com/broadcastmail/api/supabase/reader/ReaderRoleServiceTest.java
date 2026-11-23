@@ -39,6 +39,18 @@ class ReaderRoleServiceTest {
         verify(supabaseManagementClient).executeSql("token", "ref",
                 SupabaseSql.grantReaderSql("broadcastmail_r_abc", Set.of(CUSTOMERS))
                         + SupabaseSql.revokeOtherReaderGrantsSql("broadcastmail_r_abc", Set.of(CUSTOMERS)));
+        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.bypassRlsSql("broadcastmail_r_abc"));
+    }
+
+    @Test
+    void syncGrantsShouldStillSucceedWhenBypassRlsIsRefused() {
+        // Given
+        lenient().doThrow(new IllegalStateException("permission denied"))
+                .when(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.bypassRlsSql("broadcastmail_r_abc"));
+
+        // When / Then
+        assertThatCode(() -> readerRoleService.syncGrants("token", "ref", "broadcastmail_r_abc", Set.of(CUSTOMERS)))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -50,6 +62,18 @@ class ReaderRoleServiceTest {
         verify(supabaseManagementClient).executeSql("token", "ref",
                 SupabaseSql.grantReaderSql("broadcastmail_r_abc", Set.of())
                         + SupabaseSql.revokeOtherReaderGrantsSql("broadcastmail_r_abc", Set.of()));
+    }
+
+    @Test
+    void provisionShouldAlsoBypassRlsForTheNewRole() {
+        // Given
+        when(encryptionProperties.key()).thenReturn("0123456789abcdef0123456789abcdef");
+
+        // When
+        var provisioned = readerRoleService.provision("token", "ref", Set.of(CUSTOMERS));
+
+        // Then
+        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.bypassRlsSql(provisioned.role()));
     }
 
     @Test
