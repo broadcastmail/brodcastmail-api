@@ -95,6 +95,12 @@ public class CampaignController {
         return ResponseEntity.ok(recipientPreviewService.preview(accountId, id));
     }
 
+    @PostMapping("/{id}/preview")
+    public ResponseEntity<RecipientPreviewResponse> previewSelection(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id,
+                                                                     @RequestBody @Valid PreviewSelectionRequest request) {
+        return ResponseEntity.ok(recipientPreviewService.previewSelection(accountId, id, request));
+    }
+
     @PostMapping("/{id}/test/send")
     public ResponseEntity<Void> sendTestEmail(@AuthenticationPrincipal UUID accountId, @PathVariable UUID id,
                                               @RequestBody @Valid TestEmailRequest request) {

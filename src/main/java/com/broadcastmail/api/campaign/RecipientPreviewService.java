@@ -11,7 +11,14 @@ import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.audience.TenantAudienceGateway;
-import com.broadcastmail.api.supabase.ConnectionQueryContext;
+import com.broadcastmail.api.campaign.dto.PreviewSelectionRequest;
+import com.broadcastmail.api.campaign.filter.FilterRequestMapper;
+import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
+import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
+import com.broadcastmail.api.common.exceptions.InvalidCampaignFilterException;
+import com.broadcastmail.common.account.Account;
+import com.broadcastmail.common.campaign.AudienceMode;
+import com.broadcastmail.common.connection.RecipientSource;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import com.broadcastmail.common.suppressions.Suppression;
@@ -21,7 +28,9 @@ import org.springframework.stereotype.Service;
 
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.time.ZoneId;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +39,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class RecipientPreviewService {
+
+    private static final String WHERE = "WHERE ";
+    private static final int PLAN_PERIOD_DAYS = 30;
 
     private final CampaignService campaignService;
     private final ConnectionRepository connectionRepository;
@@ -41,6 +53,10 @@ public class RecipientPreviewService {
     private final CampaignRecipientRepository recipientRepository;
     private final AccountRepository accountRepository;
 
+    /** What gets counted: the same rules the worker applies when it resolves who to send to. */
+    public record AudienceSelection(List<CampaignFilter> filters, String rootLogic, AudienceMode mode,
+                                    List<String> includedIds, List<String> excludedIds, UUID excludedCampaignId) {}
+
     public RecipientPreviewResponse preview(UUID accountId, UUID campaignId) {
         Campaign campaign = campaignService.getCampaign(accountId, campaignId);
         Connection connection = connectionRepository.findByAccountId(accountId)
@@ -48,57 +64,104 @@ public class RecipientPreviewService {
 
         List<CampaignFilter> filters = filterRepository.findByCampaignId(campaignId);
         filterValidator.validateSaved(accountId, filters);
-        String rootLogic = campaign.getFilterRootLogic() != null ? campaign.getFilterRootLogic() : "AND";
-        ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
-        FilterQuery filterQuery = filterSerializer.serialize(filters, rootLogic, ctx.filterAliases());
+        AudienceSelection selection = new AudienceSelection(filters, campaign.getFilterRootLogic(), campaign.getAudienceMode(),
+                campaign.getIncludedIds(), campaign.getExcludedIds(), campaign.getExcludedCampaignId());
+        return countAndQuota(accountId, connection, selection, true);
+    }
 
-        Set<String> allExcluded = buildExclusionSet(accountId, campaign);
-        boolean hasFilters = !filterQuery.sql().isEmpty();
-        boolean hasExcluded = !allExcluded.isEmpty();
+    public RecipientPreviewResponse previewSelection(UUID accountId, UUID campaignId, PreviewSelectionRequest request) {
+        campaignService.getCampaign(accountId, campaignId);
+        Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
+        Connection connection = connectionRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new CampaignNotFoundException(campaignId));
+        if (request.excludedCampaignId() != null) campaignService.getCampaign(accountId, request.excludedCampaignId());
 
-        String sql = buildCountSql(ctx, filterQuery, hasFilters, hasExcluded);
+        List<FilterRequest> filters = request.filters() != null ? request.filters() : List.of();
+        filterValidator.validateRequests(account, filters);
+        AudienceSelection selection = new AudienceSelection(FilterRequestMapper.toEntities(filters), request.filterRootLogic(),
+                parseMode(request.audienceMode()), request.includedIds(), request.excludedIds(), request.excludedCampaignId());
+        return countAndQuota(accountId, connection, selection, false);
+    }
 
+    private RecipientPreviewResponse countAndQuota(UUID accountId, Connection connection, AudienceSelection selection,
+                                                   boolean persistEstimate) {
+        Set<String> usedThisPeriod = new HashSet<>(recipientRepository.findDistinctEmailsSince(
+                accountId, OffsetDateTime.now(ZoneId.systemDefault()).minusDays(PLAN_PERIOD_DAYS)));
         try {
-            int count = tenantAudienceGateway.countRecipients(connection, sql, filterQuery.parameters(), allExcluded);
-            connection.setEstimatedUserCount(count);
-            connectionRepository.save(connection);
-
-            OffsetDateTime since = OffsetDateTime.now(ZoneId.systemDefault()).minusDays(30);
-            long usedThisPeriod = recipientRepository.countUniqueRecipientsSince(accountId, since);
+            TenantAudienceGateway.Counts counts = count(accountId, connection, selection, usedThisPeriod);
+            if (persistEstimate) {
+                connection.setEstimatedUserCount(counts.total());
+                connectionRepository.save(connection);
+            }
             int limit = accountRepository.findById(accountId)
                     .map(a -> a.getPlan().strategy().recipientLimit())
                     .orElse(0);
-
-            return new RecipientPreviewResponse(count, usedThisPeriod, limit);
+            return new RecipientPreviewResponse(counts.total(), counts.fresh(), usedThisPeriod.size(), limit);
         } catch (SQLException e) {
             throw new RuntimeException("Recipient preview failed: " + e.getMessage(), e);
         }
     }
 
-    private Set<String> buildExclusionSet(UUID accountId, Campaign campaign) {
-        Set<String> excluded = new LinkedHashSet<>();
+    private TenantAudienceGateway.Counts count(UUID accountId, Connection connection, AudienceSelection selection,
+                                               Set<String> usedThisPeriod) throws SQLException {
+        RecipientSource source = RecipientSource.of(connection);
+        List<String> conditions = new ArrayList<>(List.of(source.emailExpr() + " IS NOT NULL"));
+        List<Object> params = new ArrayList<>();
+        boolean joinProfile = false;
 
+        if (selection.mode() == AudienceMode.MANUAL) {
+            List<String> included = selection.includedIds() != null ? selection.includedIds() : List.of();
+            if (included.isEmpty()) return new TenantAudienceGateway.Counts(0, 0);
+            conditions.add(source.idExpr() + "::text = ANY(?)");
+            params.add(included.toArray(String[]::new));
+        } else {
+            String rootLogic = "OR".equalsIgnoreCase(selection.rootLogic()) ? "OR" : "AND";
+            FilterQuery filterQuery = filterSerializer.serialize(selection.filters(), rootLogic, source.filterAliases());
+            if (!filterQuery.sql().isEmpty()) {
+                conditions.add("(" + filterQuery.sql().substring(WHERE.length()) + ")");
+                params.addAll(filterQuery.parameters());
+                joinProfile = true;
+            }
+        }
+
+        if (selection.excludedIds() != null && !selection.excludedIds().isEmpty()) {
+            conditions.add(source.idExpr() + "::text <> ALL(?)");
+            params.add(selection.excludedIds().toArray(String[]::new));
+        }
+        Set<String> excludedEmails = excludedEmails(accountId, selection.excludedCampaignId());
+        if (!excludedEmails.isEmpty()) {
+            conditions.add(source.emailExpr() + " <> ALL(?)");
+            params.add(excludedEmails.toArray(String[]::new));
+        }
+
+        String fresh = "COUNT(*)";
+        if (!usedThisPeriod.isEmpty()) {
+            fresh = "COUNT(*) FILTER (WHERE " + source.emailExpr() + " <> ALL(?))";
+            params.addFirst(usedThisPeriod.toArray(String[]::new));
+        }
+        String sql = "SELECT COUNT(*), " + fresh + " FROM " + source.from(joinProfile)
+                + " WHERE " + String.join(" AND ", conditions);
+        return tenantAudienceGateway.count(connection, sql, params);
+    }
+
+
+    private Set<String> excludedEmails(UUID accountId, UUID excludedCampaignId) {
+        Set<String> excluded = new LinkedHashSet<>();
         suppressionsRepository.findByAccountId(accountId).stream()
                 .map(Suppression::getEmail)
                 .forEach(excluded::add);
-
-        if (campaign.getExcludedIds() != null && !campaign.getExcludedIds().isEmpty()) {
-            excluded.addAll(recipientRepository.findDistinctEmailsByExternalUserIds(accountId, campaign.getExcludedIds()));
+        if (excludedCampaignId != null) {
+            excluded.addAll(recipientRepository.findDistinctEmailsByCampaignId(excludedCampaignId));
         }
-        if (campaign.getExcludedCampaignId() != null) {
-            excluded.addAll(recipientRepository.findDistinctEmailsByCampaignId(campaign.getExcludedCampaignId()));
-        }
-
         return excluded;
     }
 
-    private String buildCountSql(ConnectionQueryContext ctx, FilterQuery filterQuery,
-                                  boolean hasFilters, boolean hasExcluded) {
-        if (!hasFilters) {
-            String base = ctx.buildBaseCountQuery();
-            return hasExcluded ? base + " WHERE " + ctx.emailColumnExpression() + " != ALL(?)" : base;
+    private static AudienceMode parseMode(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return AudienceMode.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException _) {
+            throw new InvalidCampaignFilterException(List.of("Invalid audienceMode: " + raw));
         }
-        String base = ctx.buildRecipientCountQuery() + " " + filterQuery.sql();
-        return hasExcluded ? base + " AND " + ctx.emailColumnExpression() + " != ALL(?)" : base;
     }
 }
