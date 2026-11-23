@@ -22,4 +22,8 @@ public record FilterableColumnResponse(
         );
     }
 
+    public static FilterableColumnResponse from(DetectedColumn col, FilterSource source) {
+        return new FilterableColumnResponse(
+                col.columnName(), col.columnType(), col.enabled(), col.cardinality(), col.cardinalityWarning(), source);
+    }
 }

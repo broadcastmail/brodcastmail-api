@@ -88,12 +88,8 @@ public class ConnectionUpdateService {
     public void updateSchemaColumns(UUID accountId, List<String> columnNames) {
         Connection connection = findConnection(accountId);
 
-        SchemaIntrospectionResult.Detected detected = schemaIntrospectionService.introspectTable(
-                sqlRunner(accountId, connection),
-                connection.getUserTableSchema(),
-                connection.getUserTableName(),
-                connection.getUserIdColumn()
-        );
+        SchemaIntrospectionResult.Detected detected =
+                schemaIntrospectionService.introspectSaved(sqlRunner(accountId, connection), connection);
 
         filterableColumnRepository.deleteByConnectionId(connection.getId());
         List<FilterableColumn> columns = new ArrayList<>();
