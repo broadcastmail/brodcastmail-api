@@ -2,6 +2,8 @@ package com.broadcastmail.api.campaign.confirm;
 
 import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.CampaignService;
+import com.broadcastmail.api.campaign.RecipientPreviewService;
+import com.broadcastmail.api.campaign.dto.RecipientPreviewResponse;
 import com.broadcastmail.api.campaign.sse.CampaignStatusNotifier;
 import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
@@ -19,6 +21,7 @@ import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRetryRepository;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -51,6 +54,7 @@ class CampaignConfirmServiceTest {
     @Mock private CampaignFilterValidator filterValidator;
     @Mock private PlanFacade planFacade;
     @Mock private CampaignStatusNotifier statusNotifier;
+    @Mock private RecipientPreviewService recipientPreviewService;
 
     @InjectMocks
     private CampaignConfirmService campaignConfirmService;
@@ -58,6 +62,12 @@ class CampaignConfirmServiceTest {
     private static final UUID ACCOUNT_ID = UUID.randomUUID();
     private static final UUID CAMPAIGN_ID = UUID.randomUUID();
     private static final UUID RETRY_CAMPAIGN_ID = UUID.randomUUID();
+
+    @BeforeEach
+    void stubPreview() {
+        lenient().when(recipientPreviewService.preview(any(UUID.class), any(UUID.class)))
+                .thenReturn(new RecipientPreviewResponse(0, 0, 0, 500));
+    }
 
     private Campaign campaign(CampaignStatus status) {
         return Campaign.builder().id(CAMPAIGN_ID).accountId(ACCOUNT_ID).connectionId(UUID.randomUUID()).name("Newsletter").subject("Hello")
@@ -80,6 +90,40 @@ class CampaignConfirmServiceTest {
         // Then
         assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.RESOLVING);
         verify(campaignRepository).save(campaign);
+    }
+
+    @Test
+    void shouldCountOnlyRecipientsNotEmailedThisPeriodAgainstThePlanLimit() {
+        // Given
+        Campaign campaign = campaign(CampaignStatus.DRAFT);
+        when(campaignService.getCampaign(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(campaign);
+        when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.connection(ACCOUNT_ID).build()));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.account().build()));
+        when(campaignFilterRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(List.of());
+        when(recipientPreviewService.preview(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(new RecipientPreviewResponse(300, 20, 280, 500));
+
+        // When
+        campaignConfirmService.confirmCampaign(ACCOUNT_ID, CAMPAIGN_ID);
+
+        // Then
+        verify(planFacade).enforceRecipientLimit(any(), eq(20));
+    }
+
+    @Test
+    void shouldSendToEveryoneWhenNoAudienceWasSaved() {
+        // Given
+        Campaign campaign = Campaign.builder().id(CAMPAIGN_ID).accountId(ACCOUNT_ID).connectionId(UUID.randomUUID())
+                .name("Newsletter").subject("Hello").bodyHtml("<p>Hi</p>").status(CampaignStatus.DRAFT).build();
+        when(campaignService.getCampaign(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(campaign);
+        when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.connection(ACCOUNT_ID).build()));
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(CampaignTestFixtures.account().build()));
+        when(campaignFilterRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(List.of());
+
+        // When
+        campaignConfirmService.confirmCampaign(ACCOUNT_ID, CAMPAIGN_ID);
+
+        // Then
+        assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.RESOLVING);
     }
 
     @Test

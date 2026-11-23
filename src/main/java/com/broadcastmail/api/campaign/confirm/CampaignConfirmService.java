@@ -3,9 +3,9 @@ package com.broadcastmail.api.campaign.confirm;
 import com.broadcastmail.api.account.plan.PlanFacade;
 import com.broadcastmail.api.campaign.sse.CampaignStatusNotifier;
 import com.broadcastmail.api.campaign.CampaignService;
+import com.broadcastmail.api.campaign.RecipientPreviewService;
 import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
-import com.broadcastmail.api.common.exceptions.AudienceNotConfiguredException;
 import com.broadcastmail.api.common.exceptions.CampaignContentMissingException;
 import com.broadcastmail.api.common.exceptions.CampaignNotEditableException;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
@@ -46,6 +46,7 @@ public class CampaignConfirmService {
     private final PlanFacade planFacade;
     private final CampaignFilterValidator filterValidator;
     private final CampaignStatusNotifier statusNotifier;
+    private final RecipientPreviewService recipientPreviewService;
 
     private static final Set<CampaignStatus> UNSENT_STATUSES =
             EnumSet.of(CampaignStatus.DRAFT, CampaignStatus.RESOLVING, CampaignStatus.SENDING);
@@ -71,9 +72,6 @@ public class CampaignConfirmService {
                 .orElseThrow(AccountNotFoundException::new);
 
         List<CampaignFilter> filters = campaignFilterRepository.findByCampaignId(campaignId);
-        if (campaign.getAudienceMode() == null && filters.isEmpty()) {
-            throw new AudienceNotConfiguredException();
-        }
         if (!filters.isEmpty()) {
             filterValidator.validateSaved(accountId, filters);
         }
@@ -81,7 +79,7 @@ public class CampaignConfirmService {
             planFacade.enforceFeature(account, PlanFeature.SCHEDULING);
         }
 
-        planFacade.enforceRecipientLimit(account, campaign.getRecipientCount());
+        planFacade.enforceRecipientLimit(account, recipientPreviewService.preview(accountId, campaignId).newRecipientCount());
 
         if (campaign.getExcludedCampaignId() != null) {
             planFacade.enforceFeature(account, PlanFeature.EXCLUSIONS);

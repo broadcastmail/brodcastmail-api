@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -24,20 +23,17 @@ public class TenantAudienceGateway {
 
     public record AudienceQueryResult(long total, List<AudienceListResponse.AudienceRecipient> recipients) {}
 
-    public int countRecipients(Connection connection, String sql,
-                               List<Object> filterParams, Set<String> excluded) throws SQLException {
+    public record Counts(int total, int fresh) {}
+
+    public Counts count(Connection connection, String sql, List<Object> params) throws SQLException {
         return connectionGateway.execute(connection, conn -> {
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                int paramIndex = 1;
-                for (Object param : filterParams) {
-                    stmt.setObject(paramIndex++, param);
-                }
-                if (!excluded.isEmpty()) {
-                    Array excludedArray = conn.createArrayOf("text", excluded.toArray());
-                    stmt.setArray(paramIndex, excludedArray);
+                for (int i = 0; i < params.size(); i++) {
+                    if (params.get(i) instanceof String[] values) stmt.setArray(i + 1, conn.createArrayOf("text", values));
+                    else stmt.setObject(i + 1, params.get(i));
                 }
                 ResultSet rs = stmt.executeQuery();
-                return rs.next() ? rs.getInt(1) : 0;
+                return rs.next() ? new Counts(rs.getInt(1), rs.getInt(2)) : new Counts(0, 0);
             }
         });
     }
