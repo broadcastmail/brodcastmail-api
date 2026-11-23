@@ -50,6 +50,7 @@ public class AudienceService {
         if (!SupabaseSql.IDENTIFIER_PATTERN.matcher(sortKey).matches()) {
             throw new IllegalArgumentException("Invalid sort key: " + sortKey);
         }
+        filters = FilterRequestMapper.withValues(filters != null ? filters : List.of());
         filterValidator.validateRequests(account, filters);
 
         Connection connection = connectionRepository.findByAccountId(account.getId())

@@ -19,6 +19,11 @@ import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
+import com.broadcastmail.common.campaign.filter.FilterOperator;
+import com.broadcastmail.common.campaign.filter.FilterSource;
+import com.broadcastmail.common.filterablecolumn.FilterableColumn;
+import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -57,6 +62,10 @@ class CampaignControllerTest extends IntegrationTest {
     private OutboxEntryRepository outboxEntryRepository;
     @Autowired
     private ConnectionRepository connectionRepository;
+    @Autowired
+    private FilterableColumnRepository filterableColumnRepository;
+    @Autowired
+    private CampaignFilterRepository campaignFilterRepository;
 
     private Account account;
     private Connection connection;
@@ -325,6 +334,57 @@ class CampaignControllerTest extends IntegrationTest {
         // Then
         assertThat(response).hasStatusOk();
         assertThat(campaignRepository.findById(campaign.getId()).orElseThrow().getName()).isEqualTo(campaign.getName());
+    }
+
+    @Test
+    void shouldSaveAudienceFilters() {
+        // Given
+        Campaign campaign = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId()).build());
+        filterableColumnRepository.save(FilterableColumn.builder().connectionId(connection.getId()).columnName("created_at")
+                .columnType("datetime").displayName("Created at").source(FilterSource.AUTH_METADATA).enabled(true)
+                .cardinalityWarning(false).build());
+
+        // When
+        var response = authedPatch("/api/v1/campaigns/" + campaign.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"audienceMode": "all", "includedIds": [], "excludedIds": [], "filterRootLogic": "AND",
+                         "filters": [{"columnName": "created_at", "operator": "after", "filterValue": "2026-01-01",
+                                      "source": "AUTH_METADATA"}]}
+                        """)
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatusOk();
+        assertThat(campaignFilterRepository.findByCampaignId(campaign.getId()))
+                .singleElement().satisfies(f -> assertThat(f.getOperator()).isEqualTo(FilterOperator.AFTER));
+    }
+
+    @Test
+    void shouldIgnoreFiltersWithoutAValue() {
+        // Given
+        Campaign campaign = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId()).build());
+        filterableColumnRepository.save(FilterableColumn.builder().connectionId(connection.getId()).columnName("created_at")
+                .columnType("datetime").displayName("Created at").source(FilterSource.AUTH_METADATA).enabled(true)
+                .cardinalityWarning(false).build());
+
+        // When
+        var response = authedPatch("/api/v1/campaigns/" + campaign.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"audienceMode": "all", "includedIds": [], "excludedIds": [], "filterRootLogic": "AND",
+                         "filters": [{"columnName": "created_at", "operator": "after", "filterValue": "",
+                                      "source": "AUTH_METADATA"},
+                                     {"columnName": "created_at", "operator": "is_empty", "source": "AUTH_METADATA"}]}
+                        """)
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatusOk();
+        assertThat(campaignFilterRepository.findByCampaignId(campaign.getId()))
+                .singleElement().satisfies(f -> assertThat(f.getOperator()).isEqualTo(FilterOperator.IS_EMPTY));
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedGet(String uri) {
