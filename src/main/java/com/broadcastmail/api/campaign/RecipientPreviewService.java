@@ -76,7 +76,7 @@ public class RecipientPreviewService {
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
         if (request.excludedCampaignId() != null) campaignService.getCampaign(accountId, request.excludedCampaignId());
 
-        List<FilterRequest> filters = request.filters() != null ? request.filters() : List.of();
+        List<FilterRequest> filters = FilterRequestMapper.withValues(request.filters() != null ? request.filters() : List.of());
         filterValidator.validateRequests(account, filters);
         AudienceSelection selection = new AudienceSelection(FilterRequestMapper.toEntities(filters), request.filterRootLogic(),
                 parseMode(request.audienceMode()), request.includedIds(), request.excludedIds(), request.excludedCampaignId());

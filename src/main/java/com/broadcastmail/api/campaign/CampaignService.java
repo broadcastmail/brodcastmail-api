@@ -71,14 +71,15 @@ public class CampaignService {
                 .orElseThrow(ConnectionNotFoundException::new)
                 .getId();
         Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
-        filterValidator.validateRequests(account, request.filters());
+        List<FilterRequest> requestFilters = FilterRequestMapper.withValues(request.filters());
+        filterValidator.validateRequests(account, requestFilters);
         Campaign campaign = mapToEntity(accountId, connectionId, request);
         Campaign saved = campaignRepository.save(campaign);
         List<CampaignFilter> filters = new ArrayList<>();
 
-        if (request.filters() != null) {
-            for (int i = 0; i < request.filters().size(); i++) {
-                filters.add(FilterRequestMapper.toEntity(saved.getId(), i, request.filters().get(i)));
+        if (requestFilters != null) {
+            for (int i = 0; i < requestFilters.size(); i++) {
+                filters.add(FilterRequestMapper.toEntity(saved.getId(), i, requestFilters.get(i)));
             }
             filterRepository.saveAll(filters);
         }
@@ -148,12 +149,13 @@ public class CampaignService {
         }
 
         if (request.filters() != null) {
-            filterValidator.validateRequests(account, request.filters());
+            List<FilterRequest> requestFilters = FilterRequestMapper.withValues(request.filters());
+            filterValidator.validateRequests(account, requestFilters);
             filterRepository.deleteAll(filterRepository.findByCampaignId(campaignId));
             filterRepository.flush();
             List<CampaignFilter> filters = new ArrayList<>();
-            for (int i = 0; i < request.filters().size(); i++) {
-                filters.add(FilterRequestMapper.toEntity(campaignId, i, request.filters().get(i)));
+            for (int i = 0; i < requestFilters.size(); i++) {
+                filters.add(FilterRequestMapper.toEntity(campaignId, i, requestFilters.get(i)));
             }
             filterRepository.saveAll(filters);
         }
