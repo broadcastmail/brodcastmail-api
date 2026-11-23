@@ -52,10 +52,7 @@ public class AudienceService {
         Connection connection = connectionRepository.findByAccountId(account.getId())
                 .orElseThrow(ConnectionNotFoundException::new);
 
-        FilterSource sortSource = filterableColumnRepository
-                .findByConnectionIdAndColumnName(connection.getId(), sortKey)
-                .map(FilterableColumn::getSource)
-                .orElse(FilterSource.AUTH_METADATA);
+        FilterSource sortSource = sortSource(connection.getId(), sortKey);
         ConnectionQueryContext ctx = ConnectionQueryContext.from(connection);
         SupabaseSql.SortSpec sort = ctx.buildSortSpec(sortSource, sortKey, sortDirection);
 
@@ -76,6 +73,17 @@ public class AudienceService {
         } catch (SQLException e) {
             throw new RuntimeException("Audience list failed: " + e.getMessage(), e);
         }
+    }
+
+    // The same column name can exist in auth.users and the profile table (e.g. created_at); auth.users wins.
+    private FilterSource sortSource(UUID connectionId, String sortKey) {
+        List<FilterSource> sources = filterableColumnRepository.findByConnectionId(connectionId).stream()
+                .filter(c -> sortKey.equals(c.getColumnName()))
+                .map(FilterableColumn::getSource)
+                .toList();
+        return sources.isEmpty() || sources.contains(FilterSource.AUTH_METADATA)
+                ? FilterSource.AUTH_METADATA
+                : sources.getFirst();
     }
 
     private List<AudienceListResponse.AudienceRecipient> markSuppressed(

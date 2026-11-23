@@ -84,9 +84,7 @@ public class FilterContextService {
     }
     private Map<String, List<String>> fetchEnumValues(Connection connection, List<FilterableColumn> cols) {
         List<String> targets = cols.stream()
-                .filter(c -> c.getCardinality() != null
-                        && c.getCardinality() <= ENUM_CARDINALITY_THRESHOLD
-                        && !Boolean.TRUE.equals(c.getCardinalityWarning()))
+                .filter(c -> TYPE_ENUM.equals(resolveDataType(c.getColumnType(), c.getCardinality(), c.getCardinalityWarning())))
                 .map(FilterableColumn::getColumnName)
                 .toList();
         return connectionGateway.fetchDistinctColumnValues(
@@ -108,16 +106,17 @@ public class FilterContextService {
         if (pgType == null) return "text";
         return switch (pgType.toLowerCase()) {
             case TYPE_BOOLEAN, "bool" -> TYPE_BOOLEAN;
-            case "date", "timestamp", "timestamp without time zone",
+            case TYPE_DATETIME, "date", "timestamp", "timestamp without time zone",
                  "timestamp with time zone", "timestamptz" -> TYPE_DATETIME;
-            case "integer", "int2", "int4", "int8", "bigint", "smallint",
+            case TYPE_NUMBER, "integer", "int2", "int4", "int8", "bigint", "smallint",
                  "numeric", "float4", "float8", "real", "double precision", "decimal" -> TYPE_NUMBER;
-            default -> {
+            case TYPE_TEXT, "character varying", "varchar", "character", "char", "bpchar", "citext", "user-defined" -> {
                 boolean looksLikeEnum = cardinality != null
                         && cardinality <= ENUM_CARDINALITY_THRESHOLD
                         && !Boolean.TRUE.equals(cardinalityWarning);
                 yield looksLikeEnum ? TYPE_ENUM : TYPE_TEXT;
             }
+            default -> TYPE_TEXT;
         };
     }
 
