@@ -293,12 +293,33 @@ class CampaignControllerTest extends IntegrationTest {
                 .idempotencyKey(campaign.getId() + ":" + userId)
                 .build();
     }
+    @Test
+    void shouldRejectBlankNameOnUpdateAndKeepTheOldOne() {
+        // Given
+        Campaign campaign = campaignRepository.save(
+                CampaignTestFixtures.draftCampaign(account.getId(), connection.getId()).build());
+
+        // When
+        var response = authedPatch("/api/v1/campaigns/" + campaign.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"   \"}")
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(400);
+        assertThat(campaignRepository.findById(campaign.getId()).orElseThrow().getName()).isEqualTo(campaign.getName());
+    }
+
     private MockMvcTester.MockMvcRequestBuilder authedGet(String uri) {
         return mockMvc.get().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedPost(String uri) {
         return mockMvc.post().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+    }
+
+    private MockMvcTester.MockMvcRequestBuilder authedPatch(String uri) {
+        return mockMvc.patch().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedDelete(String uri) {

@@ -34,6 +34,7 @@ public class ReaderRoleService {
         supabaseManagementClient.executeSql(accessToken, projectRef,
                 SupabaseSql.provisionReaderSql(role, password, tables));
         log.info("[reader] provisioned role={} project={} tables={}", role, projectRef, tables.size());
+        bypassRlsQuietly(accessToken, projectRef, role);
         return new Provisioned(role, SecurityUtil.encrypt(password, encryptionProperties.key()));
     }
 
@@ -44,6 +45,16 @@ public class ReaderRoleService {
     public void syncGrants(String accessToken, String projectRef, String role, Collection<TableRef> tables) {
         supabaseManagementClient.executeSql(accessToken, projectRef,
                 SupabaseSql.grantReaderSql(role, tables) + SupabaseSql.revokeOtherReaderGrantsSql(role, tables));
+        bypassRlsQuietly(accessToken, projectRef, role);
+    }
+
+    // Separate call so a project that refuses BYPASSRLS still gets its grants.
+    private void bypassRlsQuietly(String accessToken, String projectRef, String role) {
+        try {
+            supabaseManagementClient.executeSql(accessToken, projectRef, SupabaseSql.bypassRlsSql(role));
+        } catch (RuntimeException e) {
+            log.warn("[reader] could not set BYPASSRLS role={} project={}: {}", role, projectRef, e.getMessage());
+        }
     }
 
     /** Best effort — a leftover role on a project we no longer use is harmless, so failures are only logged. */

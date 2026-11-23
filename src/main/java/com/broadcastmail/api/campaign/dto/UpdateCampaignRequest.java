@@ -2,6 +2,8 @@ package com.broadcastmail.api.campaign.dto;
 
 import com.broadcastmail.api.campaign.filter.dto.FilterRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
 import java.time.OffsetDateTime;
@@ -13,7 +15,7 @@ import java.util.UUID;
 @Builder
 public record UpdateCampaignRequest(
 
-        Optional<String> name,
+        Optional<@NotBlank @Size(max = 120) String> name,
         Optional<String> subject,
         Optional<String> bodyHtml,
         Optional<OffsetDateTime> scheduledAt,

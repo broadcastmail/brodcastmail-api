@@ -125,6 +125,12 @@ public final class SupabaseSql {
                 """.formatted(role, keepClause);
     }
 
+    // RLS filters rows silently (no error), so without this the reader sees an empty or partial audience.
+    public static String bypassRlsSql(String role) {
+        requireIdentifier(role, "role");
+        return "ALTER ROLE " + role + " BYPASSRLS;";
+    }
+
     public static String dropReaderRoleSql(String role) {
         requireIdentifier(role, "role");
         if (!isPerIntegrationRole(role)) throw new IllegalArgumentException("Refusing to drop shared role " + role);
