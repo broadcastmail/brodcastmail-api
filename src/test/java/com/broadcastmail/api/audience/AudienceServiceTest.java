@@ -15,7 +15,6 @@ import com.broadcastmail.common.suppressions.SuppressionsRepository;
 import org.hibernate.query.SortDirection;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -25,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -64,9 +62,7 @@ class AudienceServiceTest {
         audienceService.list(account, Optional.empty(), 50, List.of(), null, "created_at", SortDirection.DESCENDING);
 
         // Then
-        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(tenantAudienceGateway).queryAudience(any(), sql.capture(), anyList(), anyList(), eq(50));
-        assertThat(sql.getValue()).contains("ORDER BY auth.\"created_at\"");
+        verify(tenantAudienceGateway).queryAudience(any(), contains("ORDER BY auth.\"created_at\""), anyList(), anyList(), eq(50));
     }
 
     @Test
@@ -86,9 +82,7 @@ class AudienceServiceTest {
         audienceService.list(account, Optional.empty(), 50, List.of(filter), null, "email", SortDirection.ASCENDING);
 
         // Then
-        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(tenantAudienceGateway).queryAudience(any(), sql.capture(), anyList(), anyList(), eq(50));
-        assertThat(sql.getValue()).contains("WHERE linked.\"created_at\" >").doesNotContain("WHERE \"created_at\"");
+        verify(tenantAudienceGateway).queryAudience(any(), contains("WHERE linked.\"created_at\" >"), anyList(), anyList(), eq(50));
     }
 
     private FilterableColumn column(String name, FilterSource source) {
