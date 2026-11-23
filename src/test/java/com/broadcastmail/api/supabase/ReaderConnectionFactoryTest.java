@@ -17,7 +17,7 @@ class ReaderConnectionFactoryTest {
 
         // Then
         assertThat(reader.jdbcUrl())
-                .isEqualTo("jdbc:postgresql://aws-0-eu-west-1.pooler.supabase.com:5432/postgres?prepareThreshold=0");
+                .isEqualTo("jdbc:postgresql://aws-0-eu-west-1.pooler.supabase.com:5432/postgres?prepareThreshold=0&stringtype=unspecified");
         assertThat(reader.username()).isEqualTo("broadcastmail_r_abc.ref123");
     }
 
