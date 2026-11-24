@@ -14,41 +14,42 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The connection's project name for display. Connections created before the name was stored still carry the project
- * ref as their name; the first read looks the real name up once and saves it. A lookup that doesn't change the name is not
- * repeated for a day, so a revoked token doesn't add a Management API call to every request.
+ * The connection's project name for display. Supabase sends no event when a project is renamed, so the name is
+ * re-checked on read: at most once a day per connection, the Management API is asked for the project's name and
+ * the saved one is updated if it differs. This also fills in connections created before names were stored, which
+ * still carry the project ref. A failed lookup never overwrites the saved name.
  */
 @Service
 @RequiredArgsConstructor
 public class ConnectionNameService {
 
-    private static final Duration RETRY_AFTER = Duration.ofHours(24);
+    private static final Duration CHECK_EVERY = Duration.ofHours(24);
 
     private final ConnectionRepository connectionRepository;
     private final ProjectNameResolver projectNameResolver;
     private final SupabaseAccessTokens supabaseAccessTokens;
-    private final Map<UUID, Instant> lastAttempt = new ConcurrentHashMap<>();
+    private final Map<UUID, Instant> lastCheck = new ConcurrentHashMap<>();
 
     public String projectNameOf(UUID accountId, Connection connection) {
         String name = connection.getName();
         String ref = connection.getProjectRef();
-        if (ref == null || name == null || !name.equals(ref) || recentlyTried(connection.getId())) {
+        if (ref == null || checkedRecently(connection.getId())) {
             return name;
         }
 
-        lastAttempt.put(connection.getId(), Instant.now());
+        lastCheck.put(connection.getId(), Instant.now());
         String resolved = projectNameResolver.resolve(ref, () -> supabaseAccessTokens.forAccount(accountId));
-        if (resolved.equals(ref)) {
+        // The resolver returns the ref when the lookup fails; that must not replace a real saved name.
+        if (resolved.equals(ref) || resolved.equals(name)) {
             return name;
         }
         connection.setName(resolved);
         connectionRepository.save(connection);
-        lastAttempt.remove(connection.getId());
         return resolved;
     }
 
-    private boolean recentlyTried(UUID connectionId) {
-        Instant last = lastAttempt.get(connectionId);
-        return last != null && last.isAfter(Instant.now().minus(RETRY_AFTER));
+    private boolean checkedRecently(UUID connectionId) {
+        Instant last = lastCheck.get(connectionId);
+        return last != null && last.isAfter(Instant.now().minus(CHECK_EVERY));
     }
 }

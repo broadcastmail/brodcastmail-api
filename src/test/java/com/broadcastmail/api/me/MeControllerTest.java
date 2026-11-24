@@ -24,8 +24,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -130,9 +129,29 @@ class MeControllerTest extends IntegrationTest {
     }
 
     @Test
-    void shouldNotLookUpTheNameWhenItIsAlreadyStored() {
+    void shouldUpdateTheNameWhenTheProjectWasRenamedInSupabase() {
         // Given
-        connectionRepository.save(CampaignTestFixtures.connection(account.getId()).name("My Project").build());
+        var connection = connectionRepository.save(
+                CampaignTestFixtures.connection(account.getId()).name("Old Name").build());
+        when(supabaseAccessTokens.forAccount(account.getId())).thenReturn("token");
+        when(supabaseManagementClient.listProjects("token")).thenReturn(List.of(
+                new SupabaseProject("test-ref", "New Name", "ACTIVE_HEALTHY", "2026-01-01", "eu-west-1", "aws")));
+
+        // When
+        var response = mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
+
+        // Then
+        assertThat(response).hasStatus(200);
+        assertThat(response).bodyJson().extractingPath("$.projectName").asString().isEqualTo("New Name");
+        assertThat(connectionRepository.findById(connection.getId()).orElseThrow().getName()).isEqualTo("New Name");
+    }
+
+    @Test
+    void shouldKeepTheSavedNameWhenTheLookupFails() {
+        // Given
+        var connection = connectionRepository.save(
+                CampaignTestFixtures.connection(account.getId()).name("My Project").build());
+        when(supabaseAccessTokens.forAccount(account.getId())).thenThrow(new IllegalStateException("token revoked"));
 
         // When
         var response = mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
@@ -140,7 +159,24 @@ class MeControllerTest extends IntegrationTest {
         // Then
         assertThat(response).hasStatus(200);
         assertThat(response).bodyJson().extractingPath("$.projectName").asString().isEqualTo("My Project");
-        verify(supabaseManagementClient, never()).listProjects(any());
+        assertThat(connectionRepository.findById(connection.getId()).orElseThrow().getName()).isEqualTo("My Project");
+    }
+
+    @Test
+    void shouldCheckTheNameOnlyOncePerDay() {
+        // Given
+        connectionRepository.save(CampaignTestFixtures.connection(account.getId()).name("My Project").build());
+        when(supabaseAccessTokens.forAccount(account.getId())).thenReturn("token");
+        when(supabaseManagementClient.listProjects("token")).thenReturn(List.of(
+                new SupabaseProject("test-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01", "eu-west-1", "aws")));
+
+        // When
+        mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
+        var response = mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
+
+        // Then
+        assertThat(response).hasStatus(200);
+        verify(supabaseManagementClient, times(1)).listProjects("token");
     }
 
     @Test
