@@ -88,7 +88,7 @@ class CampaignControllerTest extends IntegrationTest {
     @Test
     void shouldReturn201WithCampaignOnCreate() throws Exception {
         // Given
-        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, null, null);
+        CreateCampaignRequest request = new CreateCampaignRequest("Newsletter", "Hello", "<p>Hi</p>", null, null, null, null);
         String requestBody = objectMapper.writeValueAsString(request);
 
         // When
@@ -104,7 +104,7 @@ class CampaignControllerTest extends IntegrationTest {
     @Test
     void shouldCreateDraftWithEmptySubjectAndBody() throws Exception {
         // Given — what the dashboard's "New campaign" button sends
-        CreateCampaignRequest request = new CreateCampaignRequest("Untitled campaign", "", "", null, null, null);
+        CreateCampaignRequest request = new CreateCampaignRequest("Untitled campaign", "", "", null, null, null, null);
 
         // When
         var response = authedPost("/api/v1/campaigns")

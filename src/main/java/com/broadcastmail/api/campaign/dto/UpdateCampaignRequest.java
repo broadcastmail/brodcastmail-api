@@ -19,6 +19,7 @@ public record UpdateCampaignRequest(
         Optional<@Pattern(regexp = ".*\\S.*", message = "must not be blank") @Size(max = 120) String> name,
         Optional<String> subject,
         Optional<String> bodyHtml,
+        Optional<@Size(max = 255) String> previewText,
         Optional<OffsetDateTime> scheduledAt,
         List<@Valid FilterRequest> filters,
         String filterRootLogic,
