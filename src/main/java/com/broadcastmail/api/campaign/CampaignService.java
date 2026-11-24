@@ -3,6 +3,7 @@ package com.broadcastmail.api.campaign;
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.api.campaign.dto.RecipientResponse;
 import com.broadcastmail.api.campaign.dto.TestEmailRequest;
+import com.broadcastmail.common.campaign.Preheader;
 import com.broadcastmail.api.campaign.dto.UpdateCampaignRequest;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.config.EncryptionProperties;
@@ -112,6 +113,8 @@ public class CampaignService {
 
         request.name().ifPresent(campaign::setName);
         request.subject().ifPresent(campaign::setSubject);
+        // An empty string clears the preview text.
+        if (request.previewText() != null) request.previewText().ifPresent(t -> campaign.setPreviewText(t.isBlank() ? null : t.strip()));
         request.bodyHtml().ifPresent(html -> campaign.setBodyHtml(sanitize(html)));
         request.scheduledAt().ifPresent(scheduledAt -> {
             planFacade.enforceFeature(account, PlanFeature.SCHEDULING);
@@ -216,7 +219,8 @@ public class CampaignService {
 
         String apiKey = SecurityUtil.decrypt(provider.getEncryptedApiKey(), encryptionProperties.key());
 
-        String body = applyTemplateVariables(campaign.getBodyHtml(), request.variables());
+        String html = Preheader.inject(campaign.getBodyHtml(), campaign.getPreviewText());
+        String body = applyTemplateVariables(html, request.variables());
         resendClient.sendTestEmail(accountId, apiKey, provider.getFromAddress(), account.getEmail(), campaign.getSubject(), body);
     }
     private static final Set<CampaignStatus> UNSENT_STATUSES =
@@ -239,6 +243,7 @@ public class CampaignService {
                 .accountId(accountId)
                 .name(request.name())
                 .subject(request.subject())
+                .previewText(request.previewText() == null || request.previewText().isBlank() ? null : request.previewText().strip())
                 .bodyHtml(sanitize(request.bodyHtml()))
                 .status(CampaignStatus.DRAFT)
                 .connectionId(connectionId)

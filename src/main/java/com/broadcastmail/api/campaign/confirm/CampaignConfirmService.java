@@ -170,6 +170,7 @@ public class CampaignConfirmService {
                 .name(original.getName() + " (retry)")
                 .subject(original.getSubject())
                 .bodyHtml(original.getBodyHtml())
+                .previewText(original.getPreviewText())
                 .filterRootLogic("AND")
                 .status(CampaignStatus.SENDING)
                 .recipientCount(Math.toIntExact(failedRecipients))
