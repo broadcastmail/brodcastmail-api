@@ -31,6 +31,10 @@ STRIPE_PRO_PRICE_ID=
 
 # Frontend
 APP_FRONTEND_URL=http://localhost:3000
+UNSUBSCRIBE_REDIRECT_URL=http://localhost:3000   # GET /unsubscribe redirects to its /unsubscribe confirm page
+
+# at least 32 bytes, same value as the worker
+UNSUBSCRIBE_SECRET=
 ```
 
 ## Running locally
