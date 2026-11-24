@@ -15,14 +15,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The connection's project name for display. Connections created before the name was stored still carry the project
- * ref as their name; the first read looks the real name up once and saves it. A failed lookup is not retried for a few
- * minutes, so a revoked token doesn't add a Management API call to every request.
+ * ref as their name; the first read looks the real name up once and saves it. A lookup that doesn't change the name is not
+ * repeated for a day, so a revoked token doesn't add a Management API call to every request.
  */
 @Service
 @RequiredArgsConstructor
 public class ConnectionNameService {
 
-    private static final Duration RETRY_AFTER = Duration.ofMinutes(10);
+    private static final Duration RETRY_AFTER = Duration.ofHours(24);
 
     private final ConnectionRepository connectionRepository;
     private final ProjectNameResolver projectNameResolver;
