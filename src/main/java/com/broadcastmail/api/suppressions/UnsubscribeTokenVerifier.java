@@ -6,6 +6,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,8 +18,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UnsubscribeTokenVerifier {
 
-
     private final AppProperties appProperties;
+
+    private static final int MIN_SECRET_BYTES = 32;
+
+    /** Fails startup instead of every unsubscribe: HMAC-SHA256 needs a 32-byte key, and an unset env var stays as "${...}". */
+    @PostConstruct
+    void requireUsableSecret() {
+        String secret = appProperties.unsubscribeSecret();
+        if (secret == null || secret.contains("${") || secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException("UNSUBSCRIBE_SECRET must be set to at least " + MIN_SECRET_BYTES + " bytes");
+        }
+    }
 
     public UUID verify(String token){
         try{
