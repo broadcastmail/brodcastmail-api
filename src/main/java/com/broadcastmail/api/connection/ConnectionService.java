@@ -29,7 +29,7 @@ public class ConnectionService {
     public void createConnection(UUID accountId, ConnectionSpec spec, EmailSourceSpec emailSource, ColumnSelection columns) {
         Connection connection = Connection.builder()
                 .accountId(accountId)
-                .name(spec.projectRef())
+                .name(spec.projectName() != null && !spec.projectName().isBlank() ? spec.projectName() : spec.projectRef())
                 .type("supabase")
                 .emailTableSchema(emailSource.tableSchema())
                 .emailTableName(emailSource.tableName())

@@ -24,6 +24,7 @@ import java.util.UUID;
 public class OnboardingSession {
     private UUID accountId;
     private String projectRef;
+    private String projectName;
     private String projectUrl;
     private String poolerPrefix;
     // Set together once the reader role exists on projectRef (provisioned at /schema/test, or reused on same-project
@@ -99,7 +100,7 @@ public class OnboardingSession {
     }
 
     public ConnectionSpec connectionSpec() {
-        return new ConnectionSpec(projectRef, projectUrl, poolerPrefix, dbRole, encryptedRolePassword,
+        return new ConnectionSpec(projectRef, projectName, projectUrl, poolerPrefix, dbRole, encryptedRolePassword,
                 schemaDetails.userSchema(), schemaDetails.userTable(), schemaDetails.userIdColumn());
     }
 
