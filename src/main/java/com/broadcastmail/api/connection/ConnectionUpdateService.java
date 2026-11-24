@@ -8,6 +8,7 @@ import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
 import com.broadcastmail.api.supabase.reader.ReaderConnectionVerifier;
 import com.broadcastmail.api.supabase.reader.ReaderRoleService;
 import com.broadcastmail.api.supabase.management.ManagementSqlRunner;
+import com.broadcastmail.api.supabase.management.ProjectNameResolver;
 import com.broadcastmail.api.supabase.management.SupabaseAccessTokens;
 import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.SupabaseSql;
@@ -39,6 +40,7 @@ public class ConnectionUpdateService {
     private final SupabaseAccessTokens supabaseAccessTokens;
     private final ReaderRoleService readerRoleService;
     private final ReaderConnectionVerifier readerConnectionVerifier;
+    private final ProjectNameResolver projectNameResolver;
 
     public void updateProject(UUID accountId, String projectRef) {
         Connection connection = findConnection(accountId);
@@ -49,6 +51,7 @@ public class ConnectionUpdateService {
             readerRoleService.syncGrants(accessToken, projectRef, connection.getDbRole(), Set.of());
         } else {
             moveToProject(connection, accessToken, projectRef);
+            connection.setName(projectNameResolver.resolve(projectRef, () -> accessToken));
         }
 
         connection.setUserTableName(null);

@@ -46,6 +46,7 @@ public class MeController {
                 account.getEmail(),
                 account.getPlan().name(),
                 connection != null ? connection.getProjectRef() : null,
+                connection != null ? connection.getName() : null,
                 features
         ));
     }
