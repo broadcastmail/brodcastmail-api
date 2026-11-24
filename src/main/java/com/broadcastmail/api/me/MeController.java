@@ -3,6 +3,7 @@ package com.broadcastmail.api.me;
 import com.broadcastmail.api.account.metrics.AccountMetricsService;
 import com.broadcastmail.api.account.metrics.dto.AccountMetricsResponse;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
+import com.broadcastmail.api.connection.ConnectionNameService;
 import com.broadcastmail.api.me.dto.MeResponse;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public class MeController {
     private final ConnectionRepository connectionRepository;
     private final AccountRepository accountRepository;
+    private final ConnectionNameService connectionNameService;
     private final AccountMetricsService accountMetricsService;
 
     @GetMapping
@@ -46,7 +48,7 @@ public class MeController {
                 account.getEmail(),
                 account.getPlan().name(),
                 connection != null ? connection.getProjectRef() : null,
-                connection != null ? connection.getName() : null,
+                connection != null ? connectionNameService.projectNameOf(accountId, connection) : null,
                 features
         ));
     }
