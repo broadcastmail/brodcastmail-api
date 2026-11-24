@@ -50,7 +50,7 @@ class MeControllerTest extends IntegrationTest {
     @Test
     void shouldReturnAccountDetailsWithConnectionName() {
         // Given
-        connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
+        var connection = connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
 
         // When
         var response = mockMvc.get()
@@ -72,6 +72,10 @@ class MeControllerTest extends IntegrationTest {
                 .extractingPath("$.connectionName")
                 .asString()
                 .isEqualTo("test-ref");
+        assertThat(response).bodyJson()
+                .extractingPath("$.projectName")
+                .asString()
+                .isEqualTo(connection.getName());
     }
 
     @Test

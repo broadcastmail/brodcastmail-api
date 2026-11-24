@@ -57,6 +57,9 @@ public class ConnectionService {
     }
 
     private static void apply(Connection connection, ConnectionSpec spec) {
+        if (spec.projectName() != null && !spec.projectName().isBlank()) {
+            connection.setName(spec.projectName());
+        }
         connection.setProjectRef(spec.projectRef());
         connection.setProjectUrl(spec.projectUrl());
         connection.setPoolerPrefix(spec.poolerPrefix());

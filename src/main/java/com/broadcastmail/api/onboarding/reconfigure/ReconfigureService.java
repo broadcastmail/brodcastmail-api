@@ -7,6 +7,7 @@ import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException
 import com.broadcastmail.api.connection.ConnectionService;
 import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.supabase.reader.ReaderRoleService;
+import com.broadcastmail.api.supabase.management.ProjectNameResolver;
 import com.broadcastmail.api.supabase.management.SupabaseAccessTokens;
 import com.broadcastmail.api.oauth.token.OAuthTokenService;
 import com.broadcastmail.common.connection.Connection;
@@ -25,6 +26,7 @@ public class ReconfigureService {
     private final SupabaseAccessTokens supabaseAccessTokens;
     private final OAuthTokenService oAuthTokenService;
     private final AccountService accountService;
+    private final ProjectNameResolver projectNameResolver;
 
     @Transactional
     public void reconfigure(String sessionToken) {
@@ -41,7 +43,10 @@ public class ReconfigureService {
         // new project → /schema/test already provisioned a fresh role there. Either way it's verified here.
         OnboardingSession session = sessionReaderService.ensureReady(sessionToken).requireConnectionVerified();
 
-        connectionService.reconfigure(connection, session.connectionSpec(), session.columnSelection());
+        String projectName = projectNameResolver.resolve(
+                session.getProjectRef(), () -> supabaseAccessTokens.decrypt(session.getEncryptedAccessToken()));
+        connectionService.reconfigure(
+                connection, session.withProjectName(projectName).connectionSpec(), session.columnSelection());
         // Email table is kept on reconfigure, so grants cover the new profile table plus the existing email table.
         readerRoleService.handOver(supabaseAccessTokens.decrypt(session.getEncryptedAccessToken()),
                 oldProjectRef, oldRole, connection.getProjectRef(), connection.getDbRole(),
