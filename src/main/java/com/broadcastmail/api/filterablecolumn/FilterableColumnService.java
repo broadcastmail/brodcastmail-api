@@ -27,6 +27,7 @@ public class FilterableColumnService {
     @Transactional
     public void replace(UUID connectionId, ColumnSelection selection) {
         filterableColumnRepository.deleteByConnectionId(connectionId);
+        filterableColumnRepository.flush();
         filterableColumnRepository.saveAll(build(connectionId, selection));
     }
 

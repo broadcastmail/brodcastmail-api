@@ -55,8 +55,8 @@ public class ConnectionUpdateService {
         connection.setUserTableSchema(null);
         connection.setUserIdColumn(null);
         connection.clearEmailTable();
-        connectionRepository.save(connection);
         filterableColumnRepository.deleteByConnectionId(connection.getId());
+        connectionRepository.save(connection);
     }
 
     public void updateSchemaTable(UUID accountId, String userTableSchema, String userTableName, String userIdColumn) {
@@ -92,6 +92,7 @@ public class ConnectionUpdateService {
                 schemaIntrospectionService.introspectSaved(sqlRunner(accountId, connection), connection);
 
         filterableColumnRepository.deleteByConnectionId(connection.getId());
+        filterableColumnRepository.flush();
         List<FilterableColumn> columns = new ArrayList<>();
         columns.addAll(FilterableColumnFactory.from(
                 connection.getId(), detected.filterableColumns(), FilterSource.PROFILE_TABLE, columnNames));
