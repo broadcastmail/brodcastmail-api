@@ -32,7 +32,7 @@ class ConnectionServiceTest {
     @Test
     void shouldSetRequiredNameAndTypeWhenCreatingConnection() {
         // Given
-        ConnectionSpec spec = new ConnectionSpec("cxsfavxuutpwjwkqmrws", "https://cxsfavxuutpwjwkqmrws.supabase.co",
+        ConnectionSpec spec = new ConnectionSpec("project-ref", "My Project", "https://project-ref.supabase.co",
                 "aws-0-eu-west-1", "broadcastmail_r_abc", "enc-pw", "public", "profiles", "id");
 
         // When
@@ -44,6 +44,6 @@ class ConnectionServiceTest {
         ArgumentCaptor<Connection> saved = ArgumentCaptor.forClass(Connection.class);
         verify(connectionRepository).save(saved.capture());
         assertThat(saved.getValue()).extracting("name", "type")
-                .containsExactly("cxsfavxuutpwjwkqmrws", "supabase");
+                .containsExactly("My Project", "supabase");
     }
 }
