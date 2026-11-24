@@ -180,6 +180,25 @@ class ConnectionControllerTest extends IntegrationTest {
     }
 
     @Test
+    void shouldKeepColumnsWhenResavingAnAlreadySavedColumn() throws Exception {
+        when(schemaIntrospectionService.introspectSaved(any(), any())).thenReturn(
+                new SchemaIntrospectionResult.Detected("profiles", "public", "id",
+                        List.of(new DetectedColumn("full_name", "text", true, null, false),
+                                new DetectedColumn("plan", "text", true, null, false)),
+                        List.of()));
+        filterableColumnRepository.save(
+                FilterableColumn.builder().connectionId(connection.getId()).columnName("full_name").columnType("text").displayName("full_name")
+                        .source(FilterSource.PROFILE_TABLE).enabled(true).cardinalityWarning(false).build());
+
+        var response = authedPatch("/api/v1/connections/reconnect/columns").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateColumnsRequest(List.of("full_name", "plan")))).exchange();
+
+        assertThat(response).hasStatus(200);
+        assertThat(filterableColumnRepository.findByConnectionId(connection.getId())).extracting(FilterableColumn::getColumnName)
+                .containsExactlyInAnyOrder("full_name", "plan");
+    }
+
+    @Test
     void shouldClearColumnsWhenUpdatingWithEmptyList() throws Exception {
         when(schemaIntrospectionService.introspectSaved(any(), any())).thenReturn(
                 new SchemaIntrospectionResult.Detected(null, null, null, List.of(),
