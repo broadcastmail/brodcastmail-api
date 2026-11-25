@@ -607,6 +607,46 @@ CREATE INDEX idx_webhook_events_unprocessed
  
 ---
 
+### recipient_usage
+
+**Purpose:**
+The plan's recipient limit (Free 500, Starter 5,000, Pro 20,000 distinct
+addresses per 30 days) is counted here, not from `campaign_recipients`,
+because retention deletes campaigns (and their recipients by cascade)
+after 7 days on Free, well inside the 30-day window.
+
+**Writes:**
+- Worker, in the same transaction that inserts `campaign_recipients`
+  (`BatchPersistenceService.persistBatch`): one row per distinct email
+  per account, `INSERT ... ON CONFLICT DO UPDATE`. A row whose
+  `first_used_at` is older than 30 days is reset (the address counts as
+  new again); a newer one is left alone.
+- Suppressed addresses never reach `campaign_recipients`, so they are
+  not recorded.
+
+**Reads:**
+- `COUNT WHERE account_id = ? AND first_used_at >= now() - 30 days` —
+  plan limit check, dashboard "used" number.
+- `SELECT email WHERE account_id = ? AND first_used_at >= ...` —
+  recipient preview and worker resolution (addresses already emailed
+  this period don't count again).
+
+**Deletion:**
+- `RetentionCleanupJob` deletes rows with `first_used_at` older than 30 days.
+- CASCADE on account deletion. No foreign key to `campaigns`, so campaign
+  retention never touches it.
+
+**Indexes:**
+```sql
+-- PRIMARY KEY (account_id, email): one row per address per account,
+-- and the ON CONFLICT target.
+CREATE INDEX idx_recipient_usage_account_first_used
+  ON recipient_usage (account_id, first_used_at);
+-- justification: the 30-day count and list per account.
+```
+
+---
+
 ### unsubscribes
 ### unsubscribes
 
@@ -691,6 +731,10 @@ job that runs nightly:
   **What is never deleted:**
 - `unsubscribes` — permanent, survives account retention policy
 - `accounts`, `connections`, `email_providers` — survive until account closure
+
+**Independent of campaign retention:**
+- `recipient_usage` rows are deleted after 30 days (the plan period) by
+  the same job, whatever the plan's campaign retention is.
 ---
 
 ## Scaling Strategy
