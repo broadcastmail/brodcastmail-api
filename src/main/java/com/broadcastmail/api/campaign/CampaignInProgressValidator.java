@@ -16,13 +16,13 @@ import java.util.UUID;
  */
 @Component
 @RequiredArgsConstructor
-public class CampaignInProgressGuard {
+public class CampaignInProgressValidator {
 
     private static final List<CampaignStatus> IN_PROGRESS = List.of(CampaignStatus.RESOLVING, CampaignStatus.SENDING);
 
     private final CampaignRepository campaignRepository;
 
-    public void requireNoneInProgress(UUID accountId) {
+    public void validateNoneInProgress(UUID accountId) {
         campaignRepository.findByAccountIdAndStatusIn(accountId, IN_PROGRESS).stream()
                 .findFirst()
                 .ifPresent(campaign -> {

@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class CampaignInProgressGuardTest {
+class CampaignInProgressValidatorTest {
 
     private static final UUID ACCOUNT_ID = UUID.randomUUID();
     private static final List<CampaignStatus> IN_PROGRESS = List.of(CampaignStatus.RESOLVING, CampaignStatus.SENDING);
@@ -27,7 +27,7 @@ class CampaignInProgressGuardTest {
     private CampaignRepository campaignRepository;
 
     @InjectMocks
-    private CampaignInProgressGuard guard;
+    private CampaignInProgressValidator validator;
 
     @Test
     void shouldPassWhenNoCampaignIsResolvingOrSending() {
@@ -35,7 +35,7 @@ class CampaignInProgressGuardTest {
         when(campaignRepository.findByAccountIdAndStatusIn(ACCOUNT_ID, IN_PROGRESS)).thenReturn(List.of());
 
         // When / Then
-        assertThatNoException().isThrownBy(() -> guard.requireNoneInProgress(ACCOUNT_ID));
+        assertThatNoException().isThrownBy(() -> validator.validateNoneInProgress(ACCOUNT_ID));
     }
 
     @Test
@@ -45,7 +45,7 @@ class CampaignInProgressGuardTest {
         when(campaignRepository.findByAccountIdAndStatusIn(ACCOUNT_ID, IN_PROGRESS)).thenReturn(List.of(sending));
 
         // When / Then
-        assertThatThrownBy(() -> guard.requireNoneInProgress(ACCOUNT_ID))
+        assertThatThrownBy(() -> validator.validateNoneInProgress(ACCOUNT_ID))
                 .isInstanceOf(CampaignInProgressException.class)
                 .hasMessage("CAMPAIGN_IN_PROGRESS")
                 .hasFieldOrPropertyWithValue("campaignId", sending.getId())

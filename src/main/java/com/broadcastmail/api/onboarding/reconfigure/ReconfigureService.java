@@ -1,6 +1,6 @@
 package com.broadcastmail.api.onboarding.reconfigure;
 
-import com.broadcastmail.api.campaign.CampaignInProgressGuard;
+import com.broadcastmail.api.campaign.CampaignInProgressValidator;
 import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.onboarding.SessionReaderService;
 import com.broadcastmail.api.account.AccountService;
@@ -28,7 +28,7 @@ public class ReconfigureService {
     private final OAuthTokenService oAuthTokenService;
     private final AccountService accountService;
     private final ProjectNameResolver projectNameResolver;
-    private final CampaignInProgressGuard campaignInProgressGuard;
+    private final CampaignInProgressValidator campaignInProgressValidator;
 
     @Transactional
     public void reconfigure(String sessionToken) {
@@ -36,7 +36,7 @@ public class ReconfigureService {
         if (!pending.isReconfigure()) {
             throw new InvalidOnboardingSessionException();
         }
-        campaignInProgressGuard.requireNoneInProgress(pending.getAccountId());
+        campaignInProgressValidator.validateNoneInProgress(pending.getAccountId());
 
         Connection connection = connectionService.getByAccountId(pending.getAccountId());
         String oldProjectRef = connection.getProjectRef();

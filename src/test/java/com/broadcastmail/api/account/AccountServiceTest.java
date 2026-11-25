@@ -1,7 +1,7 @@
 package com.broadcastmail.api.account;
 
 import com.broadcastmail.api.billing.BillingService;
-import com.broadcastmail.api.campaign.CampaignInProgressGuard;
+import com.broadcastmail.api.campaign.CampaignInProgressValidator;
 import com.broadcastmail.api.common.exceptions.CampaignInProgressException;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
@@ -36,7 +36,7 @@ class AccountServiceTest {
     private BillingService billingService;
 
     @Mock
-    private CampaignInProgressGuard campaignInProgressGuard;
+    private CampaignInProgressValidator campaignInProgressValidator;
 
     @Captor
     private ArgumentCaptor<Account> accountCaptor;
@@ -45,7 +45,7 @@ class AccountServiceTest {
 
     @BeforeEach
     void setUp() {
-        accountService = new AccountService(accountRepository, billingService, campaignInProgressGuard);
+        accountService = new AccountService(accountRepository, billingService, campaignInProgressValidator);
     }
 
     private Account buildAccount(UUID id) {
@@ -104,7 +104,7 @@ class AccountServiceTest {
         // Given
         UUID accountId = UUID.randomUUID();
         doThrow(new CampaignInProgressException(UUID.randomUUID(), "Launch"))
-                .when(campaignInProgressGuard).requireNoneInProgress(accountId);
+                .when(campaignInProgressValidator).validateNoneInProgress(accountId);
 
         // When / Then
         assertThatThrownBy(() -> accountService.deleteAccount(accountId))

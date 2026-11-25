@@ -1,6 +1,6 @@
 package com.broadcastmail.api.emailprovider;
 
-import com.broadcastmail.api.campaign.CampaignInProgressGuard;
+import com.broadcastmail.api.campaign.CampaignInProgressValidator;
 import com.broadcastmail.api.common.exceptions.CampaignInProgressException;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.config.EncryptionProperties;
@@ -37,7 +37,7 @@ class EmailProviderServiceTest {
     private EmailProviderRepository emailProviderRepository;
 
     @Mock
-    private CampaignInProgressGuard campaignInProgressGuard;
+    private CampaignInProgressValidator campaignInProgressValidator;
 
     @Captor
     private ArgumentCaptor<OnboardingSession> sessionCaptor;
@@ -51,7 +51,7 @@ class EmailProviderServiceTest {
                 resendClient,
                 new EncryptionProperties("12345678901234567890123456789012"),
                 emailProviderRepository,
-                campaignInProgressGuard
+                campaignInProgressValidator
         );
     }
 
@@ -119,7 +119,7 @@ class EmailProviderServiceTest {
         // Given
         UUID accountId = UUID.randomUUID();
         doThrow(new CampaignInProgressException(UUID.randomUUID(), "Launch"))
-                .when(campaignInProgressGuard).requireNoneInProgress(accountId);
+                .when(campaignInProgressValidator).validateNoneInProgress(accountId);
 
         // When / Then
         assertThatThrownBy(() -> emailProviderService.reconfigure(accountId, "re_new", "Name", "new@example.com"))
