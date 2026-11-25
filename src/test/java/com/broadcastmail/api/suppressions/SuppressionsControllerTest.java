@@ -3,20 +3,19 @@ package com.broadcastmail.api.suppressions;
 import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.config.AppProperties;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import com.broadcastmail.common.unsubscribe.UnsubscribeClaims;
+import com.broadcastmail.common.unsubscribe.UnsubscribeTokenCodec;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-import javax.crypto.SecretKey;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.util.Date;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,10 +37,9 @@ class SuppressionsControllerTest extends IntegrationTest {
     private SuppressionService suppressionService;
 
     @Test
-    void shouldRedirectToFrontendAndMarkRecipientUnsubscribedWhenTokenIsValid() {
+    void getSendsToTheConfirmPageWithoutUnsubscribing() {
         // Given
-        UUID recipientId = UUID.randomUUID();
-        String token = validTokenFor(recipientId);
+        String token = issue(UUID.randomUUID(), UUID.randomUUID(), "a@b.c");
 
         // When
         var response = mockMvc.get()
@@ -52,14 +50,35 @@ class SuppressionsControllerTest extends IntegrationTest {
         // Then
         assertThat(response).hasStatus(302);
         assertThat(response.getResponse().getHeader("Location"))
-                .isEqualTo(appProperties.frontend().unsubscribeRedirectUrl() + "/unsubscribed?confirmed=1");
-        verify(suppressionService).unsubscribe(recipientId);
+                .isEqualTo(appProperties.frontend().unsubscribeRedirectUrl() + "/unsubscribe?token="
+                        + URLEncoder.encode(token, StandardCharsets.UTF_8));
+        verifyNoInteractions(suppressionService);
     }
 
     @Test
-    void shouldReturn401AndNotMarkUnsubscribedWhenTokenIsInvalid() {
+    void oneClickPostUnsubscribesWithoutAuthOrCsrf() {
+        // Given
+        UUID recipientId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        String token = issue(recipientId, accountId, "a@b.c");
+
+        // When — what Gmail/Yahoo send per RFC 8058: token in the query, fixed form body
+        var response = mockMvc.post()
+                .uri("/unsubscribe?token={token}", token)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .content("List-Unsubscribe=One-Click")
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(200);
+        assertThat(response.getResponse().getHeader("Location")).isNull();
+        verify(suppressionService).unsubscribe(new UnsubscribeClaims(recipientId, accountId, "a@b.c"));
+    }
+
+    @Test
+    void postReturns401AndDoesNothingForAnInvalidToken() {
         // When
-        var response = mockMvc.get()
+        var response = mockMvc.post()
                 .uri("/unsubscribe")
                 .param("token", "not-a-real-token")
                 .exchange();
@@ -75,20 +94,12 @@ class SuppressionsControllerTest extends IntegrationTest {
     }
 
     @Test
-    void shouldReturn401WhenTokenIsExpired() {
-        // Given
-        UUID recipientId = UUID.randomUUID();
-        String token = Jwts.builder()
-                .subject(recipientId.toString())
-                .issuedAt(Date.from(Instant.now().minusSeconds(120)))
-                .expiration(Date.from(Instant.now().minusSeconds(60)))
-                .signWith(key())
-                .compact();
-
+    void postReturns401ForATokenFromAnotherSecret() {
         // When
-        var response = mockMvc.get()
+        var response = mockMvc.post()
                 .uri("/unsubscribe")
-                .param("token", token)
+                .param("token", new UnsubscribeTokenCodec("00000000000000000000000000000000")
+                        .issue(new UnsubscribeClaims(UUID.randomUUID(), UUID.randomUUID(), "a@b.c")))
                 .exchange();
 
         // Then
@@ -96,36 +107,8 @@ class SuppressionsControllerTest extends IntegrationTest {
         verifyNoInteractions(suppressionService);
     }
 
-    @Test
-    void shouldReturn401WhenTokenIsSignedWithWrongSecret() {
-        // Given
-        UUID recipientId = UUID.randomUUID();
-        SecretKey wrongKey = Keys.hmacShaKeyFor("00000000000000000000000000000000".getBytes(StandardCharsets.UTF_8));
-        String token = Jwts.builder()
-                .subject(recipientId.toString())
-                .signWith(wrongKey)
-                .compact();
-
-        // When
-        var response = mockMvc.get()
-                .uri("/unsubscribe")
-                .param("token", token)
-                .exchange();
-
-        // Then
-        assertThat(response).hasStatus(401);
-        verifyNoInteractions(suppressionService);
-    }
-
-    private String validTokenFor(UUID recipientId) {
-        return Jwts.builder()
-                .subject(recipientId.toString())
-                .issuedAt(Date.from(Instant.now()))
-                .signWith(key())
-                .compact();
-    }
-
-    private SecretKey key() {
-        return Keys.hmacShaKeyFor(appProperties.unsubscribeSecret().getBytes(StandardCharsets.UTF_8));
+    private String issue(UUID recipientId, UUID accountId, String email) {
+        return new UnsubscribeTokenCodec(appProperties.unsubscribeSecret())
+                .issue(new UnsubscribeClaims(recipientId, accountId, email));
     }
 }

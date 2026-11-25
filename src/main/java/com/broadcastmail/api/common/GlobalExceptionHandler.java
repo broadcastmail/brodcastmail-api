@@ -1,6 +1,7 @@
 package com.broadcastmail.api.common;
 
 import com.broadcastmail.api.common.exceptions.*;
+import com.broadcastmail.common.unsubscribe.InvalidUnsubscribeTokenException;
 import com.broadcastmail.common.account.plan.PlanLimitExceededException;
 import com.stripe.exception.StripeException;
 import org.springframework.http.HttpStatus;
