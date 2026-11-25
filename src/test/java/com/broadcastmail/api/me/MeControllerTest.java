@@ -7,6 +7,8 @@ import com.broadcastmail.api.supabase.management.SupabaseAccessTokens;
 import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.management.dto.SupabaseProject;
 import com.broadcastmail.api.support.CampaignTestFixtures;
+import com.broadcastmail.common.campaign.CampaignRepository;
+import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -42,6 +44,9 @@ class MeControllerTest extends IntegrationTest {
 
     @Autowired
     private ConnectionRepository connectionRepository;
+
+    @Autowired
+    private CampaignRepository campaignRepository;
 
     @MockitoBean
     private SupabaseManagementClient supabaseManagementClient;
@@ -233,6 +238,28 @@ class MeControllerTest extends IntegrationTest {
 
         // Then
         assertThat(response).hasStatus(401);
+        assertThat(accountRepository.findById(account.getId())).isPresent();
+    }
+
+    @Test
+    void shouldReturn409AndKeepTheAccountWhileACampaignIsSending() {
+        // Given
+        var connection = connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
+        var sending = campaignRepository.save(CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
+                .status(CampaignStatus.SENDING)
+                .build());
+
+        // When
+        var response = mockMvc.delete()
+                .uri("/api/v1/me")
+                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(409);
+        assertThat(response).bodyJson().extractingPath("$.error").isEqualTo("CAMPAIGN_IN_PROGRESS");
+        assertThat(response).bodyJson().extractingPath("$.campaignId").isEqualTo(sending.getId().toString());
+        assertThat(response).bodyJson().extractingPath("$.campaignName").isEqualTo("Test Campaign");
         assertThat(accountRepository.findById(account.getId())).isPresent();
     }
 }

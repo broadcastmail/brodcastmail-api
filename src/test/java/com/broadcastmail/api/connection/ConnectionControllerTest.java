@@ -19,6 +19,10 @@ import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.filterablecolumn.FilterableColumn;
 import com.broadcastmail.common.filterablecolumn.FilterableColumnRepository;
 import com.broadcastmail.api.support.CampaignTestFixtures;
+import com.broadcastmail.common.campaign.CampaignRepository;
+import com.broadcastmail.common.campaign.CampaignStatus;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.connection.Connection;
@@ -58,6 +62,8 @@ class ConnectionControllerTest extends IntegrationTest {
     private AccountRepository accountRepository;
     @Autowired
     private ConnectionRepository connectionRepository;
+    @Autowired
+    private CampaignRepository campaignRepository;
     @Autowired
     private FilterableColumnRepository filterableColumnRepository;
     @Autowired
@@ -423,6 +429,40 @@ class ConnectionControllerTest extends IntegrationTest {
                 .exchange();
 
         assertThat(response).hasStatus(400);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CampaignStatus.class, names = {"RESOLVING", "SENDING"})
+    void shouldReturn409AndKeepTheUserTableWhileACampaignIsInProgress(CampaignStatus status) throws Exception {
+        // Given
+        campaignRepository.save(CampaignTestFixtures.draftCampaign(account.getId(), connection.getId()).status(status).build());
+
+        // When
+        var response = authedPatch("/api/v1/connections/reconnect/user-schema").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateTableRequest("public", "profiles", "id"))).exchange();
+
+        // Then
+        assertThat(response).hasStatus(409);
+        assertThat(response).bodyJson().extractingPath("$.error").isEqualTo("CAMPAIGN_IN_PROGRESS");
+        assertThat(connectionRepository.findByAccountId(account.getId()).orElseThrow().getUserTableName())
+                .isEqualTo(connection.getUserTableName());
+    }
+
+    @Test
+    void shouldStillAllowEditingFilterableColumnsWhileACampaignIsSending() throws Exception {
+        // Given: filterable columns are metadata only, the worker doesn't read them while sending
+        campaignRepository.save(CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
+                .status(CampaignStatus.SENDING).build());
+        when(schemaIntrospectionService.introspectSaved(any(), any())).thenReturn(
+                new SchemaIntrospectionResult.Detected("profiles", "public", "id",
+                        List.of(new DetectedColumn("plan", "text", true, null, false)), List.of()));
+
+        // When
+        var response = authedPatch("/api/v1/connections/reconnect/columns").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ConnectionRequests.UpdateColumnsRequest(List.of("plan")))).exchange();
+
+        // Then
+        assertThat(response).hasStatus(200);
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedPatch(String uri) {

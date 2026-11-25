@@ -1,5 +1,7 @@
 package com.broadcastmail.api.emailprovider;
 
+import com.broadcastmail.api.campaign.CampaignInProgressValidator;
+import com.broadcastmail.api.common.exceptions.CampaignInProgressException;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.onboarding.OnboardingSession;
@@ -16,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,6 +36,9 @@ class EmailProviderServiceTest {
     @Mock
     private EmailProviderRepository emailProviderRepository;
 
+    @Mock
+    private CampaignInProgressValidator campaignInProgressValidator;
+
     @Captor
     private ArgumentCaptor<OnboardingSession> sessionCaptor;
 
@@ -44,7 +50,8 @@ class EmailProviderServiceTest {
                 onboardingSessionStore,
                 resendClient,
                 new EncryptionProperties("12345678901234567890123456789012"),
-                emailProviderRepository
+                emailProviderRepository,
+                campaignInProgressValidator
         );
     }
 
@@ -106,4 +113,19 @@ class EmailProviderServiceTest {
     }
 
 
+
+    @Test
+    void shouldNotSwapTheResendKeyOrSenderWhileACampaignIsInProgress() {
+        // Given
+        UUID accountId = UUID.randomUUID();
+        doThrow(new CampaignInProgressException(UUID.randomUUID(), "Launch"))
+                .when(campaignInProgressValidator).validateNoneInProgress(accountId);
+
+        // When / Then
+        assertThatThrownBy(() -> emailProviderService.reconfigure(accountId, "re_new", "Name", "new@example.com"))
+                .isInstanceOf(CampaignInProgressException.class);
+        assertThatThrownBy(() -> emailProviderService.updateSender(accountId, "Name", "new@example.com"))
+                .isInstanceOf(CampaignInProgressException.class);
+        verifyNoInteractions(resendClient, emailProviderRepository);
+    }
 }

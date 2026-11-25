@@ -130,6 +130,16 @@ public class GlobalExceptionHandler {
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 
+    @ExceptionHandler(CampaignInProgressException.class)
+    public ResponseEntity<Map<String, String>> handleCampaignInProgress(CampaignInProgressException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(Map.of(
+                        ERROR_KEY, ex.getMessage(),
+                        "campaignId", ex.getCampaignId().toString(),
+                        "campaignName", ex.getCampaignName()));
+    }
+
     @ExceptionHandler(ResendDailyLimitActiveException.class)
     public ResponseEntity<Map<String, String>> handleResendDailyLimitActive(ResendDailyLimitActiveException ex) {
         return ResponseEntity

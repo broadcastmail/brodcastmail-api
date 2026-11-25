@@ -14,6 +14,8 @@ import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.reader.ReaderConnectionVerifier;
 import com.broadcastmail.api.support.CampaignTestFixtures;
+import com.broadcastmail.common.campaign.CampaignRepository;
+import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.filter.FilterSource;
@@ -73,6 +75,9 @@ class ReconfigureControllerTest extends IntegrationTest {
 
     @Autowired
     private ConnectionRepository connectionRepository;
+
+    @Autowired
+    private CampaignRepository campaignRepository;
 
     @Autowired
     private FilterableColumnRepository filterableColumnRepository;
@@ -218,6 +223,25 @@ class ReconfigureControllerTest extends IntegrationTest {
                 .containsExactly("old_col");
         assertThat(oAuthTokenRepository.findByAccountId(account.getId()).orElseThrow().getAccessToken())
                 .isEqualTo("old-access");
+    }
+
+    @Test
+    void shouldReturn409AndKeepTheConnectionWhileACampaignIsSending() {
+        // Given
+        campaignRepository.saveAndFlush(CampaignTestFixtures.draftCampaign(account.getId(), connection.getId())
+                .status(CampaignStatus.SENDING)
+                .build());
+        String sessionToken = createSession(NEW_REF, NEW_ROLE, OWNER_EMAIL);
+
+        // When
+        var response = authedReconfigure(sessionToken).exchange();
+
+        // Then
+        assertThat(response).hasStatus(409);
+        assertThat(response).bodyJson().extractingPath("$.error").isEqualTo("CAMPAIGN_IN_PROGRESS");
+        Connection unchanged = connectionRepository.findById(connection.getId()).orElseThrow();
+        assertThat(unchanged.getProjectRef()).isEqualTo(OLD_REF);
+        assertThat(unchanged.getDbRole()).isEqualTo(OLD_ROLE);
     }
 
     @Test

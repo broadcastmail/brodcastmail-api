@@ -1,5 +1,6 @@
 package com.broadcastmail.api.account;
 
+import com.broadcastmail.api.campaign.CampaignInProgressValidator;
 import com.broadcastmail.api.billing.BillingService;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
@@ -17,6 +18,7 @@ import java.util.UUID;
 public class AccountService {
     private final AccountRepository accountRepository;
     private final BillingService billingService;
+    private final CampaignInProgressValidator campaignInProgressValidator;
 
     @Transactional
     public String rotateApiKey(UUID accountId) throws AccountNotFoundException {
@@ -32,6 +34,7 @@ public class AccountService {
 
     @Transactional
     public void deleteAccount(UUID accountId) {
+        campaignInProgressValidator.validateNoneInProgress(accountId);
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(AccountNotFoundException::new);
 

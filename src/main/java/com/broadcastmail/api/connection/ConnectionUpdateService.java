@@ -1,5 +1,6 @@
 package com.broadcastmail.api.connection;
 
+import com.broadcastmail.api.campaign.CampaignInProgressValidator;
 import com.broadcastmail.api.connection.schema.EmailSourceService;
 import com.broadcastmail.api.connection.schema.SchemaIntrospectionService;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
@@ -41,8 +42,10 @@ public class ConnectionUpdateService {
     private final ReaderRoleService readerRoleService;
     private final ReaderConnectionVerifier readerConnectionVerifier;
     private final ProjectNameResolver projectNameResolver;
+    private final CampaignInProgressValidator campaignInProgressValidator;
 
     public void updateProject(UUID accountId, String projectRef) {
+        campaignInProgressValidator.validateNoneInProgress(accountId);
         Connection connection = findConnection(accountId);
         String accessToken = supabaseAccessTokens.forAccount(accountId);
 
@@ -63,6 +66,7 @@ public class ConnectionUpdateService {
     }
 
     public void updateSchemaTable(UUID accountId, String userTableSchema, String userTableName, String userIdColumn) {
+        campaignInProgressValidator.validateNoneInProgress(accountId);
         Connection connection = findConnection(accountId);
         connection.setUserTableSchema(userTableSchema);
         connection.setUserTableName(userTableName);
@@ -73,6 +77,7 @@ public class ConnectionUpdateService {
     }
 
     public void updateEmailTable(UUID accountId, String emailTableSchema, String emailTableName, String emailColumn) {
+        campaignInProgressValidator.validateNoneInProgress(accountId);
         Connection connection = findConnection(accountId);
         String pk = emailSourceService.detectPrimaryKey(sqlRunner(accountId, connection), emailTableSchema, emailTableName);
         connection.setEmailTableSchema(emailTableSchema);
