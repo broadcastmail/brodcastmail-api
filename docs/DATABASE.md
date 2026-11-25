@@ -601,10 +601,13 @@ CREATE INDEX idx_outbox_status_next_attempt
 retention cleanup is critical here.
 
 **Deletion:**
-- Not deleted today: no job removes webhook_events, and the table
-  has no `account_id`, so account deletion doesn't reach it either
-  (broadcastmail/broadcast-webhooks#12). `raw_payload` holds the
-  recipient's email, so this needs fixing before it matters for GDPR.
+- CASCADE on account deletion — `account_id` (V29) is the account
+  whose webhook URL received the event, so deleting the account
+  removes its events, and their `raw_payload` with recipient emails.
+  Events stored before V29 have `account_id = NULL` and are not
+  reached by it.
+- No retention job: events of a live account are kept until the
+  account is deleted.
 - Independent of campaign_recipients deletion — no FK to it, so
   deleting a campaign or recipient leaves its events in place.
 
@@ -621,6 +624,11 @@ CREATE INDEX idx_webhook_events_unprocessed
 -- justification: reconciliation job finding stuck unprocessed events
 -- partial index — processed rows fall out automatically,
 -- index stays tiny regardless of 3.75M rows/month growth
+
+CREATE INDEX idx_webhook_events_account_id
+  ON webhook_events(account_id);
+-- justification: the ON DELETE CASCADE from accounts; without it
+-- every account deletion scans the fastest-growing table
 ```
  
 ---
@@ -742,7 +750,8 @@ job (`RetentionCleanupJob` in the worker) that runs nightly:
 - `suppressions` (documented below under its old name `unsubscribes`) —
   permanent, so suppressed recipients are never emailed again after
   their campaigns are gone
-- `webhook_events` — not deleted at all today (see webhook_events)
+- `webhook_events` — no retention job; deleted only with their account
+  (see webhook_events)
 - `accounts`, `connections`, `email_providers` — survive until account closure
 
 **Independent of campaign retention:**
