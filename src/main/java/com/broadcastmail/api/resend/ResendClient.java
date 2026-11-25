@@ -71,6 +71,7 @@ public class ResendClient {
                             WebhookEvent.EMAIL_DELIVERED,
                             WebhookEvent.EMAIL_OPENED,
                             WebhookEvent.EMAIL_BOUNCED,
+                            WebhookEvent.EMAIL_COMPLAINED,
                             WebhookEvent.EMAIL_FAILED
                     )
                     .build();
