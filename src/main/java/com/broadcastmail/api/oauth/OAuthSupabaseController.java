@@ -11,6 +11,7 @@ import com.broadcastmail.api.oauth.dto.SelectProjectRequest;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,8 @@ public class OAuthSupabaseController {
     private final AccountRepository accountRepository;
     private final OriginValidator originValidator;
 
+    // "callback" would generate a useCallback hook that collides with React's
+    @Operation(operationId = "oauthCallback")
     @PostMapping("/callback")
     public ResponseEntity<Map<String, String>> callback(
             @RequestBody ProcessCallbackRequest request) {
