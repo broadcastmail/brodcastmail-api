@@ -1,5 +1,6 @@
 package com.broadcastmail.api.emailprovider;
 
+import com.broadcastmail.api.campaign.CampaignInProgressGuard;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.EmailProviderNotFoundException;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
@@ -25,6 +26,7 @@ public class EmailProviderService {
     private final ResendClient resendClient;
     private final EncryptionProperties encryptionProperties;
     private final EmailProviderRepository emailProviderRepository;
+    private final CampaignInProgressGuard campaignInProgressGuard;
 
 
     public VerifyKeyResponse verifyKey(String apiKey) {
@@ -77,6 +79,7 @@ public class EmailProviderService {
     }
 
     public void reconfigure(UUID accountId, String apiKey, String fromName, String fromAddress) {
+        campaignInProgressGuard.requireNoneInProgress(accountId);
         resendClient.validateApiKey(apiKey);
         String encrypted = SecurityUtil.encrypt(apiKey, encryptionProperties.key());
         EmailProvider provider = emailProviderRepository.findByAccountId(accountId)
@@ -88,6 +91,7 @@ public class EmailProviderService {
     }
 
     public void updateSender(UUID accountId, String fromName, String fromAddress) {
+        campaignInProgressGuard.requireNoneInProgress(accountId);
         EmailProvider provider = emailProviderRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new EmailProviderNotFoundException(accountId));
         provider.setFromAddress(fromAddress);
