@@ -44,7 +44,7 @@ jobs:
       - name: Deploy to Railway
         run: |
           npm install -g @railway/cli
-          railway up --service api --detach
+          railway up --service api --ci
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
@@ -68,12 +68,12 @@ jobs:
           curl -X PATCH "https://api.vercel.com/v1/global-config/${{ secrets.EDGE_CONFIG_ID }}/items" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"items": [{"operation": "update", "key": "isInMaintenanceMode", "value": false}]}'
+            -d '{"items": [{"operation": "update", "key": "isInMaintenanceMode", "value": true}]}'
 
       - name: Deploy to Railway
         run: |
           npm install -g @railway/cli
-          railway redeploy --service api --yes
+          railway up --service api --ci
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
