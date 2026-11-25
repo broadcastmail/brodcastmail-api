@@ -206,4 +206,33 @@ class MeControllerTest extends IntegrationTest {
         // Then
         assertThat(response).hasStatus(401);
     }
+
+    @Test
+    void shouldDeleteTheAccountAndItsConnection() {
+        // Given
+        connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
+
+        // When
+        var response = mockMvc.delete()
+                .uri("/api/v1/me")
+                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(204);
+        assertThat(accountRepository.findById(account.getId())).isEmpty();
+        assertThat(connectionRepository.findByAccountId(account.getId())).isEmpty();
+    }
+
+    @Test
+    void shouldReturn401WhenDeletingWithoutApiKey() {
+        // When
+        var response = mockMvc.delete()
+                .uri("/api/v1/me")
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(401);
+        assertThat(accountRepository.findById(account.getId())).isPresent();
+    }
 }

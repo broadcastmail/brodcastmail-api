@@ -1,5 +1,6 @@
 package com.broadcastmail.api.me;
 
+import com.broadcastmail.api.account.AccountService;
 import com.broadcastmail.api.account.metrics.AccountMetricsService;
 import com.broadcastmail.api.account.metrics.dto.AccountMetricsResponse;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
@@ -14,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +33,7 @@ public class MeController {
     private final AccountRepository accountRepository;
     private final ConnectionNameService connectionNameService;
     private final AccountMetricsService accountMetricsService;
+    private final AccountService accountService;
 
     @GetMapping
     public ResponseEntity<MeResponse> getMe(@AuthenticationPrincipal UUID accountId) {
@@ -56,5 +59,11 @@ public class MeController {
     @GetMapping("/metrics")
     public ResponseEntity<AccountMetricsResponse> getMetrics(@AuthenticationPrincipal UUID accountId) {
         return ResponseEntity.ok(accountMetricsService.getMetrics(accountId));
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal UUID accountId) {
+        accountService.deleteAccount(accountId);
+        return ResponseEntity.noContent().build();
     }
 }
