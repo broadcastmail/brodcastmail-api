@@ -6,7 +6,7 @@ import com.broadcastmail.api.common.exceptions.PlanFeatureException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.common.account.plan.PlanLimitExceededException;
-import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
+import com.broadcastmail.common.usage.RecipientUsageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +19,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PlanFacade {
     private final BillingService billingService;
-    private final CampaignRecipientRepository campaignRecipientRepository;
+    private final RecipientUsageRepository recipientUsageRepository;
 
     public void enforceFeature(Account account, PlanFeature feature) {
         if (!isActiveSubscription(account)) {
@@ -31,7 +31,7 @@ public class PlanFacade {
     }
 
     public void enforceRecipientLimit(Account account, int newRecipients) {
-        long currentRecipients = campaignRecipientRepository.countUniqueRecipientsSince(
+        long currentRecipients = recipientUsageRepository.countSince(
                 account.getId(),
                 OffsetDateTime.now(ZoneId.systemDefault()).minusDays(30)
         );

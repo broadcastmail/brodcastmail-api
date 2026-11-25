@@ -21,6 +21,7 @@ import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.connection.RecipientSource;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
+import com.broadcastmail.common.usage.RecipientUsageRepository;
 import com.broadcastmail.common.suppressions.Suppression;
 import com.broadcastmail.common.suppressions.SuppressionsRepository;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +52,7 @@ public class RecipientPreviewService {
     private final CampaignFilterValidator filterValidator;
     private final SuppressionsRepository suppressionsRepository;
     private final CampaignRecipientRepository recipientRepository;
+    private final RecipientUsageRepository recipientUsageRepository;
     private final AccountRepository accountRepository;
 
     /** What gets counted: the same rules the worker applies when it resolves who to send to. */
@@ -85,7 +87,7 @@ public class RecipientPreviewService {
 
     private RecipientPreviewResponse countAndQuota(UUID accountId, Connection connection, AudienceSelection selection,
                                                    boolean persistEstimate) {
-        Set<String> usedThisPeriod = new HashSet<>(recipientRepository.findDistinctEmailsSince(
+        Set<String> usedThisPeriod = new HashSet<>(recipientUsageRepository.findEmailsSince(
                 accountId, OffsetDateTime.now(ZoneId.systemDefault()).minusDays(PLAN_PERIOD_DAYS)));
         try {
             TenantAudienceGateway.Counts counts = count(accountId, connection, selection, usedThisPeriod);

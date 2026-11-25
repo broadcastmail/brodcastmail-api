@@ -6,7 +6,7 @@ import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.plan.Plan;
 import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.common.account.plan.PlanLimitExceededException;
-import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
+import com.broadcastmail.common.usage.RecipientUsageRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,7 +27,7 @@ class PlanFacadeTest {
     @Mock
     private BillingService billingService;
     @Mock
-    private CampaignRecipientRepository campaignRecipientRepository;
+    private RecipientUsageRepository recipientUsageRepository;
 
     @InjectMocks
     private PlanFacade planFacade;
@@ -77,7 +77,7 @@ class PlanFacadeTest {
     @Test
     void shouldThrowWhenRecipientLimitExceeded() {
         Account account = freeAccount();
-        when(campaignRecipientRepository.countUniqueRecipientsSince(eq(account.getId()), any()))
+        when(recipientUsageRepository.countSince(eq(account.getId()), any()))
                 .thenReturn(490L);
 
         assertThatThrownBy(() -> planFacade.enforceRecipientLimit(account, 20))
@@ -87,7 +87,7 @@ class PlanFacadeTest {
     @Test
     void shouldNotThrowWhenRecipientLimitNotExceeded() {
         Account account = freeAccount();
-        when(campaignRecipientRepository.countUniqueRecipientsSince(eq(account.getId()), any()))
+        when(recipientUsageRepository.countSince(eq(account.getId()), any()))
                 .thenReturn(100L);
 
         assertThatNoException().isThrownBy(() ->
@@ -97,12 +97,12 @@ class PlanFacadeTest {
     @Test
     void shouldNotEnforceRecipientLimitForActivePro() {
         Account account = proAccount();
-        when(campaignRecipientRepository.countUniqueRecipientsSince(eq(account.getId()), any()))
+        when(recipientUsageRepository.countSince(eq(account.getId()), any()))
                 .thenReturn(0L);
 
         assertThatNoException().isThrownBy(() ->
                 planFacade.enforceRecipientLimit(account, 1));
 
-        verify(campaignRecipientRepository).countUniqueRecipientsSince(eq(account.getId()), any());
+        verify(recipientUsageRepository).countSince(eq(account.getId()), any());
     }
 }
