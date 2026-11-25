@@ -57,12 +57,17 @@ table with potentially thousands of rows on every dashboard load would
 be slow. These counters are incremented atomically as webhook events
 are processed, so a small normalization tradeoff for significantly
 better read performance on the dashboard.
-**Why `webhook_events.campaign_recipient_id` is nullable:**
-Resend occasionally fires webhook events for emails we can't match back
-to a recipient, e.g., if the recipient row was deleted during
-the retention cleanup window, or if Resend fires an event for a test
-email sent during onboarding. Making this nullable means we store the
-raw event regardless and don't lose data, even when the match fails.
+**Why `webhook_events` has no link to `campaign_recipients`:**
+Resend fires events for emails we can't match back to a recipient:
+a test send (never in `campaign_recipients`), or an event that arrives
+after retention deleted the recipient (an open weeks later). The raw
+event is stored regardless, marked processed, and answered with `200`
+so Resend doesn't retry it. The link is already in the payload:
+`raw_payload->'data'->>'email_id'` equals
+`campaign_recipients.resend_message_id` while the recipient exists.
+A `campaign_recipient_id` column existed until V28 but was never
+filled, and its FK without `ON DELETE` would have made retention fail
+once it was, so it was dropped.
 
 **Why `unsubscribes` is a separate table not a column on `campaign_recipients`:**
 An unsubscribe is permanent and applies to all future campaigns, not
@@ -335,9 +340,14 @@ happens atomically in the same @Transactional block as the recipient
   this connection." Acceptable since retention policy deletes
   history within 7-90 days anyway.
 - Nightly retention cleanup job — primary deletion mechanism.
-  Deletes campaigns WHERE sent_at < retention_cutoff for plan.
-  Free = 7 days, Pro = 90 days. Cascade cleans campaign_filters,
-  campaign_recipients, outbox, webhook_events automatically.
+  Deletes finished campaigns (`sent`, `partially_failed`, `failed`)
+  WHERE COALESCE(sent_at, updated_at) < retention_cutoff for plan
+  (`updated_at` covers a campaign that failed before sending).
+  Free = 7 days, Starter / Pro = 90 days. `draft`, `resolving` and
+  `sending` (incl. rate-limited) are never deleted by retention.
+  Cascade cleans campaign_filters, campaign_recipients, outbox.
+  A retry's `retry_of_campaign_id` is set to NULL when its original
+  is deleted. webhook_events and recipient_usage are not touched.
 - 
 **Indexes:**
  ```sql
@@ -349,7 +359,8 @@ CREATE INDEX idx_campaigns_account_id
 CREATE INDEX idx_campaigns_status
   ON campaigns(status);
 -- justification: retention cleanup job queries
--- WHERE status = 'sent' AND sent_at < retention_cutoff
+-- WHERE status IN ('sent', 'partially_failed', 'failed')
+--   AND COALESCE(sent_at, updated_at) < retention_cutoff
 -- also used by worker checking campaign completion
 
 -- id covered by PK automatically
@@ -464,8 +475,9 @@ Most write-heavy table in the schema. At 1,000 customers:
 
 **Deletion:**
 - Nightly retention cleanup job — primary deletion mechanism.
-  Deletes WHERE campaign.sent_at < retention_cutoff for plan.
-  Cascade from campaign deletion handles outbox + webhook_events.
+  Deleted with their campaign when it's past the plan's retention
+  (see campaigns). Cascade from campaign deletion handles outbox;
+  webhook_events has no FK to recipients and is not touched.
 - CASCADE on campaign deletion — automatic.
 - CASCADE on connection deletion → campaigns → recipients.
 - CASCADE on account deletion — automatic.
@@ -516,6 +528,11 @@ regardless of how many times the insert is retried.
 - UPDATE processing → done on Resend success. Sets last_attempted_at. —high frequency while sending
 - UPDATE processing → pending on Resend failure, attempts < 3. — low-frequency
   Sets attempts++, next_attempt_at = now() + backoff (1m → 5m → 15m)
+- UPDATE processing → pending when Resend's daily quota is used up
+  (rate limited). attempts unchanged, next_attempt_at = next midnight
+  UTC, when Resend resets the quota (computed in UTC, not the host's
+  time zone). The campaign stays `sending` with
+  failure_reason = 'RATE_LIMITED'. — low frequency
 - UPDATE processing → failed after 3 attempts. Worker never 
   retouches. Retry button in the UI creates a new outbox row instead. — extremely low frequency
 
@@ -559,8 +576,10 @@ CREATE INDEX idx_outbox_status_next_attempt
   high frequency during active campaign sent — 500 recipient
   campaign generates 1,000–1,500 events (multiple events per
   recipient). Fastest growing table in schema.
-- UPDATE processed = true after the webhook receiver successfully
-matches the event to campaign_recipient and updates their status.
+- UPDATE processed = true after the webhook receiver handled the
+  event: matched it to a campaign_recipient by `resend_message_id`
+  and updated their status, or found no recipient (test send, or
+  deleted by retention), logged it and changed nothing else.
   Frequency: HIGH — immediately after each insert is processed.
   Only write after initial insert — raw payload never changes,
   immutable record of what Resend reported.
@@ -582,13 +601,12 @@ matches the event to campaign_recipient and updates their status.
 retention cleanup is critical here.
 
 **Deletion:**
-- Nightly retention cleanup job — primary deletion mechanism.
-  DELETE WHERE created_at < retention_cutoff for plan.
-  Free = 7 days, Pro = 90 days.
-- Independent of campaign_recipients deletion — no CASCADE.
-  campaign_recipient_id set to NULL when recipient deleted,
-  row stays until own retention window expires.
-- No other deletion paths.
+- Not deleted today: no job removes webhook_events, and the table
+  has no `account_id`, so account deletion doesn't reach it either
+  (broadcastmail/broadcast-webhooks#12). `raw_payload` holds the
+  recipient's email, so this needs fixing before it matters for GDPR.
+- Independent of campaign_recipients deletion — no FK to it, so
+  deleting a campaign or recipient leaves its events in place.
 
 **Indexes:**
 ```sql
@@ -703,33 +721,28 @@ CREATE INDEX idx_unsubscribes_account_id
 ## Retention Policy
 
 Campaign history is deleted on a rolling basis by a scheduled cleanup
-job that runs nightly:
+job (`RetentionCleanupJob` in the worker) that runs nightly:
 
 | Plan | Retention |
 |---|---|
 | Free | 7 days |
+| Starter | 90 days |
 | Pro | 90 days |
 
 **What gets deleted:**
-- `campaign_recipients` rows where `campaigns.sent_at` is older than
-  the retention window — cascade deletes outbox rows automatically
-- `webhook_events` rows where `created_at` is older than retention window
-  — independent cleanup, not tied to campaign_recipients deletion
-- `campaign_filters` rows cascade-deleted with their `campaign`
-- `campaigns` rows themselves after all recipients are deleted
-  **What is never deleted:**
-- `unsubscribes` — permanent, survives account retention policy
-- `accounts`, `connections`, `email_providers` — survive until account closure
+- `campaigns` that are finished (`sent`, `partially_failed`, `failed`)
+  and older than the retention window, measured from `sent_at`, or from
+  `updated_at` when the campaign failed before sending
+- `campaign_recipients`, `outbox` and `campaign_filters` rows
+  cascade-deleted with their campaign
 
-**What gets deleted:**
-- `campaign_recipients` rows where `campaigns.sent_at` is older than
-  the retention window
-- `outbox` rows cascade-deleted with their `campaign_recipient`
-- `webhook_events` rows where `created_at` is older than retention window
-- `campaign_filters` rows cascade-deleted with their `campaign`
-- `campaigns` rows themselves after all recipients are deleted
-  **What is never deleted:**
-- `unsubscribes` — permanent, survives account retention policy
+**What is never deleted by retention:**
+- `draft`, `resolving` and `sending` campaigns (a rate-limited campaign
+  stays `sending` until it finishes)
+- `suppressions` (documented below under its old name `unsubscribes`) —
+  permanent, so suppressed recipients are never emailed again after
+  their campaigns are gone
+- `webhook_events` — not deleted at all today (see webhook_events)
 - `accounts`, `connections`, `email_providers` — survive until account closure
 
 **Independent of campaign retention:**
