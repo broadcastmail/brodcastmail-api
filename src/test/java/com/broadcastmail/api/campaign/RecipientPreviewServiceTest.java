@@ -18,6 +18,7 @@ import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
 import com.broadcastmail.common.campaign.filter.FilterOperator;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
+import com.broadcastmail.common.usage.RecipientUsageRepository;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.common.suppressions.Suppression;
@@ -75,6 +76,8 @@ class RecipientPreviewServiceTest {
     @Mock
     private CampaignRecipientRepository recipientRepository;
     @Mock
+    private RecipientUsageRepository recipientUsageRepository;
+    @Mock
     private AccountRepository accountRepository;
 
     private RecipientPreviewService recipientPreviewService;
@@ -82,7 +85,7 @@ class RecipientPreviewServiceTest {
     @BeforeEach
     void setUp() {
         recipientPreviewService = new RecipientPreviewService(campaignService, connectionRepository, tenantAudienceGateway, filterRepository,
-                new CampaignFilterSerializer(), filterValidator, suppressionsRepository, recipientRepository, accountRepository);
+                new CampaignFilterSerializer(), filterValidator, suppressionsRepository, recipientRepository, recipientUsageRepository, accountRepository);
     }
 
     private void givenAccount() {
@@ -367,7 +370,7 @@ class RecipientPreviewServiceTest {
         stubEmptyCampaign(accountId, campaignId);
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
-        when(recipientRepository.findDistinctEmailsSince(eq(accountId), any())).thenReturn(List.of("old@example.com"));
+        when(recipientUsageRepository.findEmailsSince(eq(accountId), any())).thenReturn(List.of("old@example.com"));
         when(tenantAudienceGateway.count(any(), anyString(), any())).thenReturn(new TenantAudienceGateway.Counts(10, 9));
         givenAccount();
 

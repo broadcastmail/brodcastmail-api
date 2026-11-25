@@ -4,7 +4,7 @@ import com.broadcastmail.api.account.metrics.dto.AccountMetricsResponse;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.DeliveryStats;
-import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
+import com.broadcastmail.common.usage.RecipientUsageRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ class AccountMetricsServiceTest {
     @Mock
     private CampaignRepository campaignRepository;
     @Mock
-    private CampaignRecipientRepository campaignRecipientRepository;
+    private RecipientUsageRepository recipientUsageRepository;
     @Mock
     private AccountRepository accountRepository;
 
@@ -38,7 +38,7 @@ class AccountMetricsServiceTest {
     @BeforeEach
     void setUp() {
         accountMetricsService = new AccountMetricsService(
-                connectionRepository, campaignRepository, campaignRecipientRepository, mock(AccountRepository.class));
+                connectionRepository, campaignRepository, recipientUsageRepository, mock(AccountRepository.class));
     }
 
     private static final UUID ACCOUNT_ID = UUID.randomUUID();
@@ -49,7 +49,7 @@ class AccountMetricsServiceTest {
         when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.empty());
         when(campaignRepository.sumDeliveryStatsSince(eq(ACCOUNT_ID), any()))
                 .thenReturn(stats(0, 0));
-        when(campaignRecipientRepository.countUniqueRecipientsSince(eq(ACCOUNT_ID), any()))
+        when(recipientUsageRepository.countSince(eq(ACCOUNT_ID), any()))
                 .thenReturn(0L);
 
         // When
@@ -65,7 +65,7 @@ class AccountMetricsServiceTest {
         when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.empty());
         when(campaignRepository.sumDeliveryStatsSince(eq(ACCOUNT_ID), any()))
                 .thenReturn(stats(95, 100));
-        when(campaignRecipientRepository.countUniqueRecipientsSince(eq(ACCOUNT_ID), any()))
+        when(recipientUsageRepository.countSince(eq(ACCOUNT_ID), any()))
                 .thenReturn(0L);
 
         // When
@@ -81,7 +81,7 @@ class AccountMetricsServiceTest {
         when(connectionRepository.findByAccountId(ACCOUNT_ID)).thenReturn(Optional.empty());
         when(campaignRepository.sumDeliveryStatsSince(eq(ACCOUNT_ID), any()))
                 .thenReturn(stats(0, 0));
-        when(campaignRecipientRepository.countUniqueRecipientsSince(eq(ACCOUNT_ID), any()))
+        when(recipientUsageRepository.countSince(eq(ACCOUNT_ID), any()))
                 .thenReturn(0L);
 
         // When

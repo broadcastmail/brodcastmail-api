@@ -4,7 +4,7 @@ import com.broadcastmail.api.account.metrics.dto.AccountMetricsResponse;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.DeliveryStats;
-import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
+import com.broadcastmail.common.usage.RecipientUsageRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,7 +19,7 @@ public class AccountMetricsService {
 
     private final ConnectionRepository connectionRepository;
     private final CampaignRepository campaignRepository;
-    private final CampaignRecipientRepository campaignRecipientRepository;
+    private final RecipientUsageRepository recipientUsageRepository;
     private final AccountRepository accountRepository;
 
     public AccountMetricsResponse getMetrics(UUID accountId) {
@@ -39,8 +39,8 @@ public class AccountMetricsService {
                 ? Math.round((double) stats.getDelivered() / stats.getRecipients() * 1000.0) / 10.0
                 : 0.0;
 
-        long recipientsUsed = campaignRecipientRepository
-                .countUniqueRecipientsSince(accountId, since);
+        long recipientsUsed = recipientUsageRepository
+                .countSince(accountId, since);
 
         int filterConditionsLimit = accountRepository.findById(accountId)
                 .map(a -> a.getPlan().strategy().filterConditionLimit())
