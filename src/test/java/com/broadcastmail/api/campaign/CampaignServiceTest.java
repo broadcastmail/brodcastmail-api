@@ -90,7 +90,7 @@ class CampaignServiceTest {
     private CampaignService campaignService;
 
     private static final String ENCRYPTION_KEY = "12345678901234567890123456789012";
-    private static final String TEST_API_KEY = "re_test_abc123";
+    private static final String TEST_SESSION_TOKEN = "re_test_abc123";
 
     private void stubAccount() {
         when(accountRepository.findById(ACCOUNT_ID))
@@ -354,7 +354,7 @@ class CampaignServiceTest {
         campaignService.sendTestEmail(ACCOUNT_ID, CAMPAIGN_ID, new TestEmailRequest(Map.of("name", "John")));
 
         // Then
-        verify(resendClient).sendTestEmail(ACCOUNT_ID, TEST_API_KEY, "sender@example.com", "user@example.com", "Hello", "<p>Hi John</p>");
+        verify(resendClient).sendTestEmail(ACCOUNT_ID, TEST_SESSION_TOKEN, "sender@example.com", "user@example.com", "Hello", "<p>Hi John</p>");
     }
 
     @Test
@@ -431,7 +431,7 @@ class CampaignServiceTest {
     private void givenTestEmailSetup(String bodyHtml, String subject) {
         EmailProvider provider = mock(EmailProvider.class);
         Account account = mock(Account.class);
-        when(provider.getEncryptedApiKey()).thenReturn(SecurityUtil.encrypt(TEST_API_KEY, ENCRYPTION_KEY));
+        when(provider.getEncryptedApiKey()).thenReturn(SecurityUtil.encrypt(TEST_SESSION_TOKEN, ENCRYPTION_KEY));
         when(provider.getFromAddress()).thenReturn("sender@example.com");
         when(account.getEmail()).thenReturn("user@example.com");
         when(encryptionProperties.key()).thenReturn(ENCRYPTION_KEY);

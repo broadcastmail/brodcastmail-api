@@ -6,11 +6,13 @@ import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.session.SessionRepository;
 import com.stripe.exception.StripeException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mock.web.MockCookie;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
@@ -36,6 +38,8 @@ class BillingControllerTest extends IntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
+    @Autowired
+    private SessionRepository sessionRepository;
 
     @MockitoBean
     private BillingService billingService;
@@ -45,6 +49,7 @@ class BillingControllerTest extends IntegrationTest {
     @BeforeEach
     void setUp() {
         account = accountRepository.save(CampaignTestFixtures.account().build());
+        sessionRepository.save(CampaignTestFixtures.session(account.getId()).build());
     }
 
     @AfterEach
@@ -61,7 +66,7 @@ class BillingControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.post()
                 .uri("/api/v1/billing/checkout")
-                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
                 .exchange();
 
         // Then
@@ -94,7 +99,7 @@ class BillingControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.post()
                 .uri("/api/v1/billing/portal")
-                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
                 .exchange();
 
         // Then
@@ -112,7 +117,7 @@ class BillingControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.post()
                 .uri("/api/v1/billing/portal")
-                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
                 .exchange();
 
         // Then

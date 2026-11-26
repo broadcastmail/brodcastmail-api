@@ -34,11 +34,11 @@ class CookieServiceTest {
         activeProfile("dev");
 
         // When
-        ResponseCookie cookie = cookieService.createSessionCookie("bm_live_testkey");
+        ResponseCookie cookie = cookieService.createSessionCookie("session-token", Duration.ofDays(30));
 
         // Then
         assertThat(cookie.getName()).isEqualTo("bm_session");
-        assertThat(cookie.getValue()).isEqualTo("bm_live_testkey");
+        assertThat(cookie.getValue()).isEqualTo("session-token");
         assertThat(cookie.isHttpOnly()).isTrue();
         assertThat(cookie.isSecure()).isFalse();
         assertThat(cookie.getSameSite()).isEqualTo("Lax");
@@ -52,7 +52,7 @@ class CookieServiceTest {
         activeProfile("prod");
 
         // When
-        ResponseCookie cookie = cookieService.createSessionCookie("bm_live_testkey");
+        ResponseCookie cookie = cookieService.createSessionCookie("session-token", Duration.ofDays(30));
 
         // Then
         assertThat(cookie.isSecure()).isTrue();
@@ -113,7 +113,7 @@ class CookieServiceTest {
 
         // When
         List<ResponseCookie> cookies = List.of(
-                shared.createSessionCookie("bm_live_testkey"),
+                shared.createSessionCookie("session-token", Duration.ofDays(30)),
                 shared.clearSessionCookie(),
                 shared.createOnboardingCookie("token"),
                 shared.clearOnboardingCookie());

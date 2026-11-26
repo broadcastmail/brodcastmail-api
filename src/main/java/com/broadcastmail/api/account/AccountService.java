@@ -21,18 +21,6 @@ public class AccountService {
     private final CampaignInProgressValidator campaignInProgressValidator;
 
     @Transactional
-    public String rotateApiKey(UUID accountId) throws AccountNotFoundException {
-        Account account = accountRepository.findById(accountId)
-                .orElseThrow(AccountNotFoundException::new);
-
-        String rawKey = SecurityUtil.generateApiKey();
-        account.setApiKeyHash(SecurityUtil.sha256(rawKey));
-        accountRepository.save(account);
-
-        return rawKey;
-    }
-
-    @Transactional
     public void deleteAccount(UUID accountId) {
         campaignInProgressValidator.validateNoneInProgress(accountId);
         Account account = accountRepository.findById(accountId)

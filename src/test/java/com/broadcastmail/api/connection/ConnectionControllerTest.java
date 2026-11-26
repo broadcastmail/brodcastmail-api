@@ -25,6 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.session.SessionRepository;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import org.springframework.test.context.ActiveProfiles;
@@ -44,7 +45,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_API_KEY;
+import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_SESSION_TOKEN;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -60,6 +61,8 @@ class ConnectionControllerTest extends IntegrationTest {
     private MockMvcTester mockMvc;
     @Autowired
     private AccountRepository accountRepository;
+    @Autowired
+    private SessionRepository sessionRepository;
     @Autowired
     private ConnectionRepository connectionRepository;
     @Autowired
@@ -96,6 +99,7 @@ class ConnectionControllerTest extends IntegrationTest {
     @BeforeEach
     void setUp() {
         account = accountRepository.saveAndFlush(CampaignTestFixtures.account().build());
+        sessionRepository.save(CampaignTestFixtures.session(account.getId()).build());
 
         connection = connectionRepository.saveAndFlush(CampaignTestFixtures.connection(account.getId()).build());
     }
@@ -399,7 +403,7 @@ class ConnectionControllerTest extends IntegrationTest {
         var body = "{\"apiKey\":\"re_key\",\"fromName\":\"Sender\",\"fromAddress\":\"sender@example.com\"}";
 
         var response = mockMvc.put().uri("/api/v1/connections/reconfigure/email-provider")
-                .cookie(new MockCookie("bm_session", TEST_API_KEY))
+                .cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body)
                 .exchange();
@@ -466,18 +470,18 @@ class ConnectionControllerTest extends IntegrationTest {
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedPatch(String uri) {
-        return mockMvc.patch().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+        return mockMvc.patch().uri(uri).cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN));
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedGet(String uri) {
-        return mockMvc.get().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+        return mockMvc.get().uri(uri).cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN));
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedPost(String uri) {
-        return mockMvc.post().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+        return mockMvc.post().uri(uri).cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN));
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedDelete(String uri) {
-        return mockMvc.delete().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+        return mockMvc.delete().uri(uri).cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN));
     }
 }

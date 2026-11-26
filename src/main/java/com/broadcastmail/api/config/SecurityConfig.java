@@ -2,7 +2,7 @@ package com.broadcastmail.api.config;
 
 import com.broadcastmail.api.common.SecurityPaths;
 import com.broadcastmail.api.common.exceptions.SecurityConfigurationException;
-import com.broadcastmail.api.security.ApiKeyAuthFilter;
+import com.broadcastmail.api.security.SessionAuthFilter;
 import jakarta.servlet.DispatcherType;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -17,21 +17,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfFilter;
-import org.springframework.security.web.util.matcher.RequestMatcher;
-import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-
-    // CSRF only matters for the bm_session cookie: a browser can be tricked into carrying
-    // it cross-site. An X-API-Key header can't be attached by a cross-site page without
-    // CORS approval, so header-authenticated requests never need a CSRF token.
-    private static final RequestMatcher CSRF_REQUIRED_MATCHER = request ->
-            CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request)
-                    && !StringUtils.hasText(request.getHeader("X-API-Key"));
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -59,7 +49,7 @@ public class SecurityConfig {
     @ConditionalOnMissingBean(name = "testFilterChain")
     public SecurityFilterChain apiFilterChain(
             HttpSecurity http,
-            ApiKeyAuthFilter apiKeyAuthFilter,
+            SessionAuthFilter sessionAuthFilter,
             CorsConfigurationSource corsConfigurationSource,
             AppProperties appProperties) {
         try {
@@ -72,7 +62,6 @@ public class SecurityConfig {
                     .csrf(csrf -> csrf
                             .spa()
                             .csrfTokenRepository(csrfTokenRepository) // NOSONAR
-                            .requireCsrfProtectionMatcher(CSRF_REQUIRED_MATCHER) // NOSONAR
                             .ignoringRequestMatchers("/api/v1/oauth/supabase/**")) // NOSONAR
                     .sessionManagement(session -> session
                             .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -80,7 +69,7 @@ public class SecurityConfig {
                             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                             .anyRequest().authenticated())
                     .addFilterBefore(
-                            apiKeyAuthFilter,
+                            sessionAuthFilter,
                             UsernamePasswordAuthenticationFilter.class);
             return http.build();
         } catch (Exception e) {

@@ -15,7 +15,7 @@ public class CookieService {
 
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
-    private static final String COOKIE_NAME = "bm_session";
+    public static final String SESSION_COOKIE = "bm_session";
 
     private String cookieDomain() {
         return appProperties.frontend().cookieDomainOrNull();
@@ -25,19 +25,19 @@ public class CookieService {
         return "prod".equals(activeProfile);
     }
 
-    public ResponseCookie createSessionCookie(String rawApiKey) {
-        return ResponseCookie.from(COOKIE_NAME, rawApiKey)
+    public ResponseCookie createSessionCookie(String sessionToken, Duration maxAge) {
+        return ResponseCookie.from(SESSION_COOKIE, sessionToken)
                 .domain(cookieDomain())
                 .httpOnly(true)
                 .secure(isProduction())
                 .sameSite(isProduction() ? "None" : "Lax")
                 .path("/")
-                .maxAge(Duration.ofDays(30))
+                .maxAge(maxAge)
                 .build();
     }
 
     public ResponseCookie clearSessionCookie() {
-        return ResponseCookie.from(COOKIE_NAME, "")
+        return ResponseCookie.from(SESSION_COOKIE, "")
                 .domain(cookieDomain())
                 .httpOnly(true)
                 .secure(isProduction())

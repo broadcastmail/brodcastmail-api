@@ -3,12 +3,15 @@ package com.broadcastmail.api.oauth;
 import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.support.CampaignTestFixtures;
-import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_API_KEY;
+import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_SESSION_TOKEN;
 import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.management.dto.SupabaseProject;
 import com.broadcastmail.api.supabase.management.dto.SupabaseTokenResponse;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import java.time.OffsetDateTime;
+import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.common.session.SessionRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +21,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import jakarta.servlet.http.Cookie;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
@@ -41,6 +46,8 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
+    @Autowired
+    private SessionRepository sessionRepository;
 
     @Autowired
     private ConnectionRepository connectionRepository;
@@ -189,11 +196,19 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(new SupabaseProject("project-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws")));
 
-        var result = callbackRequest("valid-code").exchange();
+        var result = callbackRequest("valid-code").header(HttpHeaders.USER_AGENT, "Mozilla/5.0 (laptop)").exchange();
 
+        // Then: the API sets the cookie itself; the token is a new session of that account, with the browser's user agent
         assertThat(result).hasStatus(200);
         assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("RETURNING_USER");
-        assertThat(result).bodyJson().extractingPath("$.sessionToken").asString().isNotBlank();
+        assertThat(result).bodyJson().doesNotHavePath("$.sessionToken");
+        Cookie cookie = result.getResponse().getCookie("bm_session");
+        assertThat(cookie.isHttpOnly()).isTrue();
+        assertThat(sessionRepository.findByTokenHashAndExpiresAtAfter(SecurityUtil.sha256(cookie.getValue()), OffsetDateTime.now()))
+                .get().satisfies(session -> {
+                    assertThat(session.getAccountId()).isEqualTo(account.getId());
+                    assertThat(session.getUserAgent()).isEqualTo("Mozilla/5.0 (laptop)");
+                });
     }
 
     @Test
@@ -201,6 +216,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         Account account = accountRepository.save(CampaignTestFixtures.account()
                 .email("returning-user@example.com").build());
         connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
+        sessionRepository.save(CampaignTestFixtures.session(account.getId()).build());
 
         String reconfigureState = "abc123:reconfigure";
         when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
@@ -208,7 +224,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         when(supabaseManagementClient.listProjects("access-token"))
                 .thenReturn(List.of(new SupabaseProject("ref-1", "Project", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws")));
 
-        var result = callbackRequest("valid-code", reconfigureState, VERIFIER, TEST_API_KEY).exchange();
+        var result = callbackRequest("valid-code", reconfigureState, VERIFIER, TEST_SESSION_TOKEN).exchange();
 
         assertThat(result).hasStatus(200);
         assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("RECONFIGURE");
@@ -220,6 +236,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
         Account account = accountRepository.save(CampaignTestFixtures.account()
                 .email("returning-user@example.com").build());
         connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
+        sessionRepository.save(CampaignTestFixtures.session(account.getId()).build());
 
         String reconfigureState = "abc123:reconfigure";
         when(supabaseManagementClient.exchangeCodeForTokensPKCE(eq("valid-code"), eq(VERIFIER), anyString()))
@@ -230,7 +247,7 @@ class OAuthSupabaseControllerTest extends IntegrationTest {
                         new SupabaseProject("ref-2", "Project 2", "ACTIVE_HEALTHY", "2026-01-01", "us-east-1", "aws")
                 ));
 
-        var result = callbackRequest("valid-code", reconfigureState, VERIFIER, TEST_API_KEY).exchange();
+        var result = callbackRequest("valid-code", reconfigureState, VERIFIER, TEST_SESSION_TOKEN).exchange();
 
         assertThat(result).hasStatus(200);
         assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("RECONFIGURE_MULTIPLE");

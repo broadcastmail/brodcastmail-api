@@ -6,6 +6,7 @@ import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.campaign.dto.CreateCampaignRequest;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.session.SessionRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipient;
 import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
@@ -37,7 +38,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.UUID;
 
-import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_API_KEY;
+import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_SESSION_TOKEN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -50,6 +51,8 @@ class CampaignControllerTest extends IntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
+    @Autowired
+    private SessionRepository sessionRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -75,6 +78,7 @@ class CampaignControllerTest extends IntegrationTest {
     @BeforeEach
     void setUp() {
         account = accountRepository.save(CampaignTestFixtures.account().build());
+        sessionRepository.save(CampaignTestFixtures.session(account.getId()).build());
         connection = connectionRepository.save(CampaignTestFixtures.connection(account.getId()).build());
     }
 
@@ -388,18 +392,18 @@ class CampaignControllerTest extends IntegrationTest {
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedGet(String uri) {
-        return mockMvc.get().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+        return mockMvc.get().uri(uri).cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN));
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedPost(String uri) {
-        return mockMvc.post().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+        return mockMvc.post().uri(uri).cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN));
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedPatch(String uri) {
-        return mockMvc.patch().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+        return mockMvc.patch().uri(uri).cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN));
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedDelete(String uri) {
-        return mockMvc.delete().uri(uri).cookie(new MockCookie("bm_session", TEST_API_KEY));
+        return mockMvc.delete().uri(uri).cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN));
     }
 }

@@ -76,7 +76,7 @@ class OnboardingServiceIntegrationTest extends IntegrationTest {
                 .when(connectionService).createConnection(any(), any(), any(), any());
 
         // When / Then
-        assertThatThrownBy(() -> onboardingService.completeOnboarding(token))
+        assertThatThrownBy(() -> onboardingService.completeOnboarding(token, null))
                 .hasMessage("connection insert failed");
         assertThat(accountRepository.count()).isZero();
         assertThat(oAuthTokenRepository.count()).isZero();
@@ -90,7 +90,7 @@ class OnboardingServiceIntegrationTest extends IntegrationTest {
         String token = readySession();
 
         // When / Then
-        assertThatThrownBy(() -> onboardingService.completeOnboarding(token))
+        assertThatThrownBy(() -> onboardingService.completeOnboarding(token, null))
                 .isInstanceOf(EmailAlreadyTakenException.class);
         assertThat(accountRepository.count()).isEqualTo(1);
         verify(resendClient, never()).registerWebhook(anyString(), anyString());
