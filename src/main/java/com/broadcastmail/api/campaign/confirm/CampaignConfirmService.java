@@ -23,12 +23,8 @@ import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRetryRepository;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
-import com.broadcastmail.common.campaign.recipient.CampaignRecipient;
-import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
-import com.broadcastmail.common.campaign.recipient.RecipientStatus;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.EnumSet;
@@ -45,7 +41,6 @@ public class CampaignConfirmService {
     private final CampaignRepository campaignRepository;
     private final ConnectionRepository connectionRepository;
     private final CampaignRetryRepository retryCampaignRepository;
-    private final CampaignRecipientRepository recipientRepository;
     private final AccountRepository accountRepository;
     private final CampaignFilterRepository campaignFilterRepository;
     private final PlanFacade planFacade;
@@ -118,7 +113,7 @@ public class CampaignConfirmService {
             return Optional.empty();
         }
         Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
-        planFacade.enforceRecipientLimitForEmails(account, failedEmails(campaignId));
+        planFacade.enforceRetryLimit(account, campaignId);
         return Optional.of(createRetryCampaign(campaign, failedRecipients));
     }
 
@@ -134,7 +129,7 @@ public class CampaignConfirmService {
             throw new CampaignNotRetryableException();
         }
         Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
-        planFacade.enforceRecipientLimitForEmails(account, failedEmails(campaignId));
+        planFacade.enforceRetryLimit(account, campaignId);
         return createRetryCampaign(campaign, failedRecipients);
     }
 
@@ -145,12 +140,6 @@ public class CampaignConfirmService {
             throw new CampaignNotRetryableException();
         }
         return campaign;
-    }
-
-    private List<String> failedEmails(UUID campaignId) {
-        return recipientRepository.findByCampaignIdAndStatus(campaignId, RecipientStatus.FAILED, Pageable.unpaged())
-                .map(CampaignRecipient::getEmail)
-                .getContent();
     }
 
     private long countFailedRecipients(UUID campaignId) {

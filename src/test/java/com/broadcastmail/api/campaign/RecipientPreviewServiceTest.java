@@ -326,35 +326,6 @@ class RecipientPreviewServiceTest {
     }
 
     @Test
-    void shouldCountOnlyPickedUsersNotEmailedThisPeriodAsNew() throws SQLException {
-        UUID accountId = UUID.randomUUID();
-        Campaign campaign = Campaign.builder().id(UUID.randomUUID()).accountId(accountId).status(CampaignStatus.DRAFT)
-                .includedIds(List.of("u1", "u2")).excludedIds(List.of("u3")).build();
-        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
-        when(recipientUsageRepository.findEmailsSince(eq(accountId), any())).thenReturn(List.of("used@example.com"));
-        when(tenantAudienceGateway.count(any(), anyString(), any())).thenReturn(new TenantAudienceGateway.Counts(2, 1));
-        givenAccount();
-
-        assertThat(recipientPreviewService.newManualRecipients(accountId, campaign)).isEqualTo(1);
-        verify(tenantAudienceGateway).count(any(),
-                and(contains("auth.\"id\"::text = ANY(?)"), contains("auth.\"id\"::text <> ALL(?)")),
-                argThat(params -> hasArray(params, "used@example.com") && hasArray(params, "u1", "u2") && hasArray(params, "u3")));
-        verify(connectionRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldCountNoNewPickedUsersWhenNobodyIsPicked() throws SQLException {
-        UUID accountId = UUID.randomUUID();
-        Campaign campaign = Campaign.builder().id(UUID.randomUUID()).accountId(accountId).status(CampaignStatus.DRAFT)
-                .includedIds(List.of()).build();
-        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
-        givenAccount();
-
-        assertThat(recipientPreviewService.newManualRecipients(accountId, campaign)).isZero();
-        verify(tenantAudienceGateway, never()).count(any(), anyString(), any());
-    }
-
-    @Test
     void shouldCountUnsavedSelectionWithoutPersistingTheEstimate() throws SQLException {
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();

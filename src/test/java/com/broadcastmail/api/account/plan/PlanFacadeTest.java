@@ -13,7 +13,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -105,28 +104,5 @@ class PlanFacadeTest {
                 planFacade.enforceRecipientLimit(account, 1));
 
         verify(recipientUsageRepository).countSince(eq(account.getId()), any());
-    }
-
-    @Test
-    void shouldLetAResendToAddressesAlreadyCountedThisPeriodThroughAtTheLimit() {
-        Account account = freeAccount();
-        when(recipientUsageRepository.countSince(eq(account.getId()), any())).thenReturn(500L);
-        when(recipientUsageRepository.findEmailsSince(eq(account.getId()), any()))
-                .thenReturn(List.of("a@example.com", "b@example.com"));
-
-        assertThatNoException().isThrownBy(() ->
-                planFacade.enforceRecipientLimitForEmails(account, List.of("a@example.com", "b@example.com", "a@example.com")));
-    }
-
-    @Test
-    void shouldCountResentAddressesNotEmailedThisPeriodAsNew() {
-        Account account = freeAccount();
-        when(recipientUsageRepository.countSince(eq(account.getId()), any())).thenReturn(499L);
-        when(recipientUsageRepository.findEmailsSince(eq(account.getId()), any())).thenReturn(List.of("a@example.com"));
-
-        // 499 used + b and c new = 501
-        assertThatThrownBy(() ->
-                planFacade.enforceRecipientLimitForEmails(account, List.of("a@example.com", "b@example.com", "c@example.com")))
-                .isInstanceOf(PlanLimitExceededException.class);
     }
 }

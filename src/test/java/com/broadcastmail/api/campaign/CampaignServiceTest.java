@@ -211,8 +211,9 @@ class CampaignServiceTest {
         // When
         Campaign result = campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
 
-        // Then
         assertThat(result.getName()).isEqualTo("New Name");
+        verifyNoInteractions(recipientPreviewService);
+        verify(planFacade, never()).enforceRecipientLimit(any(), anyInt());
     }
 
     @Test
@@ -263,27 +264,6 @@ class CampaignServiceTest {
         assertThatThrownBy(() -> campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request))
                 .isInstanceOf(PlanLimitExceededException.class);
         verify(campaignRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldNotCountRecipientsWhenPickedUsersAreUnchanged()
-    {
-        Campaign existing = campaign(CampaignStatus.DRAFT).build();
-        UpdateCampaignRequest request = UpdateCampaignRequest.builder()
-                .name(Optional.of("Renamed"))
-                .subject(Optional.empty())
-                .bodyHtml(Optional.empty())
-                .scheduledAt(Optional.empty())
-                .audienceMode(Optional.empty())
-                .build();
-        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
-        when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
-        stubAccount();
-
-        campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
-
-        verifyNoInteractions(recipientPreviewService);
-        verify(planFacade, never()).enforceRecipientLimit(any(), anyInt());
     }
 
     @Test

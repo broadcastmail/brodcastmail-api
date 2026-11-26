@@ -6,16 +6,16 @@ import com.broadcastmail.api.common.exceptions.PlanFeatureException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.common.account.plan.PlanLimitExceededException;
+import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
+import com.broadcastmail.common.campaign.recipient.RecipientStatus;
 import com.broadcastmail.common.usage.RecipientUsageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.UUID;
 
 
 @Component
@@ -23,6 +23,7 @@ import java.util.Set;
 public class PlanFacade {
     private final BillingService billingService;
     private final RecipientUsageRepository recipientUsageRepository;
+    private final CampaignRecipientRepository campaignRecipientRepository;
 
     public void enforceFeature(Account account, PlanFeature feature) {
         if (!isActiveSubscription(account)) {
@@ -38,10 +39,10 @@ public class PlanFacade {
         account.getPlan().strategy().checkRecipientLimit(currentRecipients, newRecipients);
     }
 
-    /** For re-sends (retries): an address already emailed this period is free, so only the others count. */
-    public void enforceRecipientLimitForEmails(Account account, Collection<String> emails) {
-        Set<String> used = new HashSet<>(recipientUsageRepository.findEmailsSince(account.getId(), periodStart()));
-        long fresh = emails.stream().distinct().filter(email -> !used.contains(email)).count();
+    /** A retry re-sends to the campaign's failed recipients: only those not emailed this period count, like any re-send. */
+    public void enforceRetryLimit(Account account, UUID campaignId) {
+        long fresh = campaignRecipientRepository.countEmailsNotUsedSince(
+                campaignId, RecipientStatus.FAILED, account.getId(), periodStart());
         enforceRecipientLimit(account, Math.toIntExact(fresh));
     }
 
