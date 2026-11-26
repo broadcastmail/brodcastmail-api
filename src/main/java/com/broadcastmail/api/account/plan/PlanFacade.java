@@ -12,7 +12,10 @@ import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 @Component
@@ -31,11 +34,19 @@ public class PlanFacade {
     }
 
     public void enforceRecipientLimit(Account account, int newRecipients) {
-        long currentRecipients = recipientUsageRepository.countSince(
-                account.getId(),
-                OffsetDateTime.now(ZoneId.systemDefault()).minusDays(30)
-        );
+        long currentRecipients = recipientUsageRepository.countSince(account.getId(), periodStart());
         account.getPlan().strategy().checkRecipientLimit(currentRecipients, newRecipients);
+    }
+
+    /** For re-sends (retries): an address already emailed this period is free, so only the others count. */
+    public void enforceRecipientLimitForEmails(Account account, Collection<String> emails) {
+        Set<String> used = new HashSet<>(recipientUsageRepository.findEmailsSince(account.getId(), periodStart()));
+        long fresh = emails.stream().distinct().filter(email -> !used.contains(email)).count();
+        enforceRecipientLimit(account, Math.toIntExact(fresh));
+    }
+
+    private static OffsetDateTime periodStart() {
+        return OffsetDateTime.now(ZoneId.systemDefault()).minusDays(30);
     }
 
     public void enforceFilterShape(Account account, List<FilterRequest> filterRequests) {

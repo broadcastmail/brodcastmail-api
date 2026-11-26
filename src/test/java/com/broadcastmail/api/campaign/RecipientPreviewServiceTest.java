@@ -11,6 +11,7 @@ import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.account.plan.Plan;
 import com.broadcastmail.common.campaign.AudienceMode;
 import com.broadcastmail.common.campaign.Campaign;
+import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
@@ -58,7 +59,7 @@ import static org.mockito.Mockito.when;
 class RecipientPreviewServiceTest {
 
     @Mock
-    private CampaignService campaignService;
+    private CampaignRepository campaignRepository;
 
     @Mock
     private ConnectionRepository connectionRepository;
@@ -84,7 +85,7 @@ class RecipientPreviewServiceTest {
 
     @BeforeEach
     void setUp() {
-        recipientPreviewService = new RecipientPreviewService(campaignService, connectionRepository, tenantAudienceGateway, filterRepository,
+        recipientPreviewService = new RecipientPreviewService(campaignRepository, connectionRepository, tenantAudienceGateway, filterRepository,
                 new CampaignFilterSerializer(), filterValidator, suppressionsRepository, recipientRepository, recipientUsageRepository, accountRepository);
     }
 
@@ -101,7 +102,7 @@ class RecipientPreviewServiceTest {
 
     private Campaign stubEmptyCampaign(UUID accountId, UUID campaignId) {
         Campaign campaign = Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT).build();
-        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        when(campaignRepository.findByAccountIdAndId(accountId, campaignId)).thenReturn(Optional.of(campaign));
         return campaign;
     }
 
@@ -109,7 +110,7 @@ class RecipientPreviewServiceTest {
     void shouldRejectPreviewOfCampaignNotOwnedByAccount() {
         UUID accountId = UUID.randomUUID();
         UUID campaignId = UUID.randomUUID();
-        when(campaignService.getCampaign(accountId, campaignId)).thenThrow(new CampaignNotFoundException(campaignId));
+        when(campaignRepository.findByAccountIdAndId(accountId, campaignId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> recipientPreviewService.preview(accountId, campaignId)).isInstanceOf(CampaignNotFoundException.class);
         verifyNoInteractions(filterRepository, connectionRepository);
@@ -231,7 +232,7 @@ class RecipientPreviewServiceTest {
         UUID campaignId = UUID.randomUUID();
         Campaign campaign =
                 Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT).excludedIds(List.of("external-user-1")).build();
-        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        when(campaignRepository.findByAccountIdAndId(accountId, campaignId)).thenReturn(Optional.of(campaign));
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
         when(suppressionsRepository.findByAccountId(accountId)).thenReturn(List.of());
@@ -251,7 +252,7 @@ class RecipientPreviewServiceTest {
         UUID prevCampaignId = UUID.randomUUID();
         Campaign campaign =
                 Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT).excludedCampaignId(prevCampaignId).build();
-        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        when(campaignRepository.findByAccountIdAndId(accountId, campaignId)).thenReturn(Optional.of(campaign));
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
         when(suppressionsRepository.findByAccountId(accountId)).thenReturn(List.of());
@@ -272,7 +273,7 @@ class RecipientPreviewServiceTest {
         UUID prevCampaignId = UUID.randomUUID();
         Campaign campaign =
                 Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT).excludedCampaignId(prevCampaignId).build();
-        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        when(campaignRepository.findByAccountIdAndId(accountId, campaignId)).thenReturn(Optional.of(campaign));
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
         Suppression suppression = mock(Suppression.class);
@@ -294,7 +295,7 @@ class RecipientPreviewServiceTest {
         UUID campaignId = UUID.randomUUID();
         Campaign campaign = Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT)
                 .audienceMode(AudienceMode.MANUAL).includedIds(List.of("u1", "u2")).build();
-        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        when(campaignRepository.findByAccountIdAndId(accountId, campaignId)).thenReturn(Optional.of(campaign));
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(
                 List.of(CampaignFilter.builder().columnName("plan").operator(FilterOperator.EQ).filterValue("pro").filterOrder(0)
@@ -315,12 +316,41 @@ class RecipientPreviewServiceTest {
         UUID campaignId = UUID.randomUUID();
         Campaign campaign = Campaign.builder().id(campaignId).accountId(accountId).status(CampaignStatus.DRAFT)
                 .audienceMode(AudienceMode.MANUAL).includedIds(List.of()).build();
-        when(campaignService.getCampaign(accountId, campaignId)).thenReturn(campaign);
+        when(campaignRepository.findByAccountIdAndId(accountId, campaignId)).thenReturn(Optional.of(campaign));
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
         when(filterRepository.findByCampaignId(campaignId)).thenReturn(List.of());
         givenAccount();
 
         assertThat(recipientPreviewService.preview(accountId, campaignId).recipientCount()).isZero();
+        verify(tenantAudienceGateway, never()).count(any(), anyString(), any());
+    }
+
+    @Test
+    void shouldCountOnlyPickedUsersNotEmailedThisPeriodAsNew() throws SQLException {
+        UUID accountId = UUID.randomUUID();
+        Campaign campaign = Campaign.builder().id(UUID.randomUUID()).accountId(accountId).status(CampaignStatus.DRAFT)
+                .includedIds(List.of("u1", "u2")).excludedIds(List.of("u3")).build();
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
+        when(recipientUsageRepository.findEmailsSince(eq(accountId), any())).thenReturn(List.of("used@example.com"));
+        when(tenantAudienceGateway.count(any(), anyString(), any())).thenReturn(new TenantAudienceGateway.Counts(2, 1));
+        givenAccount();
+
+        assertThat(recipientPreviewService.newManualRecipients(accountId, campaign)).isEqualTo(1);
+        verify(tenantAudienceGateway).count(any(),
+                and(contains("auth.\"id\"::text = ANY(?)"), contains("auth.\"id\"::text <> ALL(?)")),
+                argThat(params -> hasArray(params, "used@example.com") && hasArray(params, "u1", "u2") && hasArray(params, "u3")));
+        verify(connectionRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldCountNoNewPickedUsersWhenNobodyIsPicked() throws SQLException {
+        UUID accountId = UUID.randomUUID();
+        Campaign campaign = Campaign.builder().id(UUID.randomUUID()).accountId(accountId).status(CampaignStatus.DRAFT)
+                .includedIds(List.of()).build();
+        when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
+        givenAccount();
+
+        assertThat(recipientPreviewService.newManualRecipients(accountId, campaign)).isZero();
         verify(tenantAudienceGateway, never()).count(any(), anyString(), any());
     }
 
@@ -355,7 +385,7 @@ class RecipientPreviewServiceTest {
         stubEmptyCampaign(accountId, campaignId);
         when(accountRepository.findById(accountId)).thenReturn(Optional.of(mock(Account.class)));
         when(connectionRepository.findByAccountId(accountId)).thenReturn(Optional.of(buildConnection(accountId)));
-        when(campaignService.getCampaign(accountId, foreignCampaignId)).thenThrow(new CampaignNotFoundException(foreignCampaignId));
+        when(campaignRepository.findByAccountIdAndId(accountId, foreignCampaignId)).thenReturn(Optional.empty());
         PreviewSelectionRequest request = new PreviewSelectionRequest(List.of(), "AND", "all", List.of(), List.of(), foreignCampaignId);
 
         assertThatThrownBy(() -> recipientPreviewService.previewSelection(accountId, campaignId, request))

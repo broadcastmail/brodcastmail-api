@@ -64,6 +64,7 @@ public class CampaignService {
     private final ResendClient resendClient;
     private final EncryptionProperties encryptionProperties;
     private final PlanFacade planFacade;
+    private final RecipientPreviewService recipientPreviewService;
 
 
     @Transactional
@@ -133,7 +134,6 @@ public class CampaignService {
             if (request.includedIds().size() > 5000) {
                 throw new InvalidCampaignFilterException(List.of("includedIds exceeds the 5,000 limit"));
             }
-            planFacade.enforceRecipientLimit(account, request.includedIds().size());
             campaign.setIncludedIds(request.includedIds());
         }
 
@@ -145,6 +145,12 @@ public class CampaignService {
             planFacade.enforceFeature(account, PlanFeature.EXCLUSIONS);
             validateExcludedCampaignId(accountId, campaignId, request.excludedCampaignId());
             campaign.setExcludedCampaignId(request.excludedCampaignId());
+        }
+
+        if (request.includedIds() != null) {
+            // Picked users already emailed this period are free to email again, so only the others count
+            // (after exclusions are applied above), the same way confirm counts them.
+            planFacade.enforceRecipientLimit(account, recipientPreviewService.newManualRecipients(accountId, campaign));
         }
 
         if (request.filterRootLogic() != null) {

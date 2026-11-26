@@ -21,7 +21,12 @@ import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRetryRepository;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
+import com.broadcastmail.common.campaign.recipient.CampaignRecipient;
+import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
+import com.broadcastmail.common.campaign.recipient.RecipientStatus;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -49,6 +54,7 @@ class CampaignConfirmServiceTest {
     private ConnectionRepository connectionRepository;
     @Mock
     private CampaignRetryRepository retryCampaignRepository;
+    @Mock private CampaignRecipientRepository recipientRepository;
     @Mock private AccountRepository accountRepository;
     @Mock private CampaignFilterRepository campaignFilterRepository;
     @Mock private CampaignFilterValidator filterValidator;
@@ -255,6 +261,22 @@ class CampaignConfirmServiceTest {
     }
 
     @Test
+    void shouldCountFailedRecipientsAgainstThePlanLimitOnlyByTheirAddresses() {
+        // Given: the failed addresses were counted when the original campaign was sent
+        givenRetryableCampaign(campaign(CampaignStatus.PARTIALLY_FAILED));
+        givenFailedRecipients(2);
+        givenRetryRecipientsCopied(2);
+        givenSavedRetryCampaign();
+
+        // When
+        campaignConfirmService.retryPartiallyFailed(ACCOUNT_ID, CAMPAIGN_ID);
+
+        // Then: PlanFacade decides which of them are new this period
+        verify(planFacade).enforceRecipientLimitForEmails(any(), eq(List.of("failed-0@example.com", "failed-1@example.com")));
+        verify(planFacade, never()).enforceRecipientLimit(any(), anyInt());
+    }
+
+    @Test
     void shouldCreateRetryCampaignForFailedRecipientsOfPartiallyFailedCampaign() {
         // Given
         Campaign campaign = campaign(CampaignStatus.PARTIALLY_FAILED);
@@ -348,6 +370,11 @@ class CampaignConfirmServiceTest {
 
     private void givenFailedRecipients(long failed) {
         when(retryCampaignRepository.countFailedRecipients(CAMPAIGN_ID)).thenReturn(failed);
+        List<CampaignRecipient> recipients = java.util.stream.LongStream.range(0, failed)
+                .mapToObj(i -> CampaignRecipient.builder().email("failed-" + i + "@example.com").build())
+                .toList();
+        lenient().when(recipientRepository.findByCampaignIdAndStatus(CAMPAIGN_ID, RecipientStatus.FAILED, Pageable.unpaged()))
+                .thenReturn(new PageImpl<>(recipients));
     }
 
     private void givenRetryRecipientsCopied(int count) {

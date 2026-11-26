@@ -5,9 +5,11 @@ import com.broadcastmail.api.campaign.filter.CampaignFilterValidator;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.api.common.exceptions.CampaignNotFoundException;
+import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
 import com.broadcastmail.common.campaign.filter.CampaignFilterSerializer;
 import com.broadcastmail.common.campaign.filter.FilterQuery;
 import com.broadcastmail.common.campaign.Campaign;
+import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import com.broadcastmail.api.audience.TenantAudienceGateway;
@@ -44,7 +46,8 @@ public class RecipientPreviewService {
     private static final String WHERE = "WHERE ";
     private static final int PLAN_PERIOD_DAYS = 30;
 
-    private final CampaignService campaignService;
+    // The repository, not CampaignService: CampaignService asks this class how many picked users are new.
+    private final CampaignRepository campaignRepository;
     private final ConnectionRepository connectionRepository;
     private final TenantAudienceGateway tenantAudienceGateway;
     private final CampaignFilterRepository filterRepository;
@@ -60,7 +63,7 @@ public class RecipientPreviewService {
                                     List<String> includedIds, List<String> excludedIds, UUID excludedCampaignId) {}
 
     public RecipientPreviewResponse preview(UUID accountId, UUID campaignId) {
-        Campaign campaign = campaignService.getCampaign(accountId, campaignId);
+        Campaign campaign = campaign(accountId, campaignId);
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
 
@@ -72,17 +75,34 @@ public class RecipientPreviewService {
     }
 
     public RecipientPreviewResponse previewSelection(UUID accountId, UUID campaignId, PreviewSelectionRequest request) {
-        campaignService.getCampaign(accountId, campaignId);
+        campaign(accountId, campaignId);
         Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
         Connection connection = connectionRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
-        if (request.excludedCampaignId() != null) campaignService.getCampaign(accountId, request.excludedCampaignId());
+        if (request.excludedCampaignId() != null) campaign(accountId, request.excludedCampaignId());
 
         List<FilterRequest> filters = FilterRequestMapper.withValues(request.filters() != null ? request.filters() : List.of());
         filterValidator.validateRequests(account, filters);
         AudienceSelection selection = new AudienceSelection(FilterRequestMapper.toEntities(filters), request.filterRootLogic(),
                 parseMode(request.audienceMode()), request.includedIds(), request.excludedIds(), request.excludedCampaignId());
         return countAndQuota(accountId, connection, selection, false);
+    }
+
+    /**
+     * How many of the campaign's picked users (includedIds) haven't been emailed this plan period, after its
+     * exclusions and suppressions: the number the plan limit counts, the same way confirm counts it.
+     */
+    public int newManualRecipients(UUID accountId, Campaign campaign) {
+        Connection connection = connectionRepository.findByAccountId(accountId)
+                .orElseThrow(ConnectionNotFoundException::new);
+        AudienceSelection selection = new AudienceSelection(List.of(), null, AudienceMode.MANUAL,
+                campaign.getIncludedIds(), campaign.getExcludedIds(), campaign.getExcludedCampaignId());
+        return countAndQuota(accountId, connection, selection, false).newRecipientCount();
+    }
+
+    private Campaign campaign(UUID accountId, UUID campaignId) {
+        return campaignRepository.findByAccountIdAndId(accountId, campaignId)
+                .orElseThrow(() -> new CampaignNotFoundException(campaignId));
     }
 
     private RecipientPreviewResponse countAndQuota(UUID accountId, Connection connection, AudienceSelection selection,
