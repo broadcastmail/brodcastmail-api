@@ -2,6 +2,7 @@ package com.broadcastmail.api.campaign.history;
 
 import com.broadcastmail.api.campaign.history.projection.RecipientHistoryResponse;
 import com.broadcastmail.common.campaign.CampaignStatus;
+import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,12 +18,13 @@ public class RecipientHistoryService {
     private static final List<CampaignStatus> SENT_STATUSES =
             List.of(CampaignStatus.SENT, CampaignStatus.PARTIALLY_FAILED, CampaignStatus.FAILED);
 
-    private final RecipientHistoryRepository recipientHistoryRepository;
+    private final CampaignRecipientRepository campaignRecipientRepository;
 
     public Page<RecipientHistoryResponse> listHistory(
             UUID accountId,
             UUID currentCampaignId,
             Pageable pageable) {
-        return recipientHistoryRepository.findHistory(accountId, SENT_STATUSES, currentCampaignId, pageable);
+        return campaignRecipientRepository.findHistory(accountId, SENT_STATUSES, currentCampaignId, pageable)
+                .map(RecipientHistoryResponse::from);
     }
 }
