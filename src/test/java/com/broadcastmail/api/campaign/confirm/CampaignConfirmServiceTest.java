@@ -255,6 +255,22 @@ class CampaignConfirmServiceTest {
     }
 
     @Test
+    void shouldLetPlanFacadeCountWhichFailedRecipientsAreNewThisPeriod() {
+        // Given: the failed addresses were counted when the original campaign was sent
+        givenRetryableCampaign(campaign(CampaignStatus.PARTIALLY_FAILED));
+        givenFailedRecipients(2);
+        givenRetryRecipientsCopied(2);
+        givenSavedRetryCampaign();
+
+        // When
+        campaignConfirmService.retryPartiallyFailed(ACCOUNT_ID, CAMPAIGN_ID);
+
+        // Then: not the raw failed count, which would charge for addresses already counted
+        verify(planFacade).enforceRetryLimit(any(), eq(CAMPAIGN_ID));
+        verify(planFacade, never()).enforceRecipientLimit(any(), anyInt());
+    }
+
+    @Test
     void shouldCreateRetryCampaignForFailedRecipientsOfPartiallyFailedCampaign() {
         // Given
         Campaign campaign = campaign(CampaignStatus.PARTIALLY_FAILED);

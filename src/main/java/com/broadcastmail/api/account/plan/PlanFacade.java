@@ -6,6 +6,8 @@ import com.broadcastmail.api.common.exceptions.PlanFeatureException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.plan.PlanFeature;
 import com.broadcastmail.common.account.plan.PlanLimitExceededException;
+import com.broadcastmail.common.campaign.recipient.CampaignRecipientRepository;
+import com.broadcastmail.common.campaign.recipient.RecipientStatus;
 import com.broadcastmail.common.usage.RecipientUsageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 
 @Component
@@ -20,6 +23,7 @@ import java.util.List;
 public class PlanFacade {
     private final BillingService billingService;
     private final RecipientUsageRepository recipientUsageRepository;
+    private final CampaignRecipientRepository campaignRecipientRepository;
 
     public void enforceFeature(Account account, PlanFeature feature) {
         if (!isActiveSubscription(account)) {
@@ -31,11 +35,19 @@ public class PlanFacade {
     }
 
     public void enforceRecipientLimit(Account account, int newRecipients) {
-        long currentRecipients = recipientUsageRepository.countSince(
-                account.getId(),
-                OffsetDateTime.now(ZoneId.systemDefault()).minusDays(30)
-        );
+        long currentRecipients = recipientUsageRepository.countSince(account.getId(), periodStart());
         account.getPlan().strategy().checkRecipientLimit(currentRecipients, newRecipients);
+    }
+
+    /** A retry re-sends to the campaign's failed recipients: only those not emailed this period count, like any re-send. */
+    public void enforceRetryLimit(Account account, UUID campaignId) {
+        long fresh = campaignRecipientRepository.countEmailsNotUsedSince(
+                campaignId, RecipientStatus.FAILED, account.getId(), periodStart());
+        enforceRecipientLimit(account, Math.toIntExact(fresh));
+    }
+
+    private static OffsetDateTime periodStart() {
+        return OffsetDateTime.now(ZoneId.systemDefault()).minusDays(30);
     }
 
     public void enforceFilterShape(Account account, List<FilterRequest> filterRequests) {

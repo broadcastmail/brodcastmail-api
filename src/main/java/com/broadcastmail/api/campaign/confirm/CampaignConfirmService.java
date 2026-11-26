@@ -113,7 +113,7 @@ public class CampaignConfirmService {
             return Optional.empty();
         }
         Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
-        planFacade.enforceRecipientLimit(account, (int) failedRecipients);
+        planFacade.enforceRetryLimit(account, campaignId);
         return Optional.of(createRetryCampaign(campaign, failedRecipients));
     }
 
@@ -129,7 +129,7 @@ public class CampaignConfirmService {
             throw new CampaignNotRetryableException();
         }
         Account account = accountRepository.findById(accountId).orElseThrow(AccountNotFoundException::new);
-        planFacade.enforceRecipientLimit(account, (int) failedRecipients);
+        planFacade.enforceRetryLimit(account, campaignId);
         return createRetryCampaign(campaign, failedRecipients);
     }
 

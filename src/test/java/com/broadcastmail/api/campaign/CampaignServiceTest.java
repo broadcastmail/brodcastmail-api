@@ -11,6 +11,7 @@ import com.broadcastmail.api.resend.ResendClient;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
 import com.broadcastmail.common.account.plan.Plan;
+import com.broadcastmail.common.account.plan.PlanLimitExceededException;
 import com.broadcastmail.common.campaign.filter.CampaignFilter;
 import com.broadcastmail.common.campaign.filter.CampaignFilterRepository;
 import com.broadcastmail.common.campaign.filter.FilterOperator;
@@ -46,6 +47,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.when;
 
@@ -75,6 +78,8 @@ class CampaignServiceTest {
     private EncryptionProperties encryptionProperties;
     @Mock
     private PlanFacade planFacade;
+    @Mock
+    private RecipientPreviewService recipientPreviewService;
 
     @Captor
     private ArgumentCaptor<List<CampaignFilter>> filterCaptor;
@@ -206,8 +211,59 @@ class CampaignServiceTest {
         // When
         Campaign result = campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
 
-        // Then
         assertThat(result.getName()).isEqualTo("New Name");
+        verifyNoInteractions(recipientPreviewService);
+        verify(planFacade, never()).enforceRecipientLimit(any(), anyInt());
+    }
+
+    @Test
+    void shouldCountOnlyPickedUsersNotEmailedThisPeriodAgainstThePlanLimit()
+    {
+        // Given: two users picked, both already emailed this period, one of them unticked
+        Campaign existing = campaign(CampaignStatus.DRAFT).build();
+        UpdateCampaignRequest request = UpdateCampaignRequest.builder()
+                .name(Optional.empty())
+                .subject(Optional.empty())
+                .bodyHtml(Optional.empty())
+                .scheduledAt(Optional.empty())
+                .audienceMode(Optional.empty())
+                .includedIds(List.of("u1", "u2"))
+                .excludedIds(List.of("u2"))
+                .build();
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
+        when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(recipientPreviewService.newManualRecipients(eq(ACCOUNT_ID), argThat(c ->
+                c.getIncludedIds().equals(List.of("u1", "u2")) && c.getExcludedIds().equals(List.of("u2")))))
+                .thenReturn(0);
+        stubAccount();
+
+        // When
+        campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request);
+
+        // Then: re-picking people already counted costs nothing
+        verify(planFacade).enforceRecipientLimit(any(), eq(0));
+    }
+
+    @Test
+    void shouldNotSavePickedUsersBeyondThePlanLimit()
+    {
+        Campaign existing = campaign(CampaignStatus.DRAFT).build();
+        UpdateCampaignRequest request = UpdateCampaignRequest.builder()
+                .name(Optional.empty())
+                .subject(Optional.empty())
+                .bodyHtml(Optional.empty())
+                .scheduledAt(Optional.empty())
+                .audienceMode(Optional.empty())
+                .includedIds(List.of("new-user"))
+                .build();
+        when(campaignRepository.findByAccountIdAndId(ACCOUNT_ID, CAMPAIGN_ID)).thenReturn(Optional.of(existing));
+        when(recipientPreviewService.newManualRecipients(eq(ACCOUNT_ID), any())).thenReturn(1);
+        doThrow(new PlanLimitExceededException()).when(planFacade).enforceRecipientLimit(any(), eq(1));
+        stubAccount();
+
+        assertThatThrownBy(() -> campaignService.updateCampaign(ACCOUNT_ID, CAMPAIGN_ID, request))
+                .isInstanceOf(PlanLimitExceededException.class);
+        verify(campaignRepository, never()).save(any());
     }
 
     @Test
