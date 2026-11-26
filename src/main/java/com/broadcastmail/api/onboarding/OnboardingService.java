@@ -6,6 +6,7 @@ import com.broadcastmail.api.oauth.OAuthSessionStore;
 import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
 import com.broadcastmail.api.supabase.management.SupabaseAccessTokens;
 import com.broadcastmail.api.supabase.management.ProjectNameResolver;
+import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -22,7 +23,7 @@ public class OnboardingService {
     private final SupabaseAccessTokens supabaseAccessTokens;
     private final ProjectNameResolver projectNameResolver;
 
-    public String completeOnboarding(String sessionToken) {
+    public String completeOnboarding(String sessionToken, @Nullable String userAgent) {
         onboardingSessionStore.get(sessionToken)
                 .requireSchemaConfirmed()
                 .requireEmailTableConfirmed()
@@ -33,12 +34,12 @@ public class OnboardingService {
                 ready.getProjectRef(), () -> supabaseAccessTokens.decrypt(ready.getEncryptedAccessToken())));
         // Account and connection are saved together: a half-created account blocks every retry on the unique email.
         AccountCreationResult result = transactionTemplate.execute(status -> {
-            AccountCreationResult created = accountCreationService.createFromOnboarding(session);
+            AccountCreationResult created = accountCreationService.createFromOnboarding(session, userAgent);
             connectionService.createConnection(
                     created.accountId(), session.connectionSpec(), session.emailSourceSpec(), session.columnSelection());
             return created;
         });
-        return result.rawApiKey();
+        return result.sessionToken();
     }
 
     /** Provisions the reader role on first call and waits (up to ~15s) for the pooler to accept it. */

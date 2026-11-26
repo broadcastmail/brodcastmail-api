@@ -4,6 +4,7 @@ import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import static java.util.Base64.getUrlDecoder;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SecurityUtilTest {
@@ -49,12 +50,14 @@ class SecurityUtilTest {
     }
 
     @Test
-    void generateApiKeyHasCorrectPrefix() {
+    void generateSessionTokenIs32RandomBytesInUrlSafeBase64() {
         // When
-        String key = SecurityUtil.generateApiKey();
+        String first = SecurityUtil.generateSessionToken();
+        String second = SecurityUtil.generateSessionToken();
 
         // Then
-        assertTrue(key.startsWith("bm_live_"));
+        assertEquals(32, getUrlDecoder().decode(first).length);
+        assertNotEquals(first, second);
     }
 
     @Test

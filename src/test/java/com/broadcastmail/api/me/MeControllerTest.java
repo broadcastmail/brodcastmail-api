@@ -11,11 +11,13 @@ import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.session.SessionRepository;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mock.web.MockCookie;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
@@ -41,6 +43,8 @@ class MeControllerTest extends IntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
+    @Autowired
+    private SessionRepository sessionRepository;
 
     @Autowired
     private ConnectionRepository connectionRepository;
@@ -59,6 +63,7 @@ class MeControllerTest extends IntegrationTest {
     @BeforeEach
     void setUp() {
         account = accountRepository.save(CampaignTestFixtures.account().build());
+        sessionRepository.save(CampaignTestFixtures.session(account.getId()).build());
     }
 
     @AfterEach
@@ -75,7 +80,7 @@ class MeControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.get()
                 .uri("/api/v1/me")
-                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
                 .exchange();
 
         // Then
@@ -108,7 +113,7 @@ class MeControllerTest extends IntegrationTest {
                 new SupabaseProject("test-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01", "eu-west-1", "aws")));
 
         // When
-        var response = mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
+        var response = mockMvc.get().uri("/api/v1/me").cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN)).exchange();
 
         // Then
         assertThat(response).hasStatus(200);
@@ -125,7 +130,7 @@ class MeControllerTest extends IntegrationTest {
         when(supabaseAccessTokens.forAccount(account.getId())).thenThrow(new IllegalStateException("token revoked"));
 
         // When
-        var response = mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
+        var response = mockMvc.get().uri("/api/v1/me").cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN)).exchange();
 
         // Then
         assertThat(response).hasStatus(200);
@@ -143,7 +148,7 @@ class MeControllerTest extends IntegrationTest {
                 new SupabaseProject("test-ref", "New Name", "ACTIVE_HEALTHY", "2026-01-01", "eu-west-1", "aws")));
 
         // When
-        var response = mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
+        var response = mockMvc.get().uri("/api/v1/me").cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN)).exchange();
 
         // Then
         assertThat(response).hasStatus(200);
@@ -159,7 +164,7 @@ class MeControllerTest extends IntegrationTest {
         when(supabaseAccessTokens.forAccount(account.getId())).thenThrow(new IllegalStateException("token revoked"));
 
         // When
-        var response = mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
+        var response = mockMvc.get().uri("/api/v1/me").cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN)).exchange();
 
         // Then
         assertThat(response).hasStatus(200);
@@ -176,8 +181,8 @@ class MeControllerTest extends IntegrationTest {
                 new SupabaseProject("test-ref", "My Project", "ACTIVE_HEALTHY", "2026-01-01", "eu-west-1", "aws")));
 
         // When
-        mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
-        var response = mockMvc.get().uri("/api/v1/me").header("X-API-Key", CampaignTestFixtures.TEST_API_KEY).exchange();
+        mockMvc.get().uri("/api/v1/me").cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN)).exchange();
+        var response = mockMvc.get().uri("/api/v1/me").cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN)).exchange();
 
         // Then
         assertThat(response).hasStatus(200);
@@ -191,7 +196,7 @@ class MeControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.get()
                 .uri("/api/v1/me")
-                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
                 .exchange();
 
         // Then
@@ -220,7 +225,7 @@ class MeControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.delete()
                 .uri("/api/v1/me")
-                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
                 .exchange();
 
         // Then
@@ -252,7 +257,7 @@ class MeControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.delete()
                 .uri("/api/v1/me")
-                .header("X-API-Key", CampaignTestFixtures.TEST_API_KEY)
+                .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
                 .exchange();
 
         // Then

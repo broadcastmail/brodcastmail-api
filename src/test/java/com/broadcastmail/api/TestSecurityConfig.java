@@ -1,6 +1,6 @@
 package com.broadcastmail.api;
 
-import com.broadcastmail.api.security.ApiKeyAuthFilter;
+import com.broadcastmail.api.security.SessionAuthFilter;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -16,13 +16,13 @@ public class TestSecurityConfig {
     @Primary
     SecurityFilterChain testFilterChain(
             HttpSecurity http,
-            ApiKeyAuthFilter apiKeyAuthFilter) {
+            SessionAuthFilter sessionAuthFilter) {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
                 .addFilterBefore(
-                        apiKeyAuthFilter,
+                        sessionAuthFilter,
                         UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

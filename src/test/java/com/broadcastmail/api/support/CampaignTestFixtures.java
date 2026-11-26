@@ -7,7 +7,9 @@ import com.broadcastmail.common.account.plan.Plan;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignStatus;
+import com.broadcastmail.common.session.Session;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -21,7 +23,8 @@ import java.util.stream.IntStream;
  */
 public final class CampaignTestFixtures {
 
-    public static final String TEST_API_KEY = "test-api-key";
+    /** The bm_session cookie value of {@link #session}. */
+    public static final String TEST_SESSION_TOKEN = "test-session-token";
 
     private CampaignTestFixtures() {
     }
@@ -30,9 +33,18 @@ public final class CampaignTestFixtures {
         return Account.builder()
                 .email("test@example.com")
                 .passwordHash("")
-                .apiKeyHash(SecurityUtil.sha256(TEST_API_KEY))
                 .plan(Plan.FREE)
                 .emailVerified(true);
+    }
+
+    public static Session.SessionBuilder session(UUID accountId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        return Session.builder()
+                .accountId(accountId)
+                .tokenHash(SecurityUtil.sha256(TEST_SESSION_TOKEN))
+                .createdAt(now)
+                .lastSeenAt(now)
+                .expiresAt(now.plusDays(30));
     }
 
     public static Connection.ConnectionBuilder connection(UUID accountId) {

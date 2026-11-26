@@ -3,7 +3,9 @@ package com.broadcastmail.api.config;
 import com.broadcastmail.api.IntegrationTest;
 import com.broadcastmail.api.TestContainersConfiguration;
 import com.broadcastmail.api.support.CampaignTestFixtures;
+import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.session.SessionRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +17,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockCookie;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_API_KEY;
+import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_SESSION_TOKEN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Runs the real API filter chain (no TestSecurityConfig) to cover cross-origin CSRF for cookie-authenticated calls. */
@@ -32,10 +34,13 @@ class CsrfIntegrationTest extends IntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
+    @Autowired
+    private SessionRepository sessionRepository;
 
     @BeforeEach
     void setUp() {
-        accountRepository.saveAndFlush(CampaignTestFixtures.account().build());
+        Account account = accountRepository.saveAndFlush(CampaignTestFixtures.account().build());
+        sessionRepository.save(CampaignTestFixtures.session(account.getId()).build());
     }
 
     @AfterEach
@@ -81,16 +86,7 @@ class CsrfIntegrationTest extends IntegrationTest {
         assertThat(response.getResponse().getStatus()).isNotEqualTo(403);
     }
 
-    @Test
-    void shouldNotRequireCsrfWhenAuthenticatedWithApiKeyHeader() {
-        // When
-        var response = mockMvc.post().uri(PROBE).header("X-API-Key", TEST_API_KEY).exchange();
-
-        // Then
-        assertThat(response.getResponse().getStatus()).isNotEqualTo(403);
-    }
-
     private static MockCookie session() {
-        return new MockCookie("bm_session", TEST_API_KEY);
+        return new MockCookie("bm_session", TEST_SESSION_TOKEN);
     }
 }

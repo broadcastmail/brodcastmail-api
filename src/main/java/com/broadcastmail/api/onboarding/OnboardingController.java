@@ -3,6 +3,7 @@ package com.broadcastmail.api.onboarding;
 import com.broadcastmail.api.onboarding.steps.OnboardingEmailSourceService;
 import com.broadcastmail.api.onboarding.steps.OnboardingSchemaService;
 import com.broadcastmail.api.auth.CookieService;
+import com.broadcastmail.api.auth.SessionService;
 import com.broadcastmail.api.common.exceptions.InvalidOnboardingSessionException;
 import com.broadcastmail.api.connection.dto.EmailSourceResult;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
@@ -43,13 +44,14 @@ public class OnboardingController {
     /** 204, not a redirect: the frontend calls this with XHR cross-origin and navigates to /dashboard itself. */
     @PostMapping("/complete")
     public ResponseEntity<Void> complete(
-            @CookieValue(name = "onboarding_session", required = false) String sessionToken) {
-        if (sessionToken == null) {
+            @CookieValue(name = "onboarding_session", required = false) String onboardingToken,
+            @RequestHeader(name = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+        if (onboardingToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        String rawApiKey = onboardingService.completeOnboarding(sessionToken);
+        String sessionToken = onboardingService.completeOnboarding(onboardingToken, userAgent);
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, cookieService.createSessionCookie(rawApiKey).toString())
+                .header(HttpHeaders.SET_COOKIE, cookieService.createSessionCookie(sessionToken, SessionService.IDLE_TIMEOUT).toString())
                 .header(HttpHeaders.SET_COOKIE, cookieService.clearOnboardingCookie().toString())
                 .build();
     }

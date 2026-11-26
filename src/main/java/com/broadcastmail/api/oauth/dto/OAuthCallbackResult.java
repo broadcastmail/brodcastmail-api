@@ -5,7 +5,7 @@ public sealed interface OAuthCallbackResult
         permits OAuthCallbackResult.ReturningUser, OAuthCallbackResult.NewUserSingleProject, OAuthCallbackResult.NewUserMultipleProjects,
         OAuthCallbackResult.ReconfigureSingleProject, OAuthCallbackResult.ReconfigureMultipleProjects {
 
-    record ReturningUser(String apiKey) implements OAuthCallbackResult {
+    record ReturningUser(String sessionToken) implements OAuthCallbackResult {
     }
 
     record NewUserSingleProject(String sessionToken) implements OAuthCallbackResult {

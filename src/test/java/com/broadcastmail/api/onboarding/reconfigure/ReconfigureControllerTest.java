@@ -18,6 +18,7 @@ import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.session.SessionRepository;
 import com.broadcastmail.common.campaign.filter.FilterSource;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
@@ -40,7 +41,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 
-import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_API_KEY;
+import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_SESSION_TOKEN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -72,6 +73,8 @@ class ReconfigureControllerTest extends IntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
+    @Autowired
+    private SessionRepository sessionRepository;
 
     @Autowired
     private ConnectionRepository connectionRepository;
@@ -100,6 +103,7 @@ class ReconfigureControllerTest extends IntegrationTest {
     @BeforeEach
     void setUp() {
         account = accountRepository.saveAndFlush(CampaignTestFixtures.account().build());
+        sessionRepository.save(CampaignTestFixtures.session(account.getId()).build());
         connection = connectionRepository.saveAndFlush(CampaignTestFixtures.connection(account.getId()).build());
         filterableColumnRepository.saveAndFlush(FilterableColumn.builder()
                 .connectionId(connection.getId()).columnName("old_col").columnType("text").displayName("old_col")
@@ -206,7 +210,6 @@ class ReconfigureControllerTest extends IntegrationTest {
         // Given
         accountRepository.saveAndFlush(CampaignTestFixtures.account()
                 .email("taken@example.com")
-                .apiKeyHash(SecurityUtil.sha256("other-key"))
                 .build());
         String sessionToken = createSession(NEW_REF, NEW_ROLE, "taken@example.com");
 
@@ -265,7 +268,7 @@ class ReconfigureControllerTest extends IntegrationTest {
         var response = mockMvc.post()
                 .uri("/api/v1/connections/reconfigure")
                 .header("Origin", ORIGIN)
-                .cookie(new MockCookie("bm_session", TEST_API_KEY))
+                .cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN))
                 .exchange();
 
         // Then
@@ -277,7 +280,7 @@ class ReconfigureControllerTest extends IntegrationTest {
         return mockMvc.post()
                 .uri("/api/v1/connections/reconfigure")
                 .header("Origin", ORIGIN)
-                .cookie(new MockCookie("bm_session", TEST_API_KEY),
+                .cookie(new MockCookie("bm_session", TEST_SESSION_TOKEN),
                         new MockCookie("onboarding_session", sessionToken));
     }
 

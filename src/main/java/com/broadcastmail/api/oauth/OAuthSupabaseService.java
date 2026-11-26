@@ -1,6 +1,6 @@
 package com.broadcastmail.api.oauth;
 
-import com.broadcastmail.api.account.AccountService;
+import com.broadcastmail.api.auth.SessionService;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.NoSupabaseProjectsException;
 import com.broadcastmail.api.config.EncryptionProperties;
@@ -31,15 +31,16 @@ public class OAuthSupabaseService {
     private final SupabaseManagementClient supabaseManagementClient;
     private final OAuthSessionStore onboardingSessionStore;
     private final ConnectionRepository connectionRepository;
-    private final AccountService accountService;
+    private final SessionService sessionService;
     private final OAuthSessionService oAuthSessionService;
     private final EncryptionProperties encryptionProperties;
 
-    public OAuthCallbackResult exchangeWithPKCE(String code, String codeVerifier, String redirectUri, @Nullable UUID accountId) {
+    public OAuthCallbackResult exchangeWithPKCE(String code, String codeVerifier, String redirectUri, @Nullable UUID accountId,
+                                                @Nullable String userAgent) {
         StopWatch timing = new StopWatch();
         OAuthCallbackResult result = null;
         try {
-            result = exchange(code, codeVerifier, redirectUri, accountId, timing);
+            result = exchange(code, codeVerifier, redirectUri, accountId, userAgent, timing);
             return result;
         } finally {
             if (timing.isRunning()) timing.stop();
@@ -53,7 +54,7 @@ public class OAuthSupabaseService {
     }
 
     private OAuthCallbackResult exchange(String code, String codeVerifier, String redirectUri,
-                                         @Nullable UUID accountId, StopWatch timing) {
+                                         @Nullable UUID accountId, @Nullable String userAgent, StopWatch timing) {
         timing.start("tokenExchange");
         SupabaseTokenResponse tokenResponse = supabaseManagementClient.exchangeCodeForTokensPKCE(code, codeVerifier, redirectUri);
         String rawAccessToken = tokenResponse.accessToken();
@@ -80,9 +81,8 @@ public class OAuthSupabaseService {
         timing.stop();
 
         if (existingAccountId.isPresent()) {
-            timing.start("rotateApiKey");
-            String rawKey = accountService.rotateApiKey(existingAccountId.get());
-            return new OAuthCallbackResult.ReturningUser(rawKey);
+            timing.start("createSession");
+            return new OAuthCallbackResult.ReturningUser(sessionService.create(existingAccountId.get(), userAgent));
         }
 
         if (projects.size() == 1) {

@@ -3,7 +3,6 @@ package com.broadcastmail.api.account;
 import com.broadcastmail.api.billing.BillingService;
 import com.broadcastmail.api.campaign.CampaignInProgressValidator;
 import com.broadcastmail.api.common.exceptions.CampaignInProgressException;
-import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
@@ -11,8 +10,6 @@ import com.broadcastmail.common.account.plan.Plan;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -38,9 +35,6 @@ class AccountServiceTest {
     @Mock
     private CampaignInProgressValidator campaignInProgressValidator;
 
-    @Captor
-    private ArgumentCaptor<Account> accountCaptor;
-
     private AccountService accountService;
 
     @BeforeEach
@@ -53,50 +47,9 @@ class AccountServiceTest {
                 .id(id)
                 .email("owner@example.com")
                 .passwordHash("")
-                .apiKeyHash(SecurityUtil.sha256("bm_live_oldkey"))
                 .plan(Plan.FREE)
                 .emailVerified(true)
                 .build();
-    }
-
-    @Test
-    void shouldPersistNewHashedApiKey() {
-        // Given
-        UUID accountId = UUID.randomUUID();
-        Account account = buildAccount(accountId);
-        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
-
-        // When
-        String rawKey = accountService.rotateApiKey(accountId);
-
-        // Then
-        verify(accountRepository).save(accountCaptor.capture());
-        assertThat(accountCaptor.getValue().getApiKeyHash()).isEqualTo(SecurityUtil.sha256(rawKey));
-    }
-
-    @Test
-    void shouldReturnDifferentKeyOnEachRotation() {
-        // Given
-        UUID accountId = UUID.randomUUID();
-        when(accountRepository.findById(accountId)).thenReturn(Optional.of(buildAccount(accountId)));
-
-        // When
-        String firstKey = accountService.rotateApiKey(accountId);
-        String secondKey = accountService.rotateApiKey(accountId);
-
-        // Then
-        assertThat(firstKey).isNotBlank().isNotEqualTo(secondKey);
-    }
-
-    @Test
-    void shouldThrowWhenAccountDoesNotExist() {
-        // Given
-        UUID accountId = UUID.randomUUID();
-        when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
-
-        // When / Then
-        assertThatThrownBy(() -> accountService.rotateApiKey(accountId))
-                .isInstanceOf(AccountNotFoundException.class);
     }
 
     @Test

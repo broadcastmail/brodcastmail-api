@@ -1,5 +1,6 @@
 package com.broadcastmail.api.account;
 
+import com.broadcastmail.api.auth.SessionService;
 import com.broadcastmail.api.common.SecurityUtil;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.config.ResendProperties;
@@ -20,6 +21,7 @@ import com.broadcastmail.api.common.exceptions.EmailAlreadyTakenException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
+import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,9 +45,10 @@ public class AccountCreationService {
     private final EncryptionProperties encryptionProperties;
     private final ResendProperties resendProperties;
     private final SupabaseManagementClient supabaseManagementClient;
+    private final SessionService sessionService;
 
     @Transactional
-    public AccountCreationResult createFromOnboarding(OnboardingSession session) {
+    public AccountCreationResult createFromOnboarding(OnboardingSession session, @Nullable String userAgent) {
         String ownerEmail = session.getOwnerEmail();
         if (ownerEmail == null) {
             String rawAccessToken = SecurityUtil.decrypt(session.getEncryptedAccessToken(), encryptionProperties.key());
@@ -60,12 +63,9 @@ public class AccountCreationService {
             throw new EmailAlreadyTakenException("An account with this email already exists. Sign in instead.");
         }
 
-        String rawApiKey = SecurityUtil.generateApiKey();
-        String hashedApiKey = SecurityUtil.sha256(rawApiKey);
         Account account = Account.builder()
                 .email(ownerEmail)
                 .passwordHash("")
-                .apiKeyHash(hashedApiKey)
                 .plan(Plan.FREE)
                 .emailVerified(true)
                 .build();
@@ -95,7 +95,7 @@ public class AccountCreationService {
                 .build();
         emailProviderRepository.save(emailProvider);
 
-        return new AccountCreationResult(rawApiKey, account.getId());
+        return new AccountCreationResult(sessionService.create(account.getId(), userAgent), account.getId());
     }
 
     // Resend isn't part of the transaction: if account creation rolls back, the webhook would point at nothing.

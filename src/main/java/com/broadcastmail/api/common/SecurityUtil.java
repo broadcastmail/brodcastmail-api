@@ -18,16 +18,14 @@ public class SecurityUtil {
     private static final int GCM_IV_LENGTH = 12; // optimal for internal counter
     private static final int GCM_TAG_LENGTH = 128; //  maximum tag length
     private static final String ALGORITHM  = "AES/GCM/NoPadding";
-    private static final String API_KEY_PREFIX = "bm_live_";
-    private static final int API_KEY_RANDOM_BYTES = 32; // 256 bits of entropy
+    private static final int SESSION_TOKEN_RANDOM_BYTES = 32; // 256 bits of entropy
 
 
     private SecurityUtil(){}
-    public static String generateApiKey(){
-        byte[] bytes = new byte[API_KEY_RANDOM_BYTES];
+    public static String generateSessionToken(){
+        byte[] bytes = new byte[SESSION_TOKEN_RANDOM_BYTES];
         SECURE_RANDOM.nextBytes(bytes);
-        return API_KEY_PREFIX +
-                Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
     public static String sha256(String input){
         try {

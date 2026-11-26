@@ -217,7 +217,7 @@ class OnboardingControllerTest extends IntegrationTest {
     void shouldClearOnboardingCookieAfterAccountCreation() {
         // Given
         String sessionToken = createSession();
-        when(onboardingService.completeOnboarding(sessionToken)).thenReturn("bm_live_testkey");
+        when(onboardingService.completeOnboarding(eq(sessionToken), any())).thenReturn("session-token");
 
         // When
         var response = mockMvc.post()
@@ -236,7 +236,7 @@ class OnboardingControllerTest extends IntegrationTest {
     void shouldSetSessionCookieAfterAccountCreation() {
         // Given
         String sessionToken = createSession();
-        when(onboardingService.completeOnboarding(sessionToken)).thenReturn("bm_live_testkey");
+        when(onboardingService.completeOnboarding(eq(sessionToken), any())).thenReturn("session-token");
 
         // When
         var response = mockMvc.post()
@@ -248,14 +248,14 @@ class OnboardingControllerTest extends IntegrationTest {
         // Then
         assertThat(response).hasStatus(204);
         assertThat(response.getResponse().getHeaders("Set-Cookie"))
-                .anyMatch(cookie -> cookie.contains("bm_session=bm_live_testkey"));
+                .anyMatch(cookie -> cookie.contains("bm_session=session-token"));
     }
 
     @Test
     void shouldInvalidateSessionAfterAccountCreation() {
         // Given
         String sessionToken = createSession();
-        when(onboardingService.completeOnboarding(sessionToken)).thenReturn("bm_live_testkey");
+        when(onboardingService.completeOnboarding(eq(sessionToken), any())).thenReturn("session-token");
 
         // When
         mockMvc.post()
@@ -265,7 +265,7 @@ class OnboardingControllerTest extends IntegrationTest {
                 .exchange();
 
         // Then
-        verify(onboardingService).completeOnboarding(sessionToken);
+        verify(onboardingService).completeOnboarding(eq(sessionToken), any());
     }
 
     // Helpers

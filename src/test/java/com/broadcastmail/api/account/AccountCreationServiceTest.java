@@ -1,6 +1,7 @@
 package com.broadcastmail.api.account;
 
 import com.broadcastmail.api.common.SecurityUtil;
+import com.broadcastmail.api.auth.SessionService;
 import com.broadcastmail.api.config.EncryptionProperties;
 import com.broadcastmail.api.config.ResendProperties;
 import com.broadcastmail.api.onboarding.dto.AccountCreationResult;
@@ -52,6 +53,9 @@ class AccountCreationServiceTest {
     @Mock
     private SupabaseManagementClient supabaseManagementClient;
 
+    @Mock
+    private SessionService sessionService;
+
     @Captor
     private ArgumentCaptor<Account> accountCaptor;
 
@@ -72,7 +76,8 @@ class AccountCreationServiceTest {
                 resendClient,
                 new EncryptionProperties(ENCRYPTION_KEY),
                 new ResendProperties("https://webhooks.example.com"),
-                supabaseManagementClient
+                supabaseManagementClient,
+                sessionService
         );
     }
 
@@ -103,7 +108,7 @@ class AccountCreationServiceTest {
         OnboardingSession session = buildSession();
 
         // When
-        accountCreationService.createFromOnboarding(session);
+        accountCreationService.createFromOnboarding(session, null);
 
         // Then
         verify(accountRepository).save(accountCaptor.capture());
@@ -111,17 +116,17 @@ class AccountCreationServiceTest {
     }
 
     @Test
-    void shouldReturnUniqueApiKeyPerAccount() {
+    void shouldLogTheOnboardingBrowserInAsTheAccountsFirstDevice() {
         // Given
         OnboardingSession session = buildSession();
+        when(sessionService.create(any(), any())).thenReturn("session-token");
 
         // When
-        AccountCreationResult result1 = accountCreationService.createFromOnboarding(session);
-        AccountCreationResult result2 = accountCreationService.createFromOnboarding(session);
+        AccountCreationResult result = accountCreationService.createFromOnboarding(session, null);
 
         // Then
-        assertThat(result1.rawApiKey()).isNotBlank();
-        assertThat(result1.rawApiKey()).isNotEqualTo(result2.rawApiKey());
+        assertThat(result.sessionToken()).isEqualTo("session-token");
+        verify(sessionService).create(any(), any());
     }
 
     @Test
@@ -130,7 +135,7 @@ class AccountCreationServiceTest {
         OnboardingSession session = buildSession();
 
         // When
-        accountCreationService.createFromOnboarding(session);
+        accountCreationService.createFromOnboarding(session, null);
 
         // Then
         verify(oAuthTokenRepository).save(any(OAuthToken.class));
@@ -142,7 +147,7 @@ class AccountCreationServiceTest {
         OnboardingSession session = buildSession();
 
         // When
-        accountCreationService.createFromOnboarding(session);
+        accountCreationService.createFromOnboarding(session, null);
 
         // Then
         verify(emailProviderRepository).save(any(EmailProvider.class));
@@ -154,7 +159,7 @@ class AccountCreationServiceTest {
         OnboardingSession session = buildSession();
 
         // When
-        accountCreationService.createFromOnboarding(session);
+        accountCreationService.createFromOnboarding(session, null);
 
         // Then
         InOrder inOrder = inOrder(accountRepository, oAuthTokenRepository, emailProviderRepository);

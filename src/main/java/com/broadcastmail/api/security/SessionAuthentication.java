@@ -7,11 +7,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
 
-public class ApiKeyAuthentication implements Authentication {
+public class SessionAuthentication implements Authentication {
     private final UUID accountId;
     private boolean authenticated = true;
 
-    public ApiKeyAuthentication(UUID accountId) {
+    public SessionAuthentication(UUID accountId) {
         this.accountId = accountId;
     }
 

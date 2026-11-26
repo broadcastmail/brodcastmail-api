@@ -6,6 +6,7 @@ import com.broadcastmail.api.TestSecurityConfig;
 import com.broadcastmail.api.support.CampaignTestFixtures;
 import com.broadcastmail.common.account.Account;
 import com.broadcastmail.common.account.AccountRepository;
+import com.broadcastmail.common.session.SessionRepository;
 import com.broadcastmail.common.campaign.Campaign;
 import com.broadcastmail.common.campaign.CampaignRepository;
 import com.broadcastmail.common.campaign.CampaignStatus;
@@ -25,7 +26,7 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_API_KEY;
+import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_SESSION_TOKEN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -37,6 +38,7 @@ class CampaignStatusStreamTest extends IntegrationTest {
 
     @Value("${local.server.port}") private int port;
     @Autowired private AccountRepository accountRepository;
+    @Autowired private SessionRepository sessionRepository;
     @MockitoBean private CampaignRepository campaignRepository;
 
     private WebTestClient webTestClient;
@@ -51,6 +53,7 @@ class CampaignStatusStreamTest extends IntegrationTest {
                 .baseUrl("http://localhost:" + port)
                 .build();
         account = accountRepository.save(CampaignTestFixtures.account().build());
+        sessionRepository.save(CampaignTestFixtures.session(account.getId()).build());
     }
 
     @AfterEach
@@ -74,7 +77,7 @@ class CampaignStatusStreamTest extends IntegrationTest {
         String event = webTestClient
                 .get()
                 .uri("/api/v1/campaigns/" + CAMPAIGN_ID + "/status/stream")
-                .header("Cookie", "bm_session=" + TEST_API_KEY)
+                .header("Cookie", "bm_session=" + TEST_SESSION_TOKEN)
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .exchange()
                 .expectStatus().isOk()
@@ -102,7 +105,7 @@ class CampaignStatusStreamTest extends IntegrationTest {
         String event = webTestClient
                 .get()
                 .uri("/api/v1/campaigns/" + CAMPAIGN_ID + "/status/stream")
-                .header("Cookie", "bm_session=" + TEST_API_KEY)
+                .header("Cookie", "bm_session=" + TEST_SESSION_TOKEN)
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .exchange()
                 .expectStatus().isOk()

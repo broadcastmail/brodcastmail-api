@@ -150,7 +150,7 @@ class PlanFacadeIntegrationTest extends IntegrationTest {
     }
 
     private Account otherAccount() {
-        return accountRepository.save(CampaignTestFixtures.account().email("other@example.com").apiKeyHash("other-key-hash").build());
+        return accountRepository.save(CampaignTestFixtures.account().email("other@example.com").build());
     }
 
     private void insertUsage(int count, int daysAgo) {
