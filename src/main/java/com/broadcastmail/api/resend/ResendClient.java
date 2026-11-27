@@ -114,6 +114,20 @@ public class ResendClient {
         }
     }
 
+    public void sendPlainEmail(String apiKey, String from, String to, String replyTo, String subject, String text) {
+        try {
+            CreateEmailOptions.Builder params = CreateEmailOptions.builder()
+                    .from(from)
+                    .to(to)
+                    .subject(subject)
+                    .text(text);
+            if (replyTo != null) params.replyTo(replyTo);
+            new Resend(apiKey).emails().send(params.build());
+        } catch (ResendException e) {
+            throw new EmailSendException("Failed to send email: " + e.getMessage());
+        }
+    }
+
     public record RegisteredWebhook(String id, String signingSecret) {}
 
 }

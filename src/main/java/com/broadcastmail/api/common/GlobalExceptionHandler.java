@@ -164,6 +164,13 @@ public class GlobalExceptionHandler {
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 
+    @ExceptionHandler(TurnstileVerificationException.class)
+    public ResponseEntity<Map<String, String>> handleTurnstileVerification(TurnstileVerificationException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(Map.of(ERROR_KEY, ex.getMessage()));
+    }
+
     @ExceptionHandler(EmailAlreadyTakenException.class)
     public ResponseEntity<Map<String, String>> handleEmailAlreadyTaken(EmailAlreadyTakenException ex) {
         return ResponseEntity
