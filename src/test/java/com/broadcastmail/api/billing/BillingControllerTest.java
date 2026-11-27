@@ -44,6 +44,8 @@ class BillingControllerTest extends IntegrationTest {
     @MockitoBean
     private BillingService billingService;
 
+    private static final String ALLOWED_ORIGIN = "http://localhost:3000";
+
     private Account account;
 
     @BeforeEach
@@ -66,6 +68,7 @@ class BillingControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.post()
                 .uri("/api/v1/billing/checkout")
+                .param("redirectOrigin", ALLOWED_ORIGIN)
                 .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
                 .exchange();
 
@@ -99,6 +102,7 @@ class BillingControllerTest extends IntegrationTest {
         // When
         var response = mockMvc.post()
                 .uri("/api/v1/billing/portal")
+                .param("redirectOrigin", ALLOWED_ORIGIN)
                 .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
                 .exchange();
 
@@ -113,6 +117,37 @@ class BillingControllerTest extends IntegrationTest {
     @Test
     void shouldReturn400WhenNoStripeCustomer() {
         // Given — account has no stripeCustomerId
+
+        // When
+        var response = mockMvc.post()
+                .uri("/api/v1/billing/portal")
+                .param("redirectOrigin", ALLOWED_ORIGIN)
+                .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(400);
+    }
+
+    @Test
+    void shouldReturn400WhenCheckoutHasNoRedirectOrigin() {
+        // Given — an authenticated account
+
+        // When
+        var response = mockMvc.post()
+                .uri("/api/v1/billing/checkout")
+                .cookie(new MockCookie("bm_session", CampaignTestFixtures.TEST_SESSION_TOKEN))
+                .exchange();
+
+        // Then
+        assertThat(response).hasStatus(400);
+    }
+
+    @Test
+    void shouldReturn400WhenPortalHasNoRedirectOrigin() {
+        // Given
+        account.setStripeCustomerId("cus_test123");
+        accountRepository.save(account);
 
         // When
         var response = mockMvc.post()

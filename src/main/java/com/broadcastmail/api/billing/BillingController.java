@@ -35,9 +35,9 @@ public class BillingController {
     public ResponseEntity<Map<String, String>> createCheckoutSession(
             @AuthenticationPrincipal UUID accountId,
             @RequestParam(defaultValue = "false") boolean yearly,
-            @RequestParam(required = false) String redirectOrigin) throws StripeException {
+            @RequestParam String redirectOrigin) throws StripeException {
 
-        if (redirectOrigin != null) originValidator.validate(redirectOrigin);
+        originValidator.validate(redirectOrigin);
         String url = billingService.createCheckoutSession(accountId, yearly, redirectOrigin);
         return ResponseEntity.ok(Map.of("url", url));
     }
@@ -59,9 +59,9 @@ public class BillingController {
     @PostMapping("/portal")
     public ResponseEntity<Map<String, String>> createPortalSession(
             @AuthenticationPrincipal UUID accountId,
-            @RequestParam(required = false) String redirectOrigin) throws StripeException {
+            @RequestParam String redirectOrigin) throws StripeException {
 
-        if (redirectOrigin != null) originValidator.validate(redirectOrigin);
+        originValidator.validate(redirectOrigin);
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ACCOUNT_NOT_FOUND));
 
