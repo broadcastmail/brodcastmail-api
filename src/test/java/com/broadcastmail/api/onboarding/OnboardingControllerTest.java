@@ -16,10 +16,12 @@ import org.springframework.mock.web.MockCookie;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -35,6 +37,8 @@ class OnboardingControllerTest extends IntegrationTest {
 
     @Autowired
     private OAuthSessionStore onboardingSessionStore;
+
+    private static final AtomicInteger IP_COUNTER = new AtomicInteger();
 
     @MockitoBean
     private OnboardingService onboardingService;
@@ -268,7 +272,50 @@ class OnboardingControllerTest extends IntegrationTest {
         verify(onboardingService).completeOnboarding(eq(sessionToken), any());
     }
 
+    @Test
+    void shouldRefuseAVisitorWhoChecksOnboardingStatusTooOften() {
+        // Given: one IP used up its 30 requests this minute
+        String ip = uniqueIp();
+        for (int i = 0; i < 30; i++) statusFrom(ip, null);
+
+        // When
+        var sameIp = statusFrom(ip, null);
+        var otherIp = statusFrom(uniqueIp(), null);
+
+        // Then
+        assertThat(sameIp).hasStatus(429);
+        assertThat(otherIp).hasStatus(200);
+    }
+
+    @Test
+    void shouldNotResetTheLimitWhenTheVisitorForgesCfConnectingIp() {
+        // Given: CF-Connecting-IP isn't trusted until the origin is closed to everything but Cloudflare
+        String ip = uniqueIp();
+        for (int i = 0; i < 30; i++) statusFrom(ip, uniqueIp());
+
+        // When
+        var response = statusFrom(ip, uniqueIp());
+
+        // Then
+        assertThat(response).hasStatus(429);
+    }
+
     // Helpers
+    /** Each test counts from its own IP, so the shared rate-limit buckets never carry over between tests. */
+    private static String uniqueIp() {
+        int n = IP_COUNTER.incrementAndGet();
+        return "10.0." + (n / 256) + "." + (n % 256);
+    }
+
+    private MvcTestResult statusFrom(String ip, String cfConnectingIp) {
+        var request = mockMvc.get().uri("/api/v1/onboarding/status").with(r -> {
+            r.setRemoteAddr(ip);
+            return r;
+        });
+        if (cfConnectingIp != null) request.header("CF-Connecting-IP", cfConnectingIp);
+        return request.exchange();
+    }
+
     private OnboardingSession.OnboardingSessionBuilder baseSession() {
         return OnboardingSession.builder()
                 .projectRef("project-ref")

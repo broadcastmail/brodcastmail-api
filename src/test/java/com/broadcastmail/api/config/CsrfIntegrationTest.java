@@ -20,7 +20,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import static com.broadcastmail.api.support.CampaignTestFixtures.TEST_SESSION_TOKEN;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Runs the real API filter chain (no TestSecurityConfig) to cover cross-origin CSRF for cookie-authenticated calls. */
+/** Runs the real authenticated filter chain (no TestSecurityConfig) to cover cross-origin CSRF for cookie-authenticated calls. */
 @SpringBootTest(properties = "app.frontend.cookie-domain=.broadcastmail.test")
 @AutoConfigureMockMvc
 @Import(TestContainersConfiguration.class)

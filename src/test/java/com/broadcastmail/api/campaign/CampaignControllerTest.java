@@ -34,6 +34,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockCookie;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import com.broadcastmail.api.common.SecurityUtil;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.UUID;
@@ -389,6 +391,40 @@ class CampaignControllerTest extends IntegrationTest {
         assertThat(response).hasStatusOk();
         assertThat(campaignFilterRepository.findByCampaignId(campaign.getId()))
                 .singleElement().satisfies(f -> assertThat(f.getOperator()).isEqualTo(FilterOperator.IS_EMPTY));
+    }
+
+    @Test
+    void shouldRefuseTheEleventhTestSendWithinAnHour() {
+        // Given: ten test sends already made (an unknown campaign answers 404, so no email goes out; attempts count)
+        String uri = "/api/v1/campaigns/" + UUID.randomUUID() + "/test/send";
+        for (int i = 0; i < 10; i++) testSend(authedPost(uri));
+
+        // When
+        var response = testSend(authedPost(uri));
+
+        // Then
+        assertThat(response).hasStatus(429);
+        assertThat(response.getResponse().getHeader("Retry-After")).isNotBlank();
+    }
+
+    @Test
+    void shouldCountTestSendsPerAccount() {
+        // Given: one account used up its test sends, from the same IP the other account uses
+        String uri = "/api/v1/campaigns/" + UUID.randomUUID() + "/test/send";
+        for (int i = 0; i < 10; i++) testSend(authedPost(uri));
+        Account other = accountRepository.save(CampaignTestFixtures.account().email("other@example.com").build());
+        sessionRepository.save(CampaignTestFixtures.session(other.getId())
+                .tokenHash(SecurityUtil.sha256("other-session-token")).build());
+
+        // When
+        var response = testSend(mockMvc.post().uri(uri).cookie(new MockCookie("bm_session", "other-session-token")));
+
+        // Then: past the limit, the unknown campaign answers 404
+        assertThat(response).hasStatus(404);
+    }
+
+    private MvcTestResult testSend(MockMvcTester.MockMvcRequestBuilder request) {
+        return request.contentType(MediaType.APPLICATION_JSON).content("{}").exchange();
     }
 
     private MockMvcTester.MockMvcRequestBuilder authedGet(String uri) {

@@ -5,6 +5,7 @@ import com.broadcastmail.api.common.exceptions.SecurityConfigurationException;
 import com.broadcastmail.api.security.SessionAuthFilter;
 import jakarta.servlet.DispatcherType;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -28,6 +29,14 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(12);
     }
 
+    /** SessionAuthFilter belongs only in the security chain below; without this Boot also adds it to the servlet chain. */
+    @Bean
+    public FilterRegistrationBean<SessionAuthFilter> sessionAuthFilterRegistration(SessionAuthFilter sessionAuthFilter) {
+        FilterRegistrationBean<SessionAuthFilter> registration = new FilterRegistrationBean<>(sessionAuthFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
     @Bean
     @Order(1)
     public SecurityFilterChain publicFilterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource) {
@@ -47,7 +56,7 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     @ConditionalOnMissingBean(name = "testFilterChain")
-    public SecurityFilterChain apiFilterChain(
+    public SecurityFilterChain authenticatedFilterChain(
             HttpSecurity http,
             SessionAuthFilter sessionAuthFilter,
             CorsConfigurationSource corsConfigurationSource,
@@ -73,7 +82,7 @@ public class SecurityConfig {
                             UsernamePasswordAuthenticationFilter.class);
             return http.build();
         } catch (Exception e) {
-            throw new SecurityConfigurationException("Failed to configure API filter chain", e);
+            throw new SecurityConfigurationException("Failed to configure authenticated filter chain", e);
         }
     }
 }
