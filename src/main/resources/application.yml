@@ -38,6 +38,11 @@ app:
   unsubscribeSecret: ${UNSUBSCRIBE_SECRET}
   resend:
     webhook-base-url: ${RESEND_WEBHOOK_BASE_URL}
+  # header Cloudflare adds to every proxied request; unset = check off (PRELAUNCH §7)
+  origin-secret: ${ORIGIN_SECRET:}
+  rate-limit:
+    # true only once the origin accepts nothing but Cloudflare (PRELAUNCH §7); otherwise the header can be spoofed
+    trust-cf-connecting-ip: ${RATE_LIMIT_TRUST_CF_CONNECTING_IP:false}
 
 supabase:
   oauth:
