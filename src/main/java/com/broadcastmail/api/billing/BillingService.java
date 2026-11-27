@@ -28,14 +28,13 @@ public class BillingService {
     private final StripeProperties stripeProperties;
 
     public String createCheckoutSession(UUID accountId, boolean yearly, String redirectOrigin) throws StripeException {
-        String base = redirectOrigin;
         String priceId = yearly ? stripeProperties.yearlyPriceId() : stripeProperties.monthlyPriceId();
 
         SessionCreateParams params =
                 SessionCreateParams.builder()
                         .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                        .setSuccessUrl(base + "/billing/success")
-                        .setCancelUrl(base + "/billing/cancel")
+                        .setSuccessUrl(redirectOrigin + "/billing/success")
+                        .setCancelUrl(redirectOrigin + "/billing/cancel")
                         .putMetadata("accountId", accountId.toString())
                         .putMetadata("plan", "starter")
                         .addLineItem(SessionCreateParams.LineItem.builder()
@@ -48,10 +47,9 @@ public class BillingService {
     }
 
     public String createPortalSession(String stripeCustomerId, String redirectOrigin) throws StripeException {
-        String base = redirectOrigin;
         SessionCreateParams params = SessionCreateParams.builder()
                 .setCustomer(stripeCustomerId)
-                .setReturnUrl(base + "/billing?from=portal")
+                .setReturnUrl(redirectOrigin + "/billing?from=portal")
                 .build();
 
         return Session.create(params).getUrl();
