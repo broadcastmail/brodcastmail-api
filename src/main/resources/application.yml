@@ -38,6 +38,11 @@ app:
   unsubscribeSecret: ${UNSUBSCRIBE_SECRET}
   resend:
     webhook-base-url: ${RESEND_WEBHOOK_BASE_URL}
+  feedback:
+    resend-api-key: ${FEEDBACK_RESEND_API_KEY:}
+    from: ${FEEDBACK_FROM:}
+    to: ${FEEDBACK_TO:}
+    turnstile-secret: ${TURNSTILE_SECRET_KEY:}
   # header Cloudflare adds to every proxied request; unset = check off (PRELAUNCH §7)
   origin-secret: ${ORIGIN_SECRET:}
   rate-limit:

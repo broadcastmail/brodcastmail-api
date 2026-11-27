@@ -46,6 +46,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new Rule("*", "/api/v1/oauth/**", Key.IP, perMinute(30)),
             new Rule("*", "/api/v1/onboarding/**", Key.IP, perMinute(30)),
             new Rule("*", "/unsubscribe", Key.IP, perMinute(30)),
+            new Rule("POST", "/api/v1/feedback", Key.ACCOUNT, perHour(20)),
+            new Rule("POST", "/api/v1/public/feedback", Key.IP, perHour(10)),
             new Rule("*", "/api/v1/**", Key.ACCOUNT, perMinute(300)));
 
     private static final AntPathMatcher PATHS = new AntPathMatcher();

@@ -4,6 +4,7 @@ import com.broadcastmail.api.account.AccountService;
 import com.broadcastmail.api.account.metrics.AccountMetricsService;
 import com.broadcastmail.api.account.metrics.dto.AccountMetricsResponse;
 import com.broadcastmail.api.common.exceptions.AccountNotFoundException;
+import com.broadcastmail.api.config.FeedbackProperties;
 import com.broadcastmail.api.connection.ConnectionNameService;
 import com.broadcastmail.api.me.dto.MeResponse;
 import com.broadcastmail.common.account.Account;
@@ -34,6 +35,7 @@ public class MeController {
     private final ConnectionNameService connectionNameService;
     private final AccountMetricsService accountMetricsService;
     private final AccountService accountService;
+    private final FeedbackProperties feedbackProperties;
 
     @GetMapping
     public ResponseEntity<MeResponse> getMe(@AuthenticationPrincipal UUID accountId) {
@@ -52,7 +54,8 @@ public class MeController {
                 account.getPlan().name(),
                 connection != null ? connection.getProjectRef() : null,
                 connection != null ? connectionNameService.projectNameOf(accountId, connection) : null,
-                features
+                features,
+                feedbackProperties.enabled()
         ));
     }
 

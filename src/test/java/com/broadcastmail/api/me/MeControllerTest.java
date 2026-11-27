@@ -101,6 +101,11 @@ class MeControllerTest extends IntegrationTest {
                 .extractingPath("$.projectName")
                 .asString()
                 .isEqualTo(connection.getName());
+        // Then: no app.feedback.* in the test config, so feedback stays off
+        assertThat(response).bodyJson()
+                .extractingPath("$.feedbackEnabled")
+                .asBoolean()
+                .isFalse();
     }
 
     @Test
