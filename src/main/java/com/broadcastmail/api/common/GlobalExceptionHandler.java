@@ -4,6 +4,7 @@ import com.broadcastmail.api.common.exceptions.*;
 import com.broadcastmail.common.unsubscribe.InvalidUnsubscribeTokenException;
 import com.broadcastmail.common.account.plan.PlanLimitExceededException;
 import com.stripe.exception.StripeException;
+import io.sentry.Sentry;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,6 +27,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, String>> handleIllegalState(
             IllegalStateException ex) {
+        Sentry.captureException(ex);
         return ResponseEntity
                 .status(HttpStatus.BAD_GATEWAY)
                 .body(Map.of(ERROR_KEY, ex.getMessage()));
@@ -112,6 +114,7 @@ public class GlobalExceptionHandler {
     }
     @ExceptionHandler(StripeException.class)
     public ResponseEntity<Map<String, String>> handleStripeException(StripeException ex) {
+        Sentry.captureException(ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of(ERROR_KEY, "Payment service error"));
