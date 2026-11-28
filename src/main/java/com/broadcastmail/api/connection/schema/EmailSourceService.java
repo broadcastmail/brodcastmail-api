@@ -29,7 +29,7 @@ public class EmailSourceService {
 
     public EmailSourceResult detect(SupabaseIntrospectionData data) {
         List<EmailSourceOption> options = buildOptions(data.emailColumnsByTable(), data.primaryKeys());
-        return detect(options);
+        return detect(options, tables(data));
     }
 
     public EmailSourceResult detectForAccount(UUID accountId) {
@@ -39,34 +39,36 @@ public class EmailSourceService {
                 managementSqlRunners.forAccount(accountId, connection.getProjectRef()));
 
         List<EmailSourceOption> options = buildOptions(data.emailColumnsByTable(), data.primaryKeys());
+        List<EmailSourceOption> tables = tables(data);
 
         if (connection.getEmailTableName() != null) {
             return options.stream()
                     .filter(o -> o.tableName().equals(connection.getEmailTableName())
                               && o.tableSchema().equals(connection.getEmailTableSchema()))
                     .findFirst()
-                    .<EmailSourceResult>map(match -> new EmailSourceResult.Detected(match, connection.getEmailColumn()))
-                    .orElseGet(() -> detect(options));
+                    .<EmailSourceResult>map(match -> new EmailSourceResult.Detected(match, connection.getEmailColumn(), tables))
+                    .orElseGet(() -> detect(options, tables));
         }
 
-        return detect(options);
+        return detect(options, tables);
     }
 
-    private EmailSourceResult detect(List<EmailSourceOption> options) {
-        if (options.isEmpty()) return new EmailSourceResult.NotDetected();
+    private EmailSourceResult detect(List<EmailSourceOption> options, List<EmailSourceOption> tables) {
+        if (options.isEmpty()) return new EmailSourceResult.NotDetected(tables);
         if (options.size() == 1) {
             EmailSourceOption option = options.getFirst();
             String autoColumn = option.emailColumnCandidates().stream()
                     .filter(c -> c.equals("email") || c.equals("email_address"))
                     .findFirst()
                     .orElse(null);
-            if (autoColumn != null) return new EmailSourceResult.Detected(option, autoColumn);
+            if (autoColumn != null) return new EmailSourceResult.Detected(option, autoColumn, tables);
         }
-        return new EmailSourceResult.MultipleCandidates(options);
+        return new EmailSourceResult.MultipleCandidates(options, tables);
     }
 
     private List<EmailSourceOption> buildOptions(Map<String, List<String>> textColumnsByTable, Map<String, String> primaryKeys) {
         List<EmailSourceOption> options = new ArrayList<>();
+        options.add(EmailSourceOption.AUTH_USERS);
         textColumnsByTable.forEach((key, candidates) -> {
             if (candidates.isEmpty()) return;
             int dot = key.indexOf('.');
@@ -77,4 +79,20 @@ public class EmailSourceService {
         return options;
     }
 
+    // Every user table with a single-column primary key and text columns, for picking the email column by hand.
+    private static List<EmailSourceOption> tables(SupabaseIntrospectionData data) {
+        List<EmailSourceOption> tables = new ArrayList<>();
+        data.columnsByTable().forEach((key, columns) -> {
+            String primaryKey = data.primaryKeys().get(key);
+            if (primaryKey == null || key.startsWith("auth.")) return;
+            List<String> textColumns = columns.stream()
+                    .filter(c -> c.dataType().equals("text") || c.dataType().startsWith("character varying"))
+                    .map(SupabaseIntrospectionData.Column::name)
+                    .toList();
+            if (textColumns.isEmpty()) return;
+            int dot = key.indexOf('.');
+            tables.add(new EmailSourceOption(key.substring(0, dot), key.substring(dot + 1), primaryKey, textColumns));
+        });
+        return tables;
+    }
 }

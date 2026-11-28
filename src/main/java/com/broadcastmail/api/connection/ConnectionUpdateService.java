@@ -4,6 +4,7 @@ import com.broadcastmail.api.campaign.CampaignInProgressValidator;
 import com.broadcastmail.api.connection.schema.EmailSourceService;
 import com.broadcastmail.api.connection.schema.SchemaIntrospectionService;
 import com.broadcastmail.api.common.exceptions.ConnectionNotFoundException;
+import com.broadcastmail.api.connection.dto.EmailSourceOption;
 import com.broadcastmail.api.connection.dto.SchemaIntrospectionResult;
 import com.broadcastmail.api.filterablecolumn.FilterableColumnFactory;
 import com.broadcastmail.api.supabase.reader.ReaderConnectionVerifier;
@@ -79,11 +80,15 @@ public class ConnectionUpdateService {
     public void updateEmailTable(UUID accountId, String emailTableSchema, String emailTableName, String emailColumn) {
         campaignInProgressValidator.validateNoneInProgress(accountId);
         Connection connection = findConnection(accountId);
-        String pk = emailSourceService.detectPrimaryKey(sqlRunner(accountId, connection), emailTableSchema, emailTableName);
-        connection.setEmailTableSchema(emailTableSchema);
-        connection.setEmailTableName(emailTableName);
-        connection.setEmailTableIdColumn(pk);
-        connection.setEmailColumn(emailColumn);
+        if (EmailSourceOption.isAuthUsers(emailTableSchema, emailTableName)) {
+            connection.clearEmailTable();
+        } else {
+            String pk = emailSourceService.detectPrimaryKey(sqlRunner(accountId, connection), emailTableSchema, emailTableName);
+            connection.setEmailTableSchema(emailTableSchema);
+            connection.setEmailTableName(emailTableName);
+            connection.setEmailTableIdColumn(pk);
+            connection.setEmailColumn(emailColumn);
+        }
         syncGrants(accountId, connection);
         connectionRepository.save(connection);
     }

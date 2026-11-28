@@ -105,6 +105,7 @@ public class OnboardingSession {
     }
 
     public EmailSourceSpec emailSourceSpec() {
+        if (emailTableDetails == null) return new EmailSourceSpec(null, null, null, null);
         return new EmailSourceSpec(emailTableDetails.emailTableSchema(), emailTableDetails.emailTableName(),
                 emailTableDetails.emailTableIdColumn(), emailTableDetails.emailColumn());
     }
