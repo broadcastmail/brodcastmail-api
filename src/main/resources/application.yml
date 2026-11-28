@@ -50,8 +50,8 @@ app:
   rate-limit:
     # true only once the origin accepts nothing but Cloudflare (PRELAUNCH §7); otherwise the header can be spoofed
     trust-cf-connecting-ip: ${RATE_LIMIT_TRUST_CF_CONNECTING_IP:false}
-  # e2e account ids, comma-separated; their errors are deliberate and not sent to Sentry
-  sentry-ignored-account-ids: ${SENTRY_IGNORED_ACCOUNT_IDS:}
+  # e2e account ids, comma-separated (Railway shared variable); kept out of Sentry and analytics
+  e2e-account-ids: ${E2E_ACCOUNT_IDS:}
 
 supabase:
   oauth:
