@@ -70,7 +70,7 @@ public class OAuthSupabaseService {
 
         if (accountId != null) {
             timing.start("reconfigureSession");
-            return handleReconfigure(accountId, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt, projects);
+            return handleReconfigure(accountId, rawAccessToken, encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt, projects);
         }
 
         timing.start("findAccount(" + projects.size() + " projects)");
@@ -88,7 +88,8 @@ public class OAuthSupabaseService {
         if (projects.size() == 1) {
             timing.start("onboardingSession");
             return oAuthSessionService.setupProjectAndCreateSession(
-                    projects.getFirst().ref(), null, projects.getFirst().poolerPrefix(),
+                    projects.getFirst().ref(), null,
+                    supabaseManagementClient.getPoolerPrefix(rawAccessToken, projects.getFirst().ref()),
                     encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
         }
 
@@ -100,13 +101,14 @@ public class OAuthSupabaseService {
     }
 
     private OAuthCallbackResult handleReconfigure(
-            UUID accountId,
+            UUID accountId, String rawAccessToken,
             String encryptedAccessToken, String encryptedRefreshToken,
             Instant tokenExpiresAt, List<SupabaseProject> projects) {
 
         if (projects.size() == 1) {
             String sessionToken = oAuthSessionService.setupReconfigureSession(
-                    accountId, null, projects.getFirst().ref(), projects.getFirst().poolerPrefix(),
+                    accountId, null, projects.getFirst().ref(),
+                    supabaseManagementClient.getPoolerPrefix(rawAccessToken, projects.getFirst().ref()),
                     encryptedAccessToken, encryptedRefreshToken, tokenExpiresAt);
             return new OAuthCallbackResult.ReconfigureSingleProject(sessionToken);
         }

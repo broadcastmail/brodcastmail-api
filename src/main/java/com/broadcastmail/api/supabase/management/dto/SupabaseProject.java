@@ -8,9 +8,4 @@ public record SupabaseProject(String ref,
                               @JsonProperty("created_at") String createdAt,
                               String region,
                               @JsonProperty("cloud_provider") String cloudProvider) {
-
-    public String poolerPrefix() {
-        String provider = cloudProvider != null ? cloudProvider.toLowerCase() : "aws";
-        return provider + "-0-" + region;
-    }
 }

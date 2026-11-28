@@ -8,7 +8,6 @@ import com.broadcastmail.api.onboarding.OnboardingSession;
 import com.broadcastmail.api.onboarding.PartialOnboardingSession;
 import com.broadcastmail.api.supabase.management.SupabaseManagementClient;
 import com.broadcastmail.api.supabase.SupabaseSql;
-import com.broadcastmail.api.supabase.management.dto.SupabaseProject;
 import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import lombok.RequiredArgsConstructor;
@@ -92,11 +91,7 @@ public class OAuthSessionService {
         PartialOnboardingSession partial = onboardingSessionStore.getPartial(partialSessionToken);
 
         String rawAccessToken = SecurityUtil.decrypt(partial.encryptedAccessToken(), encryptionProperties.key());
-        String poolerPrefix = partial.projects().stream()
-                .filter(p -> p.ref().equals(projectRef))
-                .findFirst()
-                .map(SupabaseProject::poolerPrefix)
-                .orElseGet(() -> supabaseManagementClient.getPoolerPrefix(rawAccessToken, projectRef));
+        String poolerPrefix = supabaseManagementClient.getPoolerPrefix(rawAccessToken, projectRef);
 
         OAuthCallbackResult.NewUserSingleProject result;
         if (partial.isReconfigure()) {
