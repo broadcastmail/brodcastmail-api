@@ -13,12 +13,12 @@ class ReaderConnectionFactoryTest {
     @Test
     void shouldBuildPoolerUrlAndTenantSuffixedUsername() {
         // When
-        ReaderConnectionFactory reader = new ReaderConnectionFactory("ref123", "aws-0-eu-west-1", "broadcastmail_r_abc");
+        ReaderConnectionFactory reader = new ReaderConnectionFactory("ref123", "aws-0-eu-west-1", "batchbeam_r_abc");
 
         // Then
         assertThat(reader.jdbcUrl())
                 .isEqualTo("jdbc:postgresql://aws-0-eu-west-1.pooler.supabase.com:5432/postgres?prepareThreshold=0&stringtype=unspecified");
-        assertThat(reader.username()).isEqualTo("broadcastmail_r_abc.ref123");
+        assertThat(reader.username()).isEqualTo("batchbeam_r_abc.ref123");
     }
 
     @Test
@@ -44,10 +44,10 @@ class ReaderConnectionFactoryTest {
         Connection connection = Connection.builder()
                 .projectRef("ref")
                 .poolerPrefix("aws-0-eu-west-1")
-                .dbRole("broadcastmail_r_abc")
+                .dbRole("batchbeam_r_abc")
                 .build();
 
         // Then
-        assertThat(connection.readerConnectionFactory().username()).isEqualTo("broadcastmail_r_abc.ref");
+        assertThat(connection.readerConnectionFactory().username()).isEqualTo("batchbeam_r_abc.ref");
     }
 }

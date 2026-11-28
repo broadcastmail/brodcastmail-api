@@ -33,35 +33,35 @@ class ReaderRoleServiceTest {
     @Test
     void syncGrantsShouldGrantTablesAndRevokeEverythingElseInOneCall() {
         // When
-        readerRoleService.syncGrants("token", "ref", "broadcastmail_r_abc", Set.of(CUSTOMERS));
+        readerRoleService.syncGrants("token", "ref", "batchbeam_r_abc", Set.of(CUSTOMERS));
 
         // Then — SQL content is covered by SupabaseSqlReaderTest; here only that both go out together
         verify(supabaseManagementClient).executeSql("token", "ref",
-                SupabaseSql.grantReaderSql("broadcastmail_r_abc", Set.of(CUSTOMERS))
-                        + SupabaseSql.revokeOtherReaderGrantsSql("broadcastmail_r_abc", Set.of(CUSTOMERS)));
-        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.bypassRlsSql("broadcastmail_r_abc"));
+                SupabaseSql.grantReaderSql("batchbeam_r_abc", Set.of(CUSTOMERS))
+                        + SupabaseSql.revokeOtherReaderGrantsSql("batchbeam_r_abc", Set.of(CUSTOMERS)));
+        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.bypassRlsSql("batchbeam_r_abc"));
     }
 
     @Test
     void syncGrantsShouldStillSucceedWhenBypassRlsIsRefused() {
         // Given
         lenient().doThrow(new IllegalStateException("permission denied"))
-                .when(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.bypassRlsSql("broadcastmail_r_abc"));
+                .when(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.bypassRlsSql("batchbeam_r_abc"));
 
         // When / Then
-        assertThatCode(() -> readerRoleService.syncGrants("token", "ref", "broadcastmail_r_abc", Set.of(CUSTOMERS)))
+        assertThatCode(() -> readerRoleService.syncGrants("token", "ref", "batchbeam_r_abc", Set.of(CUSTOMERS)))
                 .doesNotThrowAnyException();
     }
 
     @Test
     void syncGrantsWithNoTablesShouldOnlyRevoke() {
         // When
-        readerRoleService.syncGrants("token", "ref", "broadcastmail_r_abc", Set.of());
+        readerRoleService.syncGrants("token", "ref", "batchbeam_r_abc", Set.of());
 
         // Then
         verify(supabaseManagementClient).executeSql("token", "ref",
-                SupabaseSql.grantReaderSql("broadcastmail_r_abc", Set.of())
-                        + SupabaseSql.revokeOtherReaderGrantsSql("broadcastmail_r_abc", Set.of()));
+                SupabaseSql.grantReaderSql("batchbeam_r_abc", Set.of())
+                        + SupabaseSql.revokeOtherReaderGrantsSql("batchbeam_r_abc", Set.of()));
     }
 
     @Test
@@ -91,7 +91,7 @@ class ReaderRoleServiceTest {
         doThrow(new IllegalStateException("boom")).when(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
 
         // When / Then
-        assertThatCode(() -> readerRoleService.dropQuietly("token", "ref", "broadcastmail_r_abc"))
+        assertThatCode(() -> readerRoleService.dropQuietly("token", "ref", "batchbeam_r_abc"))
                 .doesNotThrowAnyException();
         verify(supabaseManagementClient).executeSql(anyString(), anyString(), anyString());
     }
@@ -100,17 +100,17 @@ class ReaderRoleServiceTest {
     void dropUnusedShouldDropOnlyPerIntegrationRolesNotInUse() {
         // Given
         when(supabaseManagementClient.sqlRunner("token", "ref")).thenReturn(sql -> List.of(
-                Map.of("rolname", "broadcastmail_r_old1"),
-                Map.of("rolname", "broadcastmail_r_live"),
-                Map.of("rolname", "broadcastmail_r_saved"),
-                Map.of("rolname", "broadcastmail_r_old2")));
+                Map.of("rolname", "batchbeam_r_old1"),
+                Map.of("rolname", "batchbeam_r_live"),
+                Map.of("rolname", "batchbeam_r_saved"),
+                Map.of("rolname", "batchbeam_r_old2")));
 
         // When
-        readerRoleService.dropUnused("token", "ref", Set.of("broadcastmail_r_live", "broadcastmail_r_saved"));
+        readerRoleService.dropUnused("token", "ref", Set.of("batchbeam_r_live", "batchbeam_r_saved"));
 
         // Then
-        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.dropReaderRoleSql("broadcastmail_r_old1"));
-        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.dropReaderRoleSql("broadcastmail_r_old2"));
+        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.dropReaderRoleSql("batchbeam_r_old1"));
+        verify(supabaseManagementClient).executeSql("token", "ref", SupabaseSql.dropReaderRoleSql("batchbeam_r_old2"));
         verify(supabaseManagementClient, times(2)).executeSql(anyString(), anyString(), anyString());
     }
 

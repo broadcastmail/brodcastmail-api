@@ -101,7 +101,7 @@ class OnboardingServiceIntegrationTest extends IntegrationTest {
                 .projectRef("ref")
                 .projectUrl("https://ref.supabase.co")
                 .poolerPrefix("aws-0-eu-west-1")
-                .dbRole("broadcastmail_r_abc")
+                .dbRole("batchbeam_r_abc")
                 .encryptedRolePassword("enc-pw")
                 .connectionVerified(true)
                 .ownerEmail(OWNER_EMAIL)

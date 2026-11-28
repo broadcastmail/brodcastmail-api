@@ -17,7 +17,7 @@ class SupabaseSqlReaderTest {
         String b = SupabaseSql.newReaderRole();
 
         // Then
-        assertThat(a).matches("broadcastmail_r_[0-9a-f]{10}").isNotEqualTo(b);
+        assertThat(a).matches("batchbeam_r_[0-9a-f]{10}").isNotEqualTo(b);
         assertThat(SupabaseSql.isPerIntegrationRole(a)).isTrue();
         assertThat(SupabaseSql.isPerIntegrationRole(SupabaseSql.READER_ROLE)).isFalse();
     }
@@ -25,22 +25,22 @@ class SupabaseSqlReaderTest {
     @Test
     void provisionShouldCreateRoleWithoutAlterAndGrantOnlySelectedTables() {
         // When
-        String sql = SupabaseSql.provisionReaderSql("broadcastmail_r_abc", "Pw_abcdefghijklmnop",
+        String sql = SupabaseSql.provisionReaderSql("batchbeam_r_abc", "Pw_abcdefghijklmnop",
                 List.of(new TableRef("crm", "customers")));
 
         // Then
         assertThat(sql)
-                .contains("CREATE ROLE broadcastmail_r_abc NOINHERIT LOGIN PASSWORD 'Pw_abcdefghijklmnop'")
-                .contains("GRANT USAGE ON SCHEMA \"crm\" TO broadcastmail_r_abc")
-                .contains("GRANT SELECT ON \"crm\".\"customers\" TO broadcastmail_r_abc")
-                .contains("GRANT SELECT ON _broadcastmail.user_emails TO broadcastmail_r_abc")
+                .contains("CREATE ROLE batchbeam_r_abc NOINHERIT LOGIN PASSWORD 'Pw_abcdefghijklmnop'")
+                .contains("GRANT USAGE ON SCHEMA \"crm\" TO batchbeam_r_abc")
+                .contains("GRANT SELECT ON \"crm\".\"customers\" TO batchbeam_r_abc")
+                .contains("GRANT SELECT ON _batchbeam.user_emails TO batchbeam_r_abc")
                 .doesNotContain("ALTER ROLE")
                 .doesNotContain("ALL TABLES");
     }
 
     @Test
     void provisionShouldRejectPasswordThatCouldBreakOutOfLiteral() {
-        assertThatThrownBy(() -> SupabaseSql.provisionReaderSql("broadcastmail_r_abc", "x'; DROP ROLE postgres; --", List.of()))
+        assertThatThrownBy(() -> SupabaseSql.provisionReaderSql("batchbeam_r_abc", "x'; DROP ROLE postgres; --", List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -59,7 +59,7 @@ class SupabaseSqlReaderTest {
     void introspectionShouldIncludeCustomSchemasButExcludeSystemOnes() {
         assertThat(SupabaseSql.INTROSPECT_SCHEMA)
                 .contains("table_schema = 'auth' AND table_name = 'users'")
-                .contains("'storage'").contains("'_broadcastmail'")
+                .contains("'storage'").contains("'_batchbeam'")
                 .doesNotContain("IN ('public', 'auth')");
         assertThat(SupabaseSql.FIND_USER_LINKED_TABLES).contains("kcu.table_schema NOT IN (");
     }
@@ -67,25 +67,25 @@ class SupabaseSqlReaderTest {
     @Test
     void revokeOthersShouldKeepGivenTablesAndOurViewAndEscapeFormatPlaceholders() {
         // When
-        String sql = SupabaseSql.revokeOtherReaderGrantsSql("broadcastmail_r_abc",
+        String sql = SupabaseSql.revokeOtherReaderGrantsSql("batchbeam_r_abc",
                 List.of(new TableRef("public", "profiles"), new TableRef("crm", "contacts")));
 
         // Then
         assertThat(sql)
-                .contains("grantee = 'broadcastmail_r_abc'")
+                .contains("grantee = 'batchbeam_r_abc'")
                 .contains("NOT IN (('public', 'profiles'), ('crm', 'contacts'))")
-                .contains("table_schema <> '_broadcastmail'")
-                .contains("format('REVOKE SELECT ON %I.%I FROM broadcastmail_r_abc'");
+                .contains("table_schema <> '_batchbeam'")
+                .contains("format('REVOKE SELECT ON %I.%I FROM batchbeam_r_abc'");
     }
 
     @Test
     void dropShouldGrantMembershipBeforeDroppingOwnedObjects() {
         // When
-        String sql = SupabaseSql.dropReaderRoleSql("broadcastmail_r_abc");
+        String sql = SupabaseSql.dropReaderRoleSql("batchbeam_r_abc");
 
-        // Then — postgres isn't a member of the reader role, and DROP OWNED BY requires membership
-        assertThat(sql.indexOf("GRANT broadcastmail_r_abc TO CURRENT_USER"))
+        // Then
+        assertThat(sql.indexOf("GRANT batchbeam_r_abc TO CURRENT_USER"))
                 .isNotNegative()
-                .isLessThan(sql.indexOf("DROP OWNED BY broadcastmail_r_abc"));
+                .isLessThan(sql.indexOf("DROP OWNED BY batchbeam_r_abc"));
     }
 }

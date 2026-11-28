@@ -20,7 +20,7 @@ public class ReaderConnectionVerifier {
 
     static final String INVALID_PASSWORD = "28P01";
     private static final int LOGIN_TIMEOUT_SECONDS = 5;
-    private static final String PROBE_SQL = "SELECT 1 FROM _broadcastmail.user_emails LIMIT 1";
+    private static final String PROBE_SQL = "SELECT 1 FROM _batchbeam.user_emails LIMIT 1";
 
     private final long[] backoffMs;
 

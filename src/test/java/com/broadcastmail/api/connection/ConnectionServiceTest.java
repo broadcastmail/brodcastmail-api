@@ -33,7 +33,7 @@ class ConnectionServiceTest {
     void shouldSetRequiredNameAndTypeWhenCreatingConnection() {
         // Given
         ConnectionSpec spec = new ConnectionSpec("project-ref", "My Project", "https://project-ref.supabase.co",
-                "aws-0-eu-west-1", "broadcastmail_r_abc", "enc-pw", "public", "profiles", "id");
+                "aws-0-eu-west-1", "batchbeam_r_abc", "enc-pw", "public", "profiles", "id");
 
         // When
         connectionService.createConnection(UUID.randomUUID(), spec,

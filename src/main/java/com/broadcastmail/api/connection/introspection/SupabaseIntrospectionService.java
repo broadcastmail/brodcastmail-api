@@ -19,7 +19,7 @@ import java.util.Map;
 public class SupabaseIntrospectionService {
 
     /** Key under which auth.users column cardinalities are reported in {@link SupabaseIntrospectionData}. */
-    public static final String AUTH_CARDINALITY_KEY = "_broadcastmail.user_emails";
+    public static final String AUTH_CARDINALITY_KEY = "_batchbeam.user_emails";
 
     private final SchemaCatalogReader catalogReader;
     private final ColumnStatsCollector columnStatsCollector;

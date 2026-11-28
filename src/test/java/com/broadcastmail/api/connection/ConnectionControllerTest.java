@@ -89,7 +89,7 @@ class ConnectionControllerTest extends IntegrationTest {
     private void stubNewProjectRole() {
         when(supabaseManagementClient.getPoolerPrefix(any(), any())).thenReturn("aws-0-eu-west-1");
         when(readerRoleService.provision(any(), any(), any()))
-                .thenReturn(new ReaderRoleService.Provisioned("broadcastmail_r_abc", "enc-pw"));
+                .thenReturn(new ReaderRoleService.Provisioned("batchbeam_r_abc", "enc-pw"));
         when(readerRoleService.decryptPassword(any())).thenReturn("pw");
     }
 
@@ -129,7 +129,7 @@ class ConnectionControllerTest extends IntegrationTest {
         Connection updated = connectionRepository.findByAccountId(account.getId()).orElseThrow();
 
         assertThat(updated.getProjectRef()).isEqualTo("new-ref");
-        assertThat(updated.getDbRole()).isEqualTo("broadcastmail_r_abc");
+        assertThat(updated.getDbRole()).isEqualTo("batchbeam_r_abc");
         assertThat(updated.getPoolerPrefix()).isEqualTo("aws-0-eu-west-1");
         assertThat(updated.getEncryptedCreds()).isEqualTo("enc-pw");
         assertThat(updated.getUserTableName()).isNull();

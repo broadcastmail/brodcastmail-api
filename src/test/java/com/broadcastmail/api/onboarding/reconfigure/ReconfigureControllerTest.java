@@ -59,9 +59,9 @@ class ReconfigureControllerTest extends IntegrationTest {
 
     private static final String ORIGIN = "http://localhost:3000";
     private static final String OLD_REF = "test-ref";
-    private static final String OLD_ROLE = "broadcastmail_r_test";
+    private static final String OLD_ROLE = "batchbeam_r_test";
     private static final String NEW_REF = "new-ref";
-    private static final String NEW_ROLE = "broadcastmail_r_new";
+    private static final String NEW_ROLE = "batchbeam_r_new";
     private static final String OWNER_EMAIL = "owner@example.com";
     private static final String ACCESS_TOKEN = "access-token";
 

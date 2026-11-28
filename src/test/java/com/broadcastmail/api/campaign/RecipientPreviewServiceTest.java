@@ -204,7 +204,7 @@ class RecipientPreviewServiceTest {
         recipientPreviewService.preview(accountId, campaignId);
 
         verify(tenantAudienceGateway).count(any(),
-                eq("SELECT COUNT(*), COUNT(*) FROM _broadcastmail.user_emails auth WHERE auth.\"email\" IS NOT NULL"), eq(List.of()));
+                eq("SELECT COUNT(*), COUNT(*) FROM _batchbeam.user_emails auth WHERE auth.\"email\" IS NOT NULL"), eq(List.of()));
     }
 
     @Test
