@@ -14,9 +14,9 @@ import java.util.List;
 public sealed interface EmailSourceResult
         permits EmailSourceResult.Detected, EmailSourceResult.MultipleCandidates, EmailSourceResult.NotDetected {
 
-    record Detected(EmailSourceOption option, String emailColumn) implements EmailSourceResult {}
+    record Detected(EmailSourceOption option, String emailColumn, List<EmailSourceOption> tables) implements EmailSourceResult {}
 
-    record MultipleCandidates(List<EmailSourceOption> candidates) implements EmailSourceResult {}
+    record MultipleCandidates(List<EmailSourceOption> candidates, List<EmailSourceOption> tables) implements EmailSourceResult {}
 
-    record NotDetected() implements EmailSourceResult {}
+    record NotDetected(List<EmailSourceOption> tables) implements EmailSourceResult {}
 }

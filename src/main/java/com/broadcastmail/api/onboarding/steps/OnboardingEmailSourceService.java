@@ -24,16 +24,16 @@ public class OnboardingEmailSourceService {
     public EmailSourceResult detect(String sessionToken) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken).requireEmailTableSource();
         SupabaseIntrospectionData data = session.getIntrospectionData();
-        if (data == null) return new EmailSourceResult.NotDetected();
+        if (data == null) return new EmailSourceResult.NotDetected(List.of());
 
         EmailSourceResult result = emailSourceService.detect(data);
         OnboardingSession updated = switch (result) {
-            case EmailSourceResult.Detected(var option, var emailColumn) ->
-                    session.withEmailTableDetails(new OnboardingSession.EmailTableDetails(
+            case EmailSourceResult.Detected(var option, var emailColumn, var _) ->
+                    session.withEmailTableDetails(emailTableDetails(
                             option.tableSchema(), option.tableName(),
                             option.primaryKeyColumn(), emailColumn))
                             .withEmailSourceCandidates(null);
-            case EmailSourceResult.MultipleCandidates(List<EmailSourceOption> candidates) ->
+            case EmailSourceResult.MultipleCandidates(List<EmailSourceOption> candidates, var _) ->
                     session.withEmailTableDetails(null).withEmailSourceCandidates(candidates);
             case EmailSourceResult.NotDetected _ ->
                     session.withEmailTableDetails(null).withEmailSourceCandidates(null);
@@ -45,7 +45,7 @@ public class OnboardingEmailSourceService {
     public void confirm(String sessionToken, ConfirmEmailTableRequest request) {
         OnboardingSession session = onboardingSessionStore.get(sessionToken).requireEmailTableSource();
         OnboardingSession updated = request != null
-                ? session.withEmailTableDetails(new OnboardingSession.EmailTableDetails(
+                ? session.withEmailTableDetails(emailTableDetails(
                         request.emailTableSchema(), request.emailTableName(),
                         request.primaryKeyColumn(), request.emailColumn()))
                 : session;
@@ -53,5 +53,11 @@ public class OnboardingEmailSourceService {
         onboardingSessionStore.updateSession(sessionToken, updated);
         // The role was provisioned at /schema/test with the profile table only — grant the email table now.
         sessionReaderService.grantSelected(updated);
+    }
+
+    private static OnboardingSession.EmailTableDetails emailTableDetails(
+            String schema, String table, String idColumn, String emailColumn) {
+        if (EmailSourceOption.isAuthUsers(schema, table)) return null;
+        return new OnboardingSession.EmailTableDetails(schema, table, idColumn, emailColumn);
     }
 }
