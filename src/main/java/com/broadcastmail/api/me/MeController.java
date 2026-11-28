@@ -14,6 +14,7 @@ import com.broadcastmail.common.connection.Connection;
 import com.broadcastmail.common.connection.ConnectionRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Tag(name = "me")
@@ -36,6 +38,9 @@ public class MeController {
     private final AccountMetricsService accountMetricsService;
     private final AccountService accountService;
     private final FeedbackProperties feedbackProperties;
+
+    @Value("${app.e2e-account-ids:}")
+    private Set<UUID> e2eAccountIds;
 
     @GetMapping
     public ResponseEntity<MeResponse> getMe(@AuthenticationPrincipal UUID accountId) {
@@ -55,7 +60,8 @@ public class MeController {
                 connection != null ? connection.getProjectRef() : null,
                 connection != null ? connectionNameService.projectNameOf(accountId, connection) : null,
                 features,
-                feedbackProperties.enabled()
+                feedbackProperties.enabled(),
+                e2eAccountIds.contains(accountId) ? null : accountId.toString()
         ));
     }
 

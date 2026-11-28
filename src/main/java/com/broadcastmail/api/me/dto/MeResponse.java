@@ -10,5 +10,6 @@ public record MeResponse(
         String connectionName,
         String projectName,
         List<PlanFeature> features,
-        boolean feedbackEnabled
+        boolean feedbackEnabled,
+        String analyticsId
 ) {}

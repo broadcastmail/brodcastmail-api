@@ -17,11 +17,11 @@ public class SentryConfig {
 
     @Bean
     SentryOptions.BeforeSendCallback sentryBeforeSend(
-            @Value("${app.sentry-ignored-account-ids:}") Set<UUID> ignoredAccountIds) {
+            @Value("${app.e2e-account-ids:}") Set<UUID> e2eAccountIds) {
         return (event, hint) -> {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.getPrincipal() instanceof UUID accountId) {
-                if (ignoredAccountIds.contains(accountId)) return null;
+                if (e2eAccountIds.contains(accountId)) return null;
                 User user = new User();
                 user.setId(accountId.toString());
                 event.setUser(user);

@@ -106,6 +106,10 @@ class MeControllerTest extends IntegrationTest {
                 .extractingPath("$.feedbackEnabled")
                 .asBoolean()
                 .isFalse();
+        assertThat(response).bodyJson()
+                .extractingPath("$.analyticsId")
+                .asString()
+                .isEqualTo(account.getId().toString());
     }
 
     @Test
