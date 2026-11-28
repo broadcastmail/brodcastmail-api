@@ -78,14 +78,17 @@ public class SupabaseManagementClient {
     public String getPoolerPrefix(String accessToken, String projectRef) {
         try {
             String json = supabaseRestClient.get()
-                    .uri("/v1/projects/{ref}", projectRef)
+                    .uri("/v1/projects/{ref}/config/database/pooler", projectRef)
                     .header(authorizationHeader.a, authorizationHeader.b + accessToken)
                     .retrieve()
                     .body(String.class);
-            var tree = OBJECT_MAPPER.readTree(json);
-            String provider = tree.path("cloud_provider").asText("aws").toLowerCase();
-            String region = tree.path("region").asText();
-            return provider + "-0-" + region;
+            for (JsonNode pooler : OBJECT_MAPPER.readTree(json)) {
+                String host = pooler.path("db_host").asText();
+                if (pooler.path("database_type").asText("PRIMARY").equals("PRIMARY") && host.endsWith(POOLER_DOMAIN)) {
+                    return host.substring(0, host.length() - POOLER_DOMAIN.length());
+                }
+            }
+            throw new IllegalStateException("No shared pooler host in the project's pooler config");
         } catch (Exception e) {
             throw new IllegalStateException("Failed to get pooler prefix for " + projectRef, e);
         }
@@ -100,6 +103,7 @@ public class SupabaseManagementClient {
     }
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String POOLER_DOMAIN = ".pooler.supabase.com";
 
     public String resolveOwnerEmail(String accessToken, String projectRef) {
         try {
