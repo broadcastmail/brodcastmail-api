@@ -74,7 +74,7 @@ class ColumnStatsCollector {
                 .toList();
     }
 
-    // auth.users is read directly: the _broadcastmail.user_emails view may not exist before provisioning.
+    // auth.users is read directly: the _batchbeam.user_emails view may not exist before provisioning.
     private List<ColumnProbe> authMetadataCardinalityProbes(
             Map<String, List<SupabaseIntrospectionData.Column>> columnsByTable) {
         List<SupabaseIntrospectionData.Column> authCols = columnsByTable.get("auth.users");

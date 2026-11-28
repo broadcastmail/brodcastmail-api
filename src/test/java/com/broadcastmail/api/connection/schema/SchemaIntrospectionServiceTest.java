@@ -3,16 +3,16 @@
  * Prerequisites:
  *   1. Run: supabase start
  *   2. Run setup SQL in Studio (http://127.0.0.1:54323):
- *      - CREATE ROLE broadcastmail_reader NOINHERIT LOGIN PASSWORD 'testpassword123';
- *      - GRANT USAGE ON SCHEMA public TO broadcastmail_reader;
- *      - GRANT USAGE ON SCHEMA auth TO broadcastmail_reader;
- *      - GRANT SELECT ON ALL TABLES IN SCHEMA public TO broadcastmail_reader;
+ *      - CREATE ROLE batchbeam_reader NOINHERIT LOGIN PASSWORD 'testpassword123';
+ *      - GRANT USAGE ON SCHEMA public TO batchbeam_reader;
+ *      - GRANT USAGE ON SCHEMA auth TO batchbeam_reader;
+ *      - GRANT SELECT ON ALL TABLES IN SCHEMA public TO batchbeam_reader;
  *      - CREATE VIEW auth.user_emails AS SELECT
  *            id, email, created_at, updated_at, confirmed_at, email_confirmed_at,
  *            phone, phone_confirmed_at, last_sign_in_at, banned_until, is_anonymous,
  *            raw_app_meta_data, raw_user_meta_data
  *        FROM auth.users;
- *      - GRANT SELECT ON auth.user_emails TO broadcastmail_reader;
+ *      - GRANT SELECT ON auth.user_emails TO batchbeam_reader;
  *      - CREATE TABLE public.profiles (
  *            id uuid PRIMARY KEY REFERENCES auth.users(id),
  *            full_name text,
@@ -20,7 +20,7 @@
  *            avatar_url text,
  *            created_at timestamptz
  *        );
- *      - GRANT SELECT ON public.profiles TO broadcastmail_reader;
+ *      - GRANT SELECT ON public.profiles TO batchbeam_reader;
  *      - INSERT 3 test users into auth.users with profiles linked via FK
  */
 package com.broadcastmail.api.connection.schema;
@@ -54,7 +54,7 @@ class SchemaIntrospectionServiceTest extends IntegrationTest {
 
     @BeforeEach
     void setUp() {
-        sql = new JdbcSqlRunner(jdbcUrl, "broadcastmail_reader", "testpassword123");
+        sql = new JdbcSqlRunner(jdbcUrl, "batchbeam_reader", "testpassword123");
     }
 
     /** All tests in this class set up {@code public.profiles}, FK'd to {@code auth.users.id} — detection always succeeds. */

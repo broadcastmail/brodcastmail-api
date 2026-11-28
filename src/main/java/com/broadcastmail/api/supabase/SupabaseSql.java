@@ -17,7 +17,7 @@ public final class SupabaseSql {
 
     public static final String AUTH_ALIAS = "auth";
     public static final String EMAIL_ALIAS = "email";
-    public static final String READER_ROLE = "broadcastmail_reader";
+    public static final String READER_ROLE = "batchbeam_reader";
     public static final String ORDER_BY = "ORDER BY ";
 
     static final String SCHEMA_LABEL = "schema";
@@ -28,10 +28,10 @@ public final class SupabaseSql {
 
     public record SortSpec(String alias, String key, SortDirection direction) {}
 
-    public static final String READER_ROLE_PREFIX = "broadcastmail_r_";
+    public static final String READER_ROLE_PREFIX = "batchbeam_r_";
 
     public static final String LIST_READER_ROLES_SQL =
-            "SELECT rolname FROM pg_roles WHERE rolname LIKE 'broadcastmail\\_r\\_%'";
+            "SELECT rolname FROM pg_roles WHERE rolname LIKE 'batchbeam\\_r\\_%'";
 
     private static final SecureRandom ROLE_RANDOM = new SecureRandom();
 
@@ -40,7 +40,7 @@ public final class SupabaseSql {
             'pg_catalog', 'information_schema', 'auth', 'storage', 'realtime', 'extensions',
             'graphql', 'graphql_public', 'vault', 'pgsodium', 'pgsodium_masks', 'net', 'cron',
             'supabase_functions', 'supabase_migrations', 'pgbouncer', 'pgtle', 'topology', '_realtime',
-            '_analytics', '_supavisor', '_broadcastmail'""";
+            '_analytics', '_supavisor', '_batchbeam'""";
 
     private static final String USER_SCHEMA_FILTER =
             "%1$s NOT IN (" + SYSTEM_SCHEMAS_SQL + ") AND %1$s NOT LIKE 'pg\\_%%'";
@@ -80,14 +80,14 @@ public final class SupabaseSql {
         requirePassword(password);
         return """
                 CREATE ROLE %1$s NOINHERIT LOGIN PASSWORD '%2$s';
-                CREATE SCHEMA IF NOT EXISTS _broadcastmail;
-                CREATE OR REPLACE VIEW _broadcastmail.user_emails AS SELECT
+                CREATE SCHEMA IF NOT EXISTS _batchbeam;
+                CREATE OR REPLACE VIEW _batchbeam.user_emails AS SELECT
                     id, email, created_at, updated_at, confirmed_at, email_confirmed_at,
                     phone, phone_confirmed_at, last_sign_in_at, banned_until, is_anonymous,
                     raw_app_meta_data, raw_user_meta_data
                 FROM auth.users;
-                GRANT USAGE ON SCHEMA _broadcastmail TO %1$s;
-                GRANT SELECT ON _broadcastmail.user_emails TO %1$s;
+                GRANT USAGE ON SCHEMA _batchbeam TO %1$s;
+                GRANT SELECT ON _batchbeam.user_emails TO %1$s;
                 """.formatted(role, password) + grantReaderSql(role, tables);
     }
 
@@ -102,7 +102,7 @@ public final class SupabaseSql {
     }
 
     /**
-     * REVOKEs SELECT on every table the role can read except {@code keep} (and our own _broadcastmail view). The
+     * REVOKEs SELECT on every table the role can read except {@code keep} (and our own _batchbeam view). The
      * database is the source of truth for what was granted, so callers never track previous grants.
      */
     public static String revokeOtherReaderGrantsSql(String role, Collection<TableRef> keep) {
@@ -117,7 +117,7 @@ public final class SupabaseSql {
                 BEGIN
                     FOR t IN SELECT DISTINCT table_schema, table_name FROM information_schema.role_table_grants
                     WHERE grantee = '%1$s' AND privilege_type = 'SELECT'
-                      AND table_schema <> '_broadcastmail'%2$s
+                      AND table_schema <> '_batchbeam'%2$s
                     LOOP
                         EXECUTE format('REVOKE SELECT ON %%I.%%I FROM %1$s', t.table_schema, t.table_name);
                     END LOOP;
@@ -208,8 +208,7 @@ public final class SupabaseSql {
             LIMIT 1
             """;
 
-    public static final String RESOLVE_RECIPIENTS = "SELECT id, email FROM _broadcastmail.user_emails";
-    public static final String COUNT_RECIPIENTS = "SELECT COUNT(*) FROM _broadcastmail.user_emails";
+    public static final String COUNT_RECIPIENTS = "SELECT COUNT(*) FROM _batchbeam.user_emails";
 
     public static final int EMAIL_SAMPLE_SIZE = 10;
 
@@ -218,10 +217,6 @@ public final class SupabaseSql {
             throw new IllegalArgumentException("Invalid " + label + ": " + value);
         }
     }
-
-    // auth.users always exists, unlike _broadcastmail.user_emails (a view GRANT_AUTH_ACCESS creates) —
-    // usable to preview a project's user count before it's been selected/set up.
-    public static final String COUNT_AUTH_USERS = "SELECT COUNT(*) FROM auth.users";
 
     public static String buildProjectUrl(String projectRef) {
         return "https://" + projectRef + ".supabase.co";

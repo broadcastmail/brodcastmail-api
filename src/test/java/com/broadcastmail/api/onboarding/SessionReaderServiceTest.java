@@ -56,7 +56,7 @@ class SessionReaderServiceTest {
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
         when(supabaseAccessTokens.decrypt(any())).thenReturn("access");
         when(readerRoleService.provision(eq("access"), eq("ref"), any()))
-                .thenReturn(new ReaderRoleService.Provisioned("broadcastmail_r_abc", "enc-pw"));
+                .thenReturn(new ReaderRoleService.Provisioned("batchbeam_r_abc", "enc-pw"));
         when(readerRoleService.decryptPassword("enc-pw")).thenReturn("pw");
 
         // When
@@ -68,8 +68,8 @@ class SessionReaderServiceTest {
         var inOrder = inOrder(onboardingSessionStore, readerConnectionVerifier);
         inOrder.verify(onboardingSessionStore).updateSession(eq("token"), saved.capture());
         inOrder.verify(readerConnectionVerifier).verify(
-                new ReaderConnectionFactory("ref", "aws-0-eu-west-1", "broadcastmail_r_abc"), "pw");
-        assertThat(saved.getAllValues().getFirst().getDbRole()).isEqualTo("broadcastmail_r_abc");
+                new ReaderConnectionFactory("ref", "aws-0-eu-west-1", "batchbeam_r_abc"), "pw");
+        assertThat(saved.getAllValues().getFirst().getDbRole()).isEqualTo("batchbeam_r_abc");
         assertThat(saved.getAllValues().getFirst().isConnectionVerified()).isFalse();
         assertThat(result.isConnectionVerified()).isTrue();
     }
@@ -79,7 +79,7 @@ class SessionReaderServiceTest {
         // Given
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
         when(readerRoleService.provision(any(), any(), any()))
-                .thenReturn(new ReaderRoleService.Provisioned("broadcastmail_r_abc", "enc-pw"));
+                .thenReturn(new ReaderRoleService.Provisioned("batchbeam_r_abc", "enc-pw"));
         doThrow(new ReaderNotReadyException("nope", null))
                 .when(readerConnectionVerifier).verify(any(), any());
 
@@ -87,14 +87,14 @@ class SessionReaderServiceTest {
         assertThatThrownBy(() -> sessionReaderService.ensureReady("token")).isInstanceOf(ReaderNotReadyException.class);
         ArgumentCaptor<OnboardingSession> saved = ArgumentCaptor.forClass(OnboardingSession.class);
         verify(onboardingSessionStore).updateSession(eq("token"), saved.capture());
-        assertThat(saved.getValue().getDbRole()).isEqualTo("broadcastmail_r_abc");
+        assertThat(saved.getValue().getDbRole()).isEqualTo("batchbeam_r_abc");
     }
 
     @Test
     void shouldNotProvisionOrVerifyAgainWhenAlreadyReady() {
         // Given
         OnboardingSession ready = baseSession()
-                .withDbRole("broadcastmail_r_abc")
+                .withDbRole("batchbeam_r_abc")
                 .withEncryptedRolePassword("enc-pw")
                 .withConnectionVerified(true);
         when(onboardingSessionStore.get("token")).thenReturn(ready);
@@ -106,7 +106,7 @@ class SessionReaderServiceTest {
         // Then
         verify(readerRoleService, never()).provision(any(), any(), any());
         verifyNoInteractions(readerConnectionVerifier);
-        verify(readerRoleService).syncGrants("access", "ref", "broadcastmail_r_abc",
+        verify(readerRoleService).syncGrants("access", "ref", "batchbeam_r_abc",
                 Set.of(new TableRef("crm", "customers")));
     }
 
@@ -128,17 +128,17 @@ class SessionReaderServiceTest {
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
         when(supabaseAccessTokens.decrypt(any())).thenReturn("access");
         when(readerRoleService.provision(any(), any(), any()))
-                .thenReturn(new ReaderRoleService.Provisioned("broadcastmail_r_abc", "enc-pw"));
-        when(onboardingSessionStore.readerRolesOn("ref")).thenReturn(Set.of("broadcastmail_r_abc", "broadcastmail_r_other"));
+                .thenReturn(new ReaderRoleService.Provisioned("batchbeam_r_abc", "enc-pw"));
+        when(onboardingSessionStore.readerRolesOn("ref")).thenReturn(Set.of("batchbeam_r_abc", "batchbeam_r_other"));
         when(connectionRepository.findByProjectRef("ref"))
-                .thenReturn(Optional.of(Connection.builder().projectRef("ref").dbRole("broadcastmail_r_saved").build()));
+                .thenReturn(Optional.of(Connection.builder().projectRef("ref").dbRole("batchbeam_r_saved").build()));
 
         // When
         sessionReaderService.ensureReady("token");
 
         // Then
         verify(readerRoleService).dropUnused("access", "ref",
-                Set.of("broadcastmail_r_abc", "broadcastmail_r_other", "broadcastmail_r_saved"));
+                Set.of("batchbeam_r_abc", "batchbeam_r_other", "batchbeam_r_saved"));
     }
 
     @Test
@@ -146,7 +146,7 @@ class SessionReaderServiceTest {
         // Given
         when(onboardingSessionStore.get("token")).thenReturn(baseSession());
         when(readerRoleService.provision(any(), any(), any()))
-                .thenReturn(new ReaderRoleService.Provisioned("broadcastmail_r_abc", "enc-pw"));
+                .thenReturn(new ReaderRoleService.Provisioned("batchbeam_r_abc", "enc-pw"));
         when(connectionRepository.findByProjectRef("ref"))
                 .thenThrow(new IncorrectResultSizeDataAccessException(1, 2));
 

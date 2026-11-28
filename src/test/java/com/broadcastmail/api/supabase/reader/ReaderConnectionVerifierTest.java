@@ -38,7 +38,7 @@ class ReaderConnectionVerifierTest {
         }
     }
 
-    private static final ReaderConnectionFactory READER = new ReaderConnectionFactory("ref", "aws-0-eu-west-1", "broadcastmail_r_abc");
+    private static final ReaderConnectionFactory READER = new ReaderConnectionFactory("ref", "aws-0-eu-west-1", "batchbeam_r_abc");
 
     private static SQLException authFailed() {
         return new SQLException("password authentication failed", ReaderConnectionVerifier.INVALID_PASSWORD);

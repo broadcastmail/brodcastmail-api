@@ -53,7 +53,7 @@ public final class CampaignTestFixtures {
                 .name("Test Connection")
                 .type("supabase")
                 .projectRef("test-ref")
-                .dbRole("broadcastmail_r_test")
+                .dbRole("batchbeam_r_test")
                 .projectUrl("https://test.supabase.co")
                 .encryptedCreds("encrypted-creds")
                 .userTableSchema("public")
